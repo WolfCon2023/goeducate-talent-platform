@@ -3,12 +3,12 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 
-import { connectDb } from "./db";
-import { getEnv } from "./env";
-import { errorHandler } from "./http/errors";
-import { authRouter } from "./routes/auth";
-import { healthRouter } from "./routes/health";
-import { playerProfilesRouter } from "./routes/playerProfiles";
+import { connectDb } from "./db.js";
+import { getEnv } from "./env.js";
+import { errorHandler } from "./http/errors.js";
+import { authRouter } from "./routes/auth.js";
+import { healthRouter } from "./routes/health.js";
+import { playerProfilesRouter } from "./routes/playerProfiles.js";
 
 async function main() {
   const env = getEnv();

@@ -2,12 +2,12 @@ import { Router } from "express";
 
 import { LoginSchema, RegisterSchema } from "@goeducate/shared";
 
-import { hashPassword, verifyPassword } from "../auth/password";
-import { signAccessToken } from "../auth/jwt";
-import { getEnv } from "../env";
-import { ApiError } from "../http/errors";
-import { zodToBadRequest } from "../http/zod";
-import { UserModel } from "../models/User";
+import { hashPassword, verifyPassword } from "../auth/password.js";
+import { signAccessToken } from "../auth/jwt.js";
+import { getEnv } from "../env.js";
+import { ApiError } from "../http/errors.js";
+import { zodToBadRequest } from "../http/zod.js";
+import { UserModel } from "../models/User.js";
 
 export const authRouter = Router();
 

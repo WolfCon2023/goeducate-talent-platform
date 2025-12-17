@@ -3,10 +3,10 @@ import mongoose from "mongoose";
 
 import { PlayerProfileCreateSchema, PlayerProfileUpdateSchema, ROLE } from "@goeducate/shared";
 
-import { ApiError } from "../http/errors";
-import { zodToBadRequest } from "../http/zod";
-import { requireAuth, requireRole } from "../middleware/auth";
-import { PlayerProfileModel } from "../models/PlayerProfile";
+import { ApiError } from "../http/errors.js";
+import { zodToBadRequest } from "../http/zod.js";
+import { requireAuth, requireRole } from "../middleware/auth.js";
+import { PlayerProfileModel } from "../models/PlayerProfile.js";
 
 export const playerProfilesRouter = Router();
 

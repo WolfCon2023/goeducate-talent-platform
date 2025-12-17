@@ -2,9 +2,9 @@ import type { NextFunction, Request, Response } from "express";
 
 import { ROLE, type Role } from "@goeducate/shared";
 
-import { verifyAccessToken } from "../auth/jwt";
-import { ApiError } from "../http/errors";
-import { getEnv } from "../env";
+import { verifyAccessToken } from "../auth/jwt.js";
+import { ApiError } from "../http/errors.js";
+import { getEnv } from "../env.js";
 
 export type AuthUser = {
   id: string;

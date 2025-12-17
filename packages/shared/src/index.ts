@@ -1,5 +1,5 @@
-export * from "./roles";
-export * from "./schemas/auth";
-export * from "./schemas/playerProfile";
+export * from "./roles.js";
+export * from "./schemas/auth.js";
+export * from "./schemas/playerProfile.js";
 
 

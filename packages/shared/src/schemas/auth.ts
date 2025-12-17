@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { ALL_ROLES } from "../roles";
+import { ALL_ROLES } from "../roles.js";
 
 export const RegisterSchema = z.object({
   email: z.string().email().max(254),

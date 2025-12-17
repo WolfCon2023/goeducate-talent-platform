@@ -1,4 +1,4 @@
-import { ApiError } from "./errors";
+import { ApiError } from "./errors.js";
 
 export function zodToBadRequest(details: unknown) {
   return new ApiError({
