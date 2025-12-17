@@ -12,9 +12,14 @@ export default function PlayerDashboardPage() {
             Manage your athlete profile. Film upload and evaluation status are next.
           </p>
         </div>
-        <Link href="/login" className="text-sm text-slate-300 hover:text-white">
-          Login
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/player/film" className="text-sm text-slate-300 hover:text-white">
+            Film submissions
+          </Link>
+          <Link href="/login" className="text-sm text-slate-300 hover:text-white">
+            Login
+          </Link>
+        </div>
       </div>
 
       <PlayerProfileForm />
