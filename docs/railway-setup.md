@@ -47,6 +47,7 @@ Example variables you may see in Railway (names vary by template):
 - Set commands (Service Settings → Deploy):
   - **Build Command**: `npm ci && npm run build -w @goeducate/shared && npm run build -w @goeducate/web`
   - **Start Command**: `npm run start -w @goeducate/web`
+  - Note: Railway sets `PORT` automatically. The web app must bind to `$PORT`.
 
 ### 4) Domains
 
