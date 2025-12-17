@@ -3,5 +3,6 @@ This file exists to make it easy to trigger a new deploy on CI/CD systems (Railw
 To trigger:
 - edit this file (e.g., add a new line with a timestamp)
 - commit + push
+- bootstrap admin
 
 
