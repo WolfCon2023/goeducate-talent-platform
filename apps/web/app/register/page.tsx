@@ -7,7 +7,7 @@ import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
 
-type Role = "player" | "coach" | "evaluator" | "admin";
+type Role = "player" | "coach";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function RegisterPage() {
     <div className="mx-auto max-w-md">
       <Card>
         <h1 className="text-xl font-semibold">Create account</h1>
-        <p className="mt-1 text-sm text-slate-300">Start as a player or coach. (Evaluator/Admin are internal.)</p>
+        <p className="mt-1 text-sm text-slate-300">Start as a player or coach.</p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
           <div className="grid gap-2">
@@ -66,8 +66,6 @@ export default function RegisterPage() {
             >
               <option value="player">Player</option>
               <option value="coach">Coach</option>
-              <option value="evaluator">Evaluator (internal)</option>
-              <option value="admin">Admin (internal)</option>
             </select>
           </div>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}

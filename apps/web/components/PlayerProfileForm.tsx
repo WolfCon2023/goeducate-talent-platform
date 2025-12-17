@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
@@ -19,6 +19,7 @@ type Profile = {
 };
 
 export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<Profile>({
     firstName: props.initial?.firstName ?? "",
     lastName: props.initial?.lastName ?? "",
@@ -32,6 +33,41 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
   });
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const token = getAccessToken();
+      if (!token) return;
+      setLoading(true);
+      try {
+        const res = await apiFetch<Profile & { _id?: string }>("/player-profiles/me", { token });
+        if (cancelled) return;
+        setForm((p) => ({
+          ...p,
+          firstName: res.firstName ?? "",
+          lastName: res.lastName ?? "",
+          position: res.position ?? "",
+          gradYear: res.gradYear ?? p.gradYear,
+          state: res.state ?? "",
+          city: res.city ?? "",
+          heightIn: res.heightIn,
+          weightLb: res.weightLb,
+          hudlLink: res.hudlLink
+        }));
+      } catch (err) {
+        // Ignore "no profile yet" case
+        const msg = err instanceof Error ? err.message : "";
+        if (msg !== "Profile not found") setStatus(msg || "Failed to load profile");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function set<K extends keyof Profile>(key: K, value: Profile[K]) {
     setForm((p) => ({ ...p, [key]: value }));
@@ -72,6 +108,8 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
           {saving ? "Saving..." : "Save"}
         </Button>
       </div>
+
+      {loading ? <p className="mt-4 text-sm text-slate-300">Loading your saved profile...</p> : null}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2">

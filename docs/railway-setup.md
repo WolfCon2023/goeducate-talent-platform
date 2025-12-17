@@ -29,7 +29,10 @@ Example variables you may see in Railway (names vary by template):
 - Set environment variables:
   - **MONGODB_URI**: use the Mongo connection string from the MongoDB service
   - **JWT_SECRET**: generate a long random secret (at least 32 chars)
-  - **CORS_ORIGIN**: comma-separated list of allowed origins, for example `https://talent.goeducateinc.org`
+  - **BOOTSTRAP_ADMIN_KEY** (optional): set temporarily to bootstrap the first admin, then remove it
+  - **CORS_ORIGIN**: comma-separated list of allowed origins. It must include the **exact** web origin you are loading the site from.
+    - Example (Railway web URL + production domain):
+      - `https://secure-strength-production.up.railway.app,https://talent.goeducateinc.org`
   - **PORT**: Railway sets this automatically on many templates; if needed set `PORT=4000`
 - Set commands (Service Settings → Deploy):
   - **Build Command**: `npm ci && npm run build -w @goeducate/shared && npm run build -w @goeducate/api`
@@ -61,5 +64,15 @@ Example variables you may see in Railway (names vary by template):
 - Run:
   - `npm install`
   - `npm run dev`
+
+### Bootstrapping your first admin user (recommended)
+
+1) Temporarily set API env var **`BOOTSTRAP_ADMIN_KEY`** to a long random value.
+2) Call:
+
+- `POST /admin/bootstrap` with header `x-bootstrap-key: <BOOTSTRAP_ADMIN_KEY>` and JSON body:
+  - `{ "email": "admin@yourdomain.com", "password": "yourStrongPassword123!" }`
+
+3) Remove `BOOTSTRAP_ADMIN_KEY` from the Railway API service after the admin is created.
 
 

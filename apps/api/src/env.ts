@@ -5,6 +5,9 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   MONGODB_URI: z.string().min(1).optional(),
   JWT_SECRET: z.string().min(20).optional(),
+  // Optional. If set, allows one-time bootstrapping of the first admin user.
+  // Recommended: set it temporarily, bootstrap, then remove it.
+  BOOTSTRAP_ADMIN_KEY: z.string().min(20).optional(),
   // Comma-separated list of allowed origins. Example:
   // "http://localhost:3000,https://talent.goeducateinc.org"
   CORS_ORIGIN: z.string().min(1).default("http://localhost:3000")

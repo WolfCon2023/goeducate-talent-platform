@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { LoginSchema, RegisterSchema } from "@goeducate/shared";
+import { LoginSchema, RegisterSchema, ROLE } from "@goeducate/shared";
 
 import { hashPassword, verifyPassword } from "../auth/password.js";
 import { signAccessToken } from "../auth/jwt.js";
@@ -16,6 +16,9 @@ authRouter.post("/auth/register", async (req, res, next) => {
   if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 
   const { email, password, role } = parsed.data;
+  if (role !== ROLE.PLAYER && role !== ROLE.COACH) {
+    return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Role is not available for public registration" }));
+  }
 
   try {
     const existing = await UserModel.findOne({ email }).lean();
