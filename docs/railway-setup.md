@@ -24,12 +24,16 @@ Example variables you may see in Railway (names vary by template):
 
 - In the same Railway project, click **Add** → **Service** → **GitHub Repo**
 - Select this repo
-- Set the **Root Directory** to `apps/api`
+- **Important (monorepo):** set the **Root Directory** to the **repo root** (do not set it to `apps/api`).
+  - If Railway runs `npm install` inside `apps/api`, it will try to download `@goeducate/shared` from npm and fail.
 - Set environment variables:
   - **MONGODB_URI**: use the Mongo connection string from the MongoDB service
   - **JWT_SECRET**: generate a long random secret (at least 32 chars)
-  - **CORS_ORIGIN**: your web URL, for example `https://talent.goeducateinc.org`
+  - **CORS_ORIGIN**: comma-separated list of allowed origins, for example `https://talent.goeducateinc.org`
   - **PORT**: Railway sets this automatically on many templates; if needed set `PORT=4000`
+- Set commands (Service Settings → Deploy):
+  - **Build Command**: `npm ci && npm run build -w @goeducate/shared && npm run build -w @goeducate/api`
+  - **Start Command**: `npm run start -w @goeducate/api`
 - Health check:
   - Endpoint: `/health`
 
@@ -37,9 +41,12 @@ Example variables you may see in Railway (names vary by template):
 
 - In the same Railway project, click **Add** → **Service** → **GitHub Repo**
 - Select this repo (again)
-- Set the **Root Directory** to `apps/web`
+- **Important (monorepo):** set the **Root Directory** to the **repo root** (do not set it to `apps/web`).
 - Set environment variables:
   - **NEXT_PUBLIC_API_URL**: your deployed API base URL, for example `https://api-talent.goeducateinc.org`
+- Set commands (Service Settings → Deploy):
+  - **Build Command**: `npm ci && npm run build -w @goeducate/shared && npm run build -w @goeducate/web`
+  - **Start Command**: `npm run start -w @goeducate/web`
 
 ### 4) Domains
 

@@ -12,7 +12,12 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>;
 
-export function getEnv(): Env {
+export type ResolvedEnv = Omit<Env, "MONGODB_URI" | "JWT_SECRET"> & {
+  MONGODB_URI: string;
+  JWT_SECRET: string;
+};
+
+export function getEnv(): ResolvedEnv {
   const parsed = EnvSchema.safeParse(process.env);
   if (!parsed.success) {
     console.error("Invalid environment variables", parsed.error.flatten().fieldErrors);
@@ -22,7 +27,7 @@ export function getEnv(): Env {
   const env = parsed.data;
   const isProd = env.NODE_ENV === "production";
 
-  const withDefaults = {
+  const withDefaults: ResolvedEnv = {
     ...env,
     MONGODB_URI: env.MONGODB_URI ?? "mongodb://localhost:27017/goeducate_talent",
     JWT_SECRET: env.JWT_SECRET ?? "dev_secret_change_me_please_1234567890"
