@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { PlayerProfileForm } from "@/components/PlayerProfileForm";
+import { PlayerFilmStatusWidget } from "@/components/PlayerFilmStatusWidget";
 import { PlayerGuard } from "./Guard";
 
 export default function PlayerDashboardPage() {
@@ -20,6 +21,8 @@ export default function PlayerDashboardPage() {
             </Link>
           </div>
         </div>
+
+        <PlayerFilmStatusWidget />
 
         <PlayerProfileForm />
       </div>

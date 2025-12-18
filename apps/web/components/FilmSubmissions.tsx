@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button, Card, Input, Label } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
@@ -40,7 +40,7 @@ export function FilmSubmissions() {
   const [videoUrl, setVideoUrl] = useState("");
   const [notes, setNotes] = useState("");
 
-  async function load() {
+  const load = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
@@ -50,12 +50,22 @@ export function FilmSubmissions() {
       if (role && role !== "player") throw new Error("This page is only available to player accounts.");
       const res = await apiFetch<{ results: FilmSubmission[] }>("/film-submissions/me", { token });
       setResults(res.results);
+
+      // Auto-load evaluations for completed submissions (cap to avoid too many requests).
+      const completed = res.results.filter((r) => r.status === "completed").slice(0, 10);
+      await Promise.all(
+        completed.map(async (r) => {
+          if (reports[r._id] !== undefined) return;
+          await loadReport(r._id);
+        })
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load submissions");
     } finally {
       setLoading(false);
     }
-  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function loadReport(filmSubmissionId: string) {
     setError(null);
@@ -80,7 +90,7 @@ export function FilmSubmissions() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [load]);
 
   async function create() {
     setError(null);
@@ -182,7 +192,17 @@ export function FilmSubmissions() {
             <div key={s._id} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div className="font-semibold">{s.title}</div>
-                <div className="text-xs uppercase tracking-wide text-slate-400">{s.status}</div>
+                <div
+                  className={`text-xs uppercase tracking-wide ${
+                    s.status === "completed"
+                      ? "text-emerald-300"
+                      : s.status === "in_review"
+                        ? "text-amber-300"
+                        : "text-slate-400"
+                  }`}
+                >
+                  {s.status.replace("_", " ")}
+                </div>
               </div>
               <div className="mt-1 text-sm text-slate-300">
                 {s.opponent ? <>Opponent: {s.opponent}</> : null}
@@ -236,7 +256,11 @@ export function FilmSubmissions() {
                     <p className="mt-3 text-sm text-slate-300">No evaluation yet.</p>
                   ) : null}
                 </div>
-              ) : null}
+              ) : s.status === "in_review" ? (
+                <p className="mt-4 text-sm text-slate-300">In review. An evaluator is working on your film.</p>
+              ) : (
+                <p className="mt-4 text-sm text-slate-400">Submitted. Waiting for evaluator review.</p>
+              )}
             </div>
           ))}
           {results.length === 0 ? <p className="text-sm text-slate-400">No submissions yet.</p> : null}
