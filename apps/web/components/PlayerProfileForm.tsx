@@ -15,6 +15,8 @@ type Profile = {
   city: string;
   heightIn?: number;
   weightLb?: number;
+  contactEmail?: string;
+  contactPhone?: string;
   hudlLink?: string;
 };
 
@@ -29,6 +31,8 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
     city: props.initial?.city ?? "",
     heightIn: props.initial?.heightIn,
     weightLb: props.initial?.weightLb,
+    contactEmail: props.initial?.contactEmail,
+    contactPhone: props.initial?.contactPhone,
     hudlLink: props.initial?.hudlLink
   });
   const [status, setStatus] = useState<string | null>(null);
@@ -58,6 +62,8 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
           city: res.city ?? "",
           heightIn: res.heightIn,
           weightLb: res.weightLb,
+          contactEmail: res.contactEmail,
+          contactPhone: res.contactPhone,
           hudlLink: res.hudlLink
         }));
       } catch (err) {
@@ -164,6 +170,25 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
             type="number"
             value={form.weightLb ?? ""}
             onChange={(e) => set("weightLb", e.target.value ? Number(e.target.value) : undefined)}
+          />
+        </div>
+        <div className="grid gap-2 sm:col-span-2">
+          <Label htmlFor="contactEmail">Contact email (coach gated)</Label>
+          <Input
+            id="contactEmail"
+            type="email"
+            value={form.contactEmail ?? ""}
+            onChange={(e) => set("contactEmail", e.target.value || undefined)}
+            placeholder="you@example.com"
+          />
+        </div>
+        <div className="grid gap-2 sm:col-span-2">
+          <Label htmlFor="contactPhone">Contact phone (coach gated)</Label>
+          <Input
+            id="contactPhone"
+            value={form.contactPhone ?? ""}
+            onChange={(e) => set("contactPhone", e.target.value || undefined)}
+            placeholder="(555) 555-5555"
           />
         </div>
         <div className="grid gap-2 sm:col-span-2">
