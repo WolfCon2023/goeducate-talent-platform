@@ -14,6 +14,7 @@ import { healthRouter } from "./routes/health.js";
 import { playerProfilesRouter } from "./routes/playerProfiles.js";
 import { watchlistsRouter } from "./routes/watchlists.js";
 import { contactRouter } from "./routes/contact.js";
+import { uploadsRouter } from "./routes/uploads.js";
 
 async function main() {
   const env = getEnv();
@@ -43,6 +44,7 @@ async function main() {
   app.use(playerProfilesRouter);
   app.use(watchlistsRouter);
   app.use(contactRouter);
+  app.use(uploadsRouter);
 
   app.use(errorHandler);
 

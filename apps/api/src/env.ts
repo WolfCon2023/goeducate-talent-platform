@@ -10,7 +10,13 @@ const EnvSchema = z.object({
   BOOTSTRAP_ADMIN_KEY: z.string().min(20).optional(),
   // Comma-separated list of allowed origins. Example:
   // "http://localhost:3000,https://talent.goeducateinc.org"
-  CORS_ORIGIN: z.string().min(1).default("http://localhost:3000")
+  CORS_ORIGIN: z.string().min(1).default("http://localhost:3000"),
+
+  // Cloudinary (optional). If set, enables signed video uploads from the web app.
+  CLOUDINARY_CLOUD_NAME: z.string().min(1).optional(),
+  CLOUDINARY_API_KEY: z.string().min(1).optional(),
+  CLOUDINARY_API_SECRET: z.string().min(1).optional(),
+  CLOUDINARY_FOLDER: z.string().min(1).optional()
 });
 
 export type Env = z.infer<typeof EnvSchema>;

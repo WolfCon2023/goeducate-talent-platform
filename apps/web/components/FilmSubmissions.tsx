@@ -27,6 +27,15 @@ type EvaluationReport = {
   createdAt?: string;
 };
 
+type CloudinarySignResponse = {
+  cloudName: string;
+  apiKey: string;
+  resourceType: string;
+  folder: string;
+  timestamp: number;
+  signature: string;
+};
+
 export function FilmSubmissions() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -40,6 +49,7 @@ export function FilmSubmissions() {
   const [gameDate, setGameDate] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [notes, setNotes] = useState("");
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -92,6 +102,48 @@ export function FilmSubmissions() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function uploadToCloudinary(file: File) {
+    setError(null);
+    setUploading(true);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login as a player first.");
+      if (role && role !== "player") throw new Error("This page is only available to player accounts.");
+
+      const signed = await apiFetch<CloudinarySignResponse>("/uploads/cloudinary/sign", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ resourceType: "video" })
+      });
+
+      const form = new FormData();
+      form.append("file", file);
+      form.append("api_key", signed.apiKey);
+      form.append("timestamp", String(signed.timestamp));
+      form.append("signature", signed.signature);
+      form.append("folder", signed.folder);
+
+      const cloudinaryRes = await fetch(
+        `https://api.cloudinary.com/v1_1/${encodeURIComponent(signed.cloudName)}/${encodeURIComponent(signed.resourceType)}/upload`,
+        { method: "POST", body: form }
+      );
+
+      if (!cloudinaryRes.ok) {
+        const text = await cloudinaryRes.text();
+        throw new Error(`Upload failed: ${cloudinaryRes.status} ${text}`);
+      }
+
+      const json = (await cloudinaryRes.json()) as { secure_url?: string };
+      if (!json.secure_url) throw new Error("Upload failed: missing secure_url");
+      setVideoUrl(json.secure_url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function create() {
     setError(null);
@@ -156,6 +208,21 @@ export function FilmSubmissions() {
               onChange={(e) => setVideoUrl(e.target.value)}
               placeholder="https://..."
             />
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <input
+                type="file"
+                accept="video/*"
+                disabled={uploading}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void uploadToCloudinary(f);
+                }}
+                className="text-sm text-slate-300 file:mr-4 file:rounded-md file:border-0 file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-slate-900 hover:file:bg-slate-200"
+              />
+              <span className="text-xs text-slate-400">
+                {uploading ? "Uploading..." : "Upload a file to auto-fill the Video URL (Cloudinary)."}
+              </span>
+            </div>
           </div>
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="notes">Notes (optional)</Label>
