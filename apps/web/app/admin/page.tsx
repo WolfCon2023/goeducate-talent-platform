@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Card } from "@/components/ui";
+import { AdminCreateUser } from "@/components/AdminCreateUser";
 
 export default function AdminPage() {
   return (
@@ -29,6 +30,8 @@ export default function AdminPage() {
           </li>
         </ul>
       </Card>
+
+      <AdminCreateUser />
     </div>
   );
 }

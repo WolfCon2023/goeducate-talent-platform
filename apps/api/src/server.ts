@@ -8,6 +8,7 @@ import { getEnv } from "./env.js";
 import { errorHandler } from "./http/errors.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
+import { evaluationsRouter } from "./routes/evaluations.js";
 import { filmSubmissionsRouter } from "./routes/filmSubmissions.js";
 import { healthRouter } from "./routes/health.js";
 import { playerProfilesRouter } from "./routes/playerProfiles.js";
@@ -35,6 +36,7 @@ async function main() {
   app.use(healthRouter);
   app.use(authRouter);
   app.use(adminRouter);
+  app.use(evaluationsRouter);
   app.use(filmSubmissionsRouter);
   app.use(playerProfilesRouter);
 

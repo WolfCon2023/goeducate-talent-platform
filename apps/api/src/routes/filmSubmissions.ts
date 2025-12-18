@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import { FILM_SUBMISSION_STATUS, FilmSubmissionCreateSchema, ROLE } from "@goeducate/shared";
 
+import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
@@ -80,6 +81,29 @@ filmSubmissionsRouter.get(
         .limit(200)
         .lean();
       return res.json({ results });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+// Evaluator/Admin: update status (submitted -> in_review -> completed)
+filmSubmissionsRouter.patch(
+  "/film-submissions/:id/status",
+  requireAuth,
+  requireRole([ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    const status = (req.body as { status?: string }).status;
+    const allowed = [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW, FILM_SUBMISSION_STATUS.COMPLETED];
+    if (!status || !allowed.includes(status as any)) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid status" }));
+    }
+
+    try {
+      const _id = new mongoose.Types.ObjectId(req.params.id);
+      const updated = await FilmSubmissionModel.findByIdAndUpdate(_id, { $set: { status } }, { new: true });
+      if (!updated) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
+      return res.json(updated);
     } catch (err) {
       return next(err);
     }

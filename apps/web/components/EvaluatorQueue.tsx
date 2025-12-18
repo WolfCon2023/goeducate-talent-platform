@@ -38,6 +38,20 @@ export function EvaluatorQueue() {
     }
   }
 
+  async function markInReview(id: string) {
+    setError(null);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
+      await apiFetch(`/film-submissions/${id}/status`, { method: "PATCH", token, body: JSON.stringify({ status: "in_review" }) });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update status");
+    }
+  }
+
   useEffect(() => {
     void load();
   }, []);
@@ -69,6 +83,17 @@ export function EvaluatorQueue() {
               {s.gameDate ? <>Game date: {new Date(s.gameDate).toLocaleDateString()}</> : null}
             </div>
             <div className="mt-2 text-xs text-slate-500">Player userId: {s.userId}</div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" onClick={() => markInReview(s._id)} disabled={loading || s.status !== "submitted"}>
+                Mark in review
+              </Button>
+              <a
+                className="rounded-md border border-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
+                href={`/evaluator/film/${s._id}?playerUserId=${encodeURIComponent(s.userId)}`}
+              >
+                Complete evaluation
+              </a>
+            </div>
           </div>
         ))}
         {results.length === 0 && !error ? <p className="text-sm text-slate-400">No submissions in queue.</p> : null}
