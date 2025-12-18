@@ -7,6 +7,8 @@ import { signAccessToken } from "../auth/jwt.js";
 import { getEnv } from "../env.js";
 import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
+import { requireAuth } from "../middleware/auth.js";
+import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { UserModel } from "../models/User.js";
 
 export const authRouter = Router();
@@ -60,6 +62,32 @@ authRouter.post("/auth/login", async (req, res, next) => {
     return res.json({
       token,
       user: { id: String(user._id), email: user.email, role: user.role }
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+authRouter.get("/auth/me", requireAuth, async (req, res, next) => {
+  try {
+    const user = await UserModel.findById(req.user!.id).lean();
+    if (!user) return next(new ApiError({ status: 401, code: "UNAUTHORIZED", message: "Not authenticated" }));
+
+    let displayName: string = user.email;
+    if (user.role === ROLE.PLAYER) {
+      const profile = await PlayerProfileModel.findOne({ userId: user._id }).lean();
+      if (profile?.firstName && profile?.lastName) {
+        displayName = `${profile.firstName} ${profile.lastName}`;
+      }
+    }
+
+    return res.json({
+      user: {
+        id: String(user._id),
+        email: user.email,
+        role: user.role,
+        displayName
+      }
     });
   } catch (err) {
     return next(err);

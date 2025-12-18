@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { apiFetch } from "@/lib/api";
 import { clearAccessToken, getAccessToken, getTokenRole } from "@/lib/auth";
 
 function roleToDashboard(role: string | null) {
@@ -18,10 +19,29 @@ export function AuthNav() {
   const router = useRouter();
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
     const token = getAccessToken();
-    setRole(getTokenRole(token));
+    const tokenRole = getTokenRole(token);
+    setRole(tokenRole);
+    setDisplayName(null);
+
+    async function loadMe() {
+      if (!token) return;
+      try {
+        const res = await apiFetch<{ user: { role: string; displayName: string } }>("/auth/me", { token });
+        setRole(res.user.role);
+        setDisplayName(res.user.displayName);
+      } catch {
+        // Token is invalid/expired: log out locally
+        clearAccessToken();
+        setRole(null);
+        setDisplayName(null);
+      }
+    }
+
+    void loadMe();
   }, [pathname]);
 
   const dashboardHref = useMemo(() => roleToDashboard(role), [role]);
@@ -47,7 +67,10 @@ export function AuthNav() {
           <Link href={dashboardHref} className="hover:text-white">
             Dashboard
           </Link>
-          <span className="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-200">{role}</span>
+          <span className="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-200">
+            {role}
+            {displayName ? ` · ${displayName}` : ""}
+          </span>
           <button
             type="button"
             onClick={logout}
