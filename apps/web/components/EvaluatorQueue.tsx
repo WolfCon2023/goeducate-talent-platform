@@ -14,6 +14,14 @@ type FilmSubmission = {
   createdAt?: string;
   status: string;
   userId: string;
+  playerProfile?: {
+    firstName?: string;
+    lastName?: string;
+    position?: string;
+    gradYear?: number;
+    city?: string;
+    state?: string;
+  } | null;
 };
 
 export function EvaluatorQueue() {
@@ -82,7 +90,18 @@ export function EvaluatorQueue() {
               {s.opponent && s.gameDate ? " · " : null}
               {s.gameDate ? <>Game date: {new Date(s.gameDate).toLocaleDateString()}</> : null}
             </div>
-            <div className="mt-2 text-xs text-slate-500">Player userId: {s.userId}</div>
+            <div className="mt-2 text-xs text-slate-500">
+              {s.playerProfile?.firstName ? (
+                <>
+                  Player: {s.playerProfile.firstName} {s.playerProfile.lastName}
+                  {s.playerProfile.position ? ` · ${s.playerProfile.position}` : ""}
+                  {typeof s.playerProfile.gradYear === "number" ? ` · ${s.playerProfile.gradYear}` : ""}
+                  {s.playerProfile.city && s.playerProfile.state ? ` · ${s.playerProfile.city}, ${s.playerProfile.state}` : ""}
+                </>
+              ) : (
+                <>Player: (profile not created yet)</>
+              )}
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button type="button" onClick={() => markInReview(s._id)} disabled={loading || s.status !== "submitted"}>
                 Mark in review

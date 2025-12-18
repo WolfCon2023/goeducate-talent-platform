@@ -77,12 +77,49 @@ filmSubmissionsRouter.get(
   async (_req, res, next) => {
     try {
       // Include both new submissions and ones currently being worked.
-      const results = await FilmSubmissionModel.find({
-        status: { $in: [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW] }
-      })
-        .sort({ createdAt: 1 })
-        .limit(200)
-        .lean();
+      const results = await FilmSubmissionModel.aggregate([
+        {
+          $match: {
+            status: { $in: [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW] }
+          }
+        },
+        { $sort: { createdAt: 1 } },
+        { $limit: 200 },
+        {
+          $lookup: {
+            from: "playerprofiles",
+            localField: "userId",
+            foreignField: "userId",
+            as: "playerProfile"
+          }
+        },
+        {
+          $unwind: {
+            path: "$playerProfile",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $project: {
+            _id: 1,
+            userId: 1,
+            title: 1,
+            opponent: 1,
+            gameDate: 1,
+            status: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            playerProfile: {
+              firstName: "$playerProfile.firstName",
+              lastName: "$playerProfile.lastName",
+              position: "$playerProfile.position",
+              gradYear: "$playerProfile.gradYear",
+              city: "$playerProfile.city",
+              state: "$playerProfile.state"
+            }
+          }
+        }
+      ]);
       return res.json({ results });
     } catch (err) {
       return next(err);
