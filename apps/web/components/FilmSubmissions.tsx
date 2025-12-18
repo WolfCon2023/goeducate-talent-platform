@@ -17,11 +17,22 @@ type FilmSubmission = {
   createdAt?: string;
 };
 
+type EvaluationReport = {
+  filmSubmissionId: string;
+  overallGrade: number;
+  strengths: string;
+  improvements: string;
+  notes?: string;
+  createdAt?: string;
+};
+
 export function FilmSubmissions() {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<FilmSubmission[]>([]);
+  const [reports, setReports] = useState<Record<string, EvaluationReport | null>>({});
+  const [reportLoading, setReportLoading] = useState<Record<string, boolean>>({});
 
   const [title, setTitle] = useState("");
   const [opponent, setOpponent] = useState("");
@@ -43,6 +54,27 @@ export function FilmSubmissions() {
       setError(err instanceof Error ? err.message : "Failed to load submissions");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadReport(filmSubmissionId: string) {
+    setError(null);
+    setReportLoading((p) => ({ ...p, [filmSubmissionId]: true }));
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login as a player first.");
+      if (role && role !== "player") throw new Error("This page is only available to player accounts.");
+
+      const report = await apiFetch<EvaluationReport>(`/evaluations/film/${filmSubmissionId}`, { token });
+      setReports((p) => ({ ...p, [filmSubmissionId]: report }));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to load evaluation";
+      // If no evaluation exists yet, keep it non-fatal and store null
+      if (msg === "Evaluation not found") setReports((p) => ({ ...p, [filmSubmissionId]: null }));
+      else setError(msg);
+    } finally {
+      setReportLoading((p) => ({ ...p, [filmSubmissionId]: false }));
     }
   }
 
@@ -165,6 +197,46 @@ export function FilmSubmissions() {
                 </div>
               ) : null}
               {s.notes ? <p className="mt-2 text-sm text-slate-300">{s.notes}</p> : null}
+
+              {s.status === "completed" ? (
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    className="bg-slate-100"
+                    onClick={() => loadReport(s._id)}
+                    disabled={!!reportLoading[s._id]}
+                  >
+                    {reportLoading[s._id] ? "Loading evaluation..." : "View evaluation"}
+                  </Button>
+
+                  {reports[s._id] ? (
+                    <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <div className="font-semibold">Evaluation</div>
+                        <div className="text-sm text-slate-300">Grade: {reports[s._id]!.overallGrade}/10</div>
+                      </div>
+                      <div className="mt-3 grid gap-3 text-sm text-slate-200">
+                        <div>
+                          <div className="text-xs uppercase tracking-wide text-slate-400">Strengths</div>
+                          <div className="mt-1 whitespace-pre-wrap">{reports[s._id]!.strengths}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs uppercase tracking-wide text-slate-400">Improvements</div>
+                          <div className="mt-1 whitespace-pre-wrap">{reports[s._id]!.improvements}</div>
+                        </div>
+                        {reports[s._id]!.notes ? (
+                          <div>
+                            <div className="text-xs uppercase tracking-wide text-slate-400">Notes</div>
+                            <div className="mt-1 whitespace-pre-wrap">{reports[s._id]!.notes}</div>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : reports[s._id] === null ? (
+                    <p className="mt-3 text-sm text-slate-300">No evaluation yet.</p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           ))}
           {results.length === 0 ? <p className="text-sm text-slate-400">No submissions yet.</p> : null}

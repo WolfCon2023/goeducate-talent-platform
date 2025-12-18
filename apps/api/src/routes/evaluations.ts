@@ -58,6 +58,18 @@ evaluationsRouter.get(
   async (req, res, next) => {
     try {
       const filmSubmissionId = new mongoose.Types.ObjectId(req.params.filmSubmissionId);
+
+      // Enforce access:
+      // - players can only read evaluations for their own film submissions
+      // - coaches/evaluators/admins are allowed for now (subscription gating later)
+      if (req.user?.role === ROLE.PLAYER) {
+        const film = await FilmSubmissionModel.findById(filmSubmissionId).lean();
+        if (!film) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
+        if (String(film.userId) !== String(req.user.id)) {
+          return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Insufficient permissions" }));
+        }
+      }
+
       const report = await EvaluationReportModel.findOne({ filmSubmissionId }).lean();
       if (!report) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Evaluation not found" }));
       return res.json(report);
