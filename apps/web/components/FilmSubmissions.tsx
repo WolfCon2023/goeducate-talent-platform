@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Button, Card, Input, Label } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, getTokenRole } from "@/lib/auth";
 
 type FilmSubmission = {
   _id: string;
@@ -35,6 +35,8 @@ export function FilmSubmissions() {
     try {
       const token = getAccessToken();
       if (!token) throw new Error("Please login as a player first.");
+      const role = getTokenRole(token);
+      if (role && role !== "player") throw new Error("This page is only available to player accounts.");
       const res = await apiFetch<{ results: FilmSubmission[] }>("/film-submissions/me", { token });
       setResults(res.results);
     } catch (err) {
@@ -54,6 +56,8 @@ export function FilmSubmissions() {
     try {
       const token = getAccessToken();
       if (!token) throw new Error("Please login as a player first.");
+      const role = getTokenRole(token);
+      if (role && role !== "player") throw new Error("This page is only available to player accounts.");
 
       await apiFetch("/film-submissions", {
         method: "POST",

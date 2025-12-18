@@ -24,7 +24,11 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password })
       });
       setAccessToken(res.token);
-      router.push(res.user.role === "coach" ? "/coach" : "/player");
+      if (res.user.role === "player") router.push("/player");
+      else if (res.user.role === "coach") router.push("/coach");
+      else if (res.user.role === "evaluator") router.push("/evaluator");
+      else if (res.user.role === "admin") router.push("/admin");
+      else router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, getTokenRole } from "@/lib/auth";
 
 type Profile = {
   firstName: string;
@@ -38,7 +38,12 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
     let cancelled = false;
     async function load() {
       const token = getAccessToken();
+      const role = getTokenRole(token);
       if (!token) return;
+      if (role && role !== "player") {
+        setStatus("This page is only available to player accounts.");
+        return;
+      }
       setLoading(true);
       try {
         const res = await apiFetch<Profile & { _id?: string }>("/player-profiles/me", { token });
@@ -79,6 +84,8 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
     try {
       const token = getAccessToken();
       if (!token) throw new Error("Please login first.");
+      const role = getTokenRole(token);
+      if (role && role !== "player") throw new Error("This page is only available to player accounts.");
       await apiFetch("/player-profiles/me", {
         method: "PUT",
         token,
