@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui";
 import { AdminCreateUser } from "@/components/AdminCreateUser";
 import { AdminInviteGenerator } from "@/components/AdminInviteGenerator";
+import { AdminCoachSubscriptionToggle } from "@/components/AdminCoachSubscriptionToggle";
 import { AdminGuard } from "./Guard";
 
 export default function AdminPage() {
@@ -27,6 +28,8 @@ export default function AdminPage() {
         </Card>
 
         <AdminInviteGenerator />
+
+        <AdminCoachSubscriptionToggle />
 
         <AdminCreateUser />
       </div>

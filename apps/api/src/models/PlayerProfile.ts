@@ -10,6 +10,8 @@ export type PlayerProfileDoc = {
   city: string;
   heightIn?: number;
   weightLb?: number;
+  contactEmail?: string;
+  contactPhone?: string;
   hudlLink?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -26,6 +28,8 @@ const PlayerProfileSchema = new Schema<PlayerProfileDoc>(
     city: { type: String, required: true, trim: true },
     heightIn: { type: Number },
     weightLb: { type: Number },
+    contactEmail: { type: String, lowercase: true, trim: true },
+    contactPhone: { type: String, trim: true },
     hudlLink: { type: String }
   },
   { timestamps: true }

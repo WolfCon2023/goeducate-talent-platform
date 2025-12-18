@@ -11,6 +11,9 @@ export const PlayerProfileSchema = z.object({
   city: z.string().min(1).max(60),
   heightIn: z.number().int().min(48).max(90).optional(),
   weightLb: z.number().int().min(90).max(450).optional(),
+  // Coach-gated contact info (subscription later)
+  contactEmail: z.string().email().max(254).optional(),
+  contactPhone: z.string().min(7).max(30).optional(),
   hudlLink: z.string().url().optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional()

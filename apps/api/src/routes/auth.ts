@@ -37,7 +37,7 @@ authRouter.post("/auth/register", async (req, res, next) => {
       email,
       passwordHash,
       role,
-      ...(role === ROLE.COACH ? { firstName, lastName } : {})
+      ...(role === ROLE.COACH ? { firstName, lastName, subscriptionStatus: "inactive" } : {})
     });
 
     const env = getEnv();
@@ -98,7 +98,8 @@ authRouter.get("/auth/me", requireAuth, async (req, res, next) => {
         id: String(user._id),
         email: user.email,
         role: user.role,
-        displayName
+        displayName,
+        subscriptionStatus: user.role === ROLE.COACH ? (user.subscriptionStatus ?? "inactive") : undefined
       }
     });
   } catch (err) {

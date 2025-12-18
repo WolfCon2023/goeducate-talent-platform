@@ -66,7 +66,9 @@ playerProfilesRouter.get(
       const userId = new mongoose.Types.ObjectId(req.params.userId);
       const profile = await PlayerProfileModel.findOne({ userId }).lean();
       if (!profile) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Profile not found" }));
-      return res.json(profile);
+      // Do not include contact fields here (subscription gated separately)
+      const { contactEmail, contactPhone, ...rest } = profile as any;
+      return res.json(rest);
     } catch (err) {
       return next(err);
     }

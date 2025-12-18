@@ -2,12 +2,22 @@ import mongoose, { Schema } from "mongoose";
 
 import { ALL_ROLES, type Role } from "@goeducate/shared";
 
+export const COACH_SUBSCRIPTION_STATUS = {
+  INACTIVE: "inactive",
+  ACTIVE: "active"
+} as const;
+
+export type CoachSubscriptionStatus =
+  (typeof COACH_SUBSCRIPTION_STATUS)[keyof typeof COACH_SUBSCRIPTION_STATUS];
+
 export type UserDoc = {
   email: string;
   passwordHash: string;
   role: Role;
   firstName?: string;
   lastName?: string;
+  // Scaffold for Stripe later. For now, admin can toggle this manually.
+  subscriptionStatus?: CoachSubscriptionStatus;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -18,7 +28,8 @@ const UserSchema = new Schema<UserDoc>(
     passwordHash: { type: String, required: true },
     role: { type: String, required: true, enum: ALL_ROLES },
     firstName: { type: String, trim: true },
-    lastName: { type: String, trim: true }
+    lastName: { type: String, trim: true },
+    subscriptionStatus: { type: String, enum: Object.values(COACH_SUBSCRIPTION_STATUS) }
   },
   { timestamps: true }
 );

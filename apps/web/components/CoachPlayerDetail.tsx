@@ -38,12 +38,19 @@ type EvaluationReport = {
   createdAt?: string;
 };
 
+type ContactInfo = {
+  contactEmail: string | null;
+  contactPhone: string | null;
+};
+
 export function CoachPlayerDetail(props: { userId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [films, setFilms] = useState<FilmSubmission[]>([]);
   const [evals, setEvals] = useState<EvaluationReport[]>([]);
+  const [contact, setContact] = useState<ContactInfo | null>(null);
+  const [contactError, setContactError] = useState<string | null>(null);
 
   async function load(userId: string) {
     setError(null);
@@ -61,10 +68,25 @@ export function CoachPlayerDetail(props: { userId: string }) {
       setProfile(p);
       setFilms(f.results);
       setEvals(e.results);
+      setContact(null);
+      setContactError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load player");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadContact() {
+    setContactError(null);
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+      const c = await apiFetch<ContactInfo>(`/contact/player/${props.userId}`, { token });
+      setContact(c);
+    } catch (err) {
+      setContact(null);
+      setContactError(err instanceof Error ? err.message : "Failed to load contact info");
     }
   }
 
@@ -160,6 +182,23 @@ export function CoachPlayerDetail(props: { userId: string }) {
           ))}
           {evals.length === 0 ? <p className="text-sm text-slate-400">No evaluations yet.</p> : null}
         </div>
+      </Card>
+
+      <Card>
+        <h2 className="text-lg font-semibold">Contact info</h2>
+        <p className="mt-1 text-sm text-slate-300">Contact info is subscription gated for coaches (Stripe later).</p>
+        <div className="mt-4 flex items-center gap-3">
+          <Button type="button" onClick={loadContact} disabled={loading}>
+            View contact info
+          </Button>
+          {contactError ? <p className="text-sm text-red-300">{contactError}</p> : null}
+        </div>
+        {contact ? (
+          <div className="mt-4 text-sm text-slate-200">
+            <div>Email: {contact.contactEmail ?? "Not provided"}</div>
+            <div className="mt-1">Phone: {contact.contactPhone ?? "Not provided"}</div>
+          </div>
+        ) : null}
       </Card>
     </div>
   );

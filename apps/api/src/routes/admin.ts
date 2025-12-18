@@ -9,7 +9,7 @@ import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { EvaluatorInviteModel, generateInviteToken, hashInviteToken } from "../models/EvaluatorInvite.js";
-import { UserModel } from "../models/User.js";
+import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 
 export const adminRouter = Router();
 
@@ -110,6 +110,26 @@ adminRouter.post("/admin/evaluator-invites", requireAuth, requireRole([ROLE.ADMI
         expiresAt: expiresAt.toISOString()
       }
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: set a coach subscription status (scaffold for Stripe later)
+adminRouter.patch("/admin/coaches/:userId/subscription", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  const status = String((req.body as { status?: unknown }).status ?? "").trim();
+  if (status !== COACH_SUBSCRIPTION_STATUS.ACTIVE && status !== COACH_SUBSCRIPTION_STATUS.INACTIVE) {
+    return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid status" }));
+  }
+  try {
+    const user = await UserModel.findById(req.params.userId);
+    if (!user) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+    if (user.role !== ROLE.COACH) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "User is not a coach" }));
+    }
+    user.subscriptionStatus = status as any;
+    await user.save();
+    return res.json({ user: { id: String(user._id), email: user.email, role: user.role, subscriptionStatus: user.subscriptionStatus } });
   } catch (err) {
     return next(err);
   }
