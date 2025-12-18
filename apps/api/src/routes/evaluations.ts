@@ -76,4 +76,26 @@ evaluationsRouter.get(
   }
 );
 
+// Coach/Admin/Evaluator: list evaluation reports for a given player userId
+// Player: may only list their own reports
+evaluationsRouter.get(
+  "/evaluations/player/:userId",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      const playerUserId = new mongoose.Types.ObjectId(req.params.userId);
+
+      if (req.user?.role === ROLE.PLAYER && String(playerUserId) !== String(req.user.id)) {
+        return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Insufficient permissions" }));
+      }
+
+      const results = await EvaluationReportModel.find({ playerUserId }).sort({ createdAt: -1 }).limit(200).lean();
+      return res.json({ results });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 

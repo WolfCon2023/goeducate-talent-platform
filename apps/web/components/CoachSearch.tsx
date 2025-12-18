@@ -8,6 +8,7 @@ import { getAccessToken } from "@/lib/auth";
 
 type PlayerProfile = {
   _id: string;
+  userId: string;
   firstName: string;
   lastName: string;
   position: string;
@@ -88,7 +89,9 @@ export function CoachSearch() {
           <div key={p._id} className="rounded-xl border border-slate-800 bg-slate-950 p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="text-base font-semibold">
-                {p.firstName} {p.lastName}
+                <a className="text-white underline hover:text-slate-200" href={`/coach/player/${p.userId}`}>
+                  {p.firstName} {p.lastName}
+                </a>
               </div>
               <div className="text-sm text-slate-300">
                 {p.position} · {p.gradYear} · {p.city}, {p.state}
