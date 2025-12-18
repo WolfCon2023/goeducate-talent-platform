@@ -1,4 +1,5 @@
 import { Router } from "express";
+import mongoose from "mongoose";
 
 import { RegisterSchema, ROLE } from "@goeducate/shared";
 
@@ -122,7 +123,10 @@ adminRouter.patch("/admin/coaches/:userId/subscription", requireAuth, requireRol
     return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid status" }));
   }
   try {
-    const user = await UserModel.findById(req.params.userId);
+    const key = String(req.params.userId ?? "").trim();
+    const user = mongoose.isValidObjectId(key)
+      ? await UserModel.findById(key)
+      : await UserModel.findOne({ email: key.toLowerCase() });
     if (!user) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
     if (user.role !== ROLE.COACH) {
       return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "User is not a coach" }));

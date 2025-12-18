@@ -22,7 +22,7 @@ export function AdminCoachSubscriptionToggle() {
       if (role !== "admin") throw new Error("Insufficient permissions.");
 
       const res = await apiFetch<{ user: { id: string; email: string; subscriptionStatus?: string } }>(
-        `/admin/coaches/${coachUserId}/subscription`,
+        `/admin/coaches/${encodeURIComponent(coachUserId)}/subscription`,
         {
           method: "PATCH",
           token,
@@ -44,7 +44,7 @@ export function AdminCoachSubscriptionToggle() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="coachUserId">Coach userId</Label>
+          <Label htmlFor="coachUserId">Coach userId or email</Label>
           <Input id="coachUserId" value={coachUserId} onChange={(e) => setCoachUserId(e.target.value)} autoComplete="off" />
         </div>
         <div className="grid gap-2">
