@@ -73,7 +73,7 @@ filmSubmissionsRouter.get(
 // - player can only fetch their own
 // - coach/admin/evaluator can fetch any (subscription gating later)
 filmSubmissionsRouter.get(
-  "/film-submissions/:id",
+  "/film-submissions/:id([0-9a-fA-F]{24})",
   requireAuth,
   requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.ADMIN, ROLE.EVALUATOR]),
   async (req, res, next) => {
