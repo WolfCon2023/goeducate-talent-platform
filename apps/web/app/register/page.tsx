@@ -14,6 +14,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("player");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,9 +24,17 @@ export default function RegisterPage() {
     setError(null);
     setLoading(true);
     try {
+      if (role === "coach" && (!firstName.trim() || !lastName.trim())) {
+        throw new Error("Coach first and last name are required.");
+      }
       const res = await apiFetch<{ token: string; user: { role: string } }>("/auth/register", {
         method: "POST",
-        body: JSON.stringify({ email, password, role })
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+          ...(role === "coach" ? { firstName: firstName.trim(), lastName: lastName.trim() } : {})
+        })
       });
       setAccessToken(res.token);
       router.push(role === "coach" ? "/coach" : "/player");
@@ -42,6 +52,19 @@ export default function RegisterPage() {
         <p className="mt-1 text-sm text-slate-300">Start as a player or coach.</p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+          {role === "coach" ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="firstName">First name</Label>
+                <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="lastName">Last name</Label>
+                <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" />
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />

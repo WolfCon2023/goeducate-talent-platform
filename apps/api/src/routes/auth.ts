@@ -17,9 +17,12 @@ authRouter.post("/auth/register", async (req, res, next) => {
   const parsed = RegisterSchema.safeParse(req.body);
   if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 
-  const { email, password, role } = parsed.data;
+  const { email, password, role, firstName, lastName } = parsed.data;
   if (role !== ROLE.PLAYER && role !== ROLE.COACH) {
     return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Role is not available for public registration" }));
+  }
+  if (role === ROLE.COACH && (!firstName || !lastName)) {
+    return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Coach first and last name are required" }));
   }
 
   try {
@@ -29,7 +32,12 @@ authRouter.post("/auth/register", async (req, res, next) => {
     }
 
     const passwordHash = await hashPassword(password);
-    const user = await UserModel.create({ email, passwordHash, role });
+    const user = await UserModel.create({
+      email,
+      passwordHash,
+      role,
+      ...(role === ROLE.COACH ? { firstName, lastName } : {})
+    });
 
     const env = getEnv();
     const token = signAccessToken({ sub: String(user._id), role: user.role }, env.JWT_SECRET);
@@ -79,6 +87,9 @@ authRouter.get("/auth/me", requireAuth, async (req, res, next) => {
       if (profile?.firstName && profile?.lastName) {
         displayName = `${profile.firstName} ${profile.lastName}`;
       }
+    }
+    if (user.role === ROLE.COACH && user.firstName && user.lastName) {
+      displayName = `${user.firstName} ${user.lastName}`;
     }
 
     return res.json({

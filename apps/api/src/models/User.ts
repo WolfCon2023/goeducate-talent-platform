@@ -6,6 +6,8 @@ export type UserDoc = {
   email: string;
   passwordHash: string;
   role: Role;
+  firstName?: string;
+  lastName?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -14,7 +16,9 @@ const UserSchema = new Schema<UserDoc>(
   {
     email: { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
     passwordHash: { type: String, required: true },
-    role: { type: String, required: true, enum: ALL_ROLES }
+    role: { type: String, required: true, enum: ALL_ROLES },
+    firstName: { type: String, trim: true },
+    lastName: { type: String, trim: true }
   },
   { timestamps: true }
 );
