@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CoachSearch } from "@/components/CoachSearch";
+import { CoachWatchlist } from "@/components/CoachWatchlist";
 import { CoachGuard } from "./Guard";
 
 export default function CoachDashboardPage() {
@@ -20,6 +21,8 @@ export default function CoachDashboardPage() {
         </div>
 
         <CoachSearch />
+
+        <CoachWatchlist />
       </div>
     </CoachGuard>
   );

@@ -25,6 +25,7 @@ export function CoachSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<PlayerProfile[]>([]);
+  const [watchlisted, setWatchlisted] = useState<Record<string, boolean>>({});
 
   async function search() {
     setError(null);
@@ -45,6 +46,30 @@ export function CoachSearch() {
       setError(err instanceof Error ? err.message : "Search failed");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function addToWatchlist(playerUserId: string) {
+    setError(null);
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+      await apiFetch(`/watchlists/${playerUserId}`, { method: "POST", token });
+      setWatchlisted((p) => ({ ...p, [playerUserId]: true }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add to watchlist");
+    }
+  }
+
+  async function removeFromWatchlist(playerUserId: string) {
+    setError(null);
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+      await apiFetch(`/watchlists/${playerUserId}`, { method: "DELETE", token });
+      setWatchlisted((p) => ({ ...p, [playerUserId]: false }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to remove from watchlist");
     }
   }
 
@@ -96,6 +121,17 @@ export function CoachSearch() {
               <div className="text-sm text-slate-300">
                 {p.position} · {p.gradYear} · {p.city}, {p.state}
               </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {watchlisted[p.userId] ? (
+                <Button type="button" className="bg-slate-100" onClick={() => removeFromWatchlist(p.userId)}>
+                  Remove from watchlist
+                </Button>
+              ) : (
+                <Button type="button" onClick={() => addToWatchlist(p.userId)}>
+                  Add to watchlist
+                </Button>
+              )}
             </div>
           </div>
         ))}

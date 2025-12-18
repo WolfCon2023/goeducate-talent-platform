@@ -12,6 +12,7 @@ import { evaluationsRouter } from "./routes/evaluations.js";
 import { filmSubmissionsRouter } from "./routes/filmSubmissions.js";
 import { healthRouter } from "./routes/health.js";
 import { playerProfilesRouter } from "./routes/playerProfiles.js";
+import { watchlistsRouter } from "./routes/watchlists.js";
 
 async function main() {
   const env = getEnv();
@@ -39,6 +40,7 @@ async function main() {
   app.use(evaluationsRouter);
   app.use(filmSubmissionsRouter);
   app.use(playerProfilesRouter);
+  app.use(watchlistsRouter);
 
   app.use(errorHandler);
 
