@@ -76,7 +76,10 @@ filmSubmissionsRouter.get(
   requireRole([ROLE.EVALUATOR, ROLE.ADMIN]),
   async (_req, res, next) => {
     try {
-      const results = await FilmSubmissionModel.find({ status: FILM_SUBMISSION_STATUS.SUBMITTED })
+      // Include both new submissions and ones currently being worked.
+      const results = await FilmSubmissionModel.find({
+        status: { $in: [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW] }
+      })
         .sort({ createdAt: 1 })
         .limit(200)
         .lean();

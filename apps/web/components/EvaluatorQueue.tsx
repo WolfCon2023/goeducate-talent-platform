@@ -61,7 +61,7 @@ export function EvaluatorQueue() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Submitted</h2>
-          <p className="mt-1 text-sm text-slate-300">Oldest first.</p>
+          <p className="mt-1 text-sm text-slate-300">Includes submitted and in-review. Oldest first.</p>
         </div>
         <Button type="button" onClick={load} disabled={loading}>
           {loading ? "Refreshing..." : "Refresh"}
