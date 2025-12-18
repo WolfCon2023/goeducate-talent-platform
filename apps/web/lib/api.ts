@@ -25,7 +25,22 @@ export async function apiFetch<T>(path: string, init?: RequestInit & { token?: s
     const msg = body.error?.message ?? `Request failed: ${res.status}`;
     throw new Error(msg);
   }
-  return (await res.json()) as T;
+
+  // 204 No Content
+  if (res.status === 204) return undefined as unknown as T;
+
+  // Some endpoints may legitimately return an empty body.
+  const contentType = res.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    const text = await res.text();
+    if (!text) return undefined as unknown as T;
+    // Best-effort fallback: return raw text.
+    return text as unknown as T;
+  }
+
+  const text = await res.text();
+  if (!text) return undefined as unknown as T;
+  return JSON.parse(text) as T;
 }
 
 
