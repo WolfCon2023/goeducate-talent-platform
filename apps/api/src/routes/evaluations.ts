@@ -20,13 +20,10 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
   try {
     const evaluatorUserId = new mongoose.Types.ObjectId(req.user!.id);
     const filmSubmissionId = new mongoose.Types.ObjectId(parsed.data.filmSubmissionId);
-    const playerUserId = new mongoose.Types.ObjectId(parsed.data.playerUserId);
 
     const film = await FilmSubmissionModel.findById(filmSubmissionId);
     if (!film) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
-    if (String(film.userId) !== String(playerUserId)) {
-      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "playerUserId does not match film submission" }));
-    }
+    const playerUserId = new mongoose.Types.ObjectId(String(film.userId));
 
     const existing = await EvaluationReportModel.findOne({ filmSubmissionId }).lean();
     if (existing) return next(new ApiError({ status: 409, code: "ALREADY_EXISTS", message: "Evaluation already exists" }));

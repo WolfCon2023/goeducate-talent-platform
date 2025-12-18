@@ -4,10 +4,10 @@ import { EvaluatorEvaluationForm } from "@/components/EvaluatorEvaluationForm";
 
 export default async function EvaluatorFilmPage(props: {
   params: Promise<{ filmSubmissionId: string }>;
-  searchParams: Promise<{ playerUserId?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await props.params;
-  const search = await props.searchParams;
+  await props.searchParams;
 
   return (
     <div className="grid gap-8">
@@ -23,7 +23,7 @@ export default async function EvaluatorFilmPage(props: {
         </div>
       </div>
 
-      <EvaluatorEvaluationForm filmSubmissionId={params.filmSubmissionId} playerUserId={search.playerUserId ?? ""} />
+      <EvaluatorEvaluationForm filmSubmissionId={params.filmSubmissionId} />
     </div>
   );
 }

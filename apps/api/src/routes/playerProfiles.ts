@@ -56,6 +56,23 @@ playerProfilesRouter.put("/player-profiles/me", requireAuth, requireRole([ROLE.P
   }
 });
 
+// Coach/Admin/Evaluator: fetch a player's profile by userId (for name + metadata)
+playerProfilesRouter.get(
+  "/player-profiles/player/:userId",
+  requireAuth,
+  requireRole([ROLE.COACH, ROLE.ADMIN, ROLE.EVALUATOR]),
+  async (req, res, next) => {
+    try {
+      const userId = new mongoose.Types.ObjectId(req.params.userId);
+      const profile = await PlayerProfileModel.findOne({ userId }).lean();
+      if (!profile) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Profile not found" }));
+      return res.json(profile);
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 // Coach/Admin/Evaluator: search players (minimal MVP)
 playerProfilesRouter.get(
   "/player-profiles",

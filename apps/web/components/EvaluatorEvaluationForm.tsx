@@ -6,7 +6,25 @@ import { Button, Card, Input, Label } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 
-export function EvaluatorEvaluationForm(props: { filmSubmissionId: string; playerUserId: string }) {
+type FilmSubmission = {
+  _id: string;
+  userId: string;
+  title: string;
+  opponent?: string;
+  gameDate?: string;
+  status: string;
+};
+
+type PlayerProfile = {
+  firstName: string;
+  lastName: string;
+  position: string;
+  gradYear: number;
+  city: string;
+  state: string;
+};
+
+export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
   const [overallGrade, setOverallGrade] = useState(7);
   const [strengths, setStrengths] = useState("");
   const [improvements, setImprovements] = useState("");
@@ -14,7 +32,32 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string; playe
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const missingPlayerUserId = useMemo(() => !props.playerUserId, [props.playerUserId]);
+  const [film, setFilm] = useState<FilmSubmission | null>(null);
+  const [player, setPlayer] = useState<PlayerProfile | null>(null);
+  const [loadingMeta, setLoadingMeta] = useState(false);
+
+  const canSubmit = useMemo(() => !!film?.userId && strengths.trim() && improvements.trim(), [film, strengths, improvements]);
+
+  async function loadMeta() {
+    setStatus(null);
+    setLoadingMeta(true);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
+
+      const filmRes = await apiFetch<FilmSubmission>(`/film-submissions/${props.filmSubmissionId}`, { token });
+      setFilm(filmRes);
+
+      const profileRes = await apiFetch<PlayerProfile>(`/player-profiles/player/${filmRes.userId}`, { token });
+      setPlayer(profileRes);
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Failed to load film metadata");
+    } finally {
+      setLoadingMeta(false);
+    }
+  }
 
   async function submit() {
     setStatus(null);
@@ -24,14 +67,13 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string; playe
       const role = getTokenRole(token);
       if (!token) throw new Error("Please login first.");
       if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
-      if (!props.playerUserId) throw new Error("Missing playerUserId.");
+      if (!film?.userId) throw new Error("Missing film metadata. Click 'Load details' first.");
 
       await apiFetch("/evaluations", {
         method: "POST",
         token,
         body: JSON.stringify({
           filmSubmissionId: props.filmSubmissionId,
-          playerUserId: props.playerUserId,
           overallGrade,
           strengths,
           improvements,
@@ -51,17 +93,25 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string; playe
     <Card>
       <div className="grid gap-2">
         <div className="text-sm text-slate-300">
-          Film: <span className="text-slate-100">{props.filmSubmissionId}</span>
+          Film:{" "}
+          <span className="text-slate-100">
+            {film ? `${film.title}${film.opponent ? ` vs ${film.opponent}` : ""}` : "(not loaded)"}
+          </span>
         </div>
         <div className="text-sm text-slate-300">
-          Player: <span className="text-slate-100">{props.playerUserId || "(missing)"}</span>
+          Player:{" "}
+          <span className="text-slate-100">
+            {player
+              ? `${player.firstName} ${player.lastName} · ${player.position} · ${player.gradYear} · ${player.city}, ${player.state}`
+              : "(not loaded)"}
+          </span>
         </div>
-        {missingPlayerUserId ? (
-          <p className="text-sm text-red-300">
-            This link is missing <code className="text-red-200">playerUserId</code>. Go back to the queue and click
-            “Complete evaluation” again.
-          </p>
-        ) : null}
+        <div className="mt-2 flex items-center gap-3">
+          <Button type="button" onClick={loadMeta} disabled={loadingMeta}>
+            {loadingMeta ? "Loading details..." : film ? "Reload details" : "Load details"}
+          </Button>
+          <span className="text-xs text-slate-400">We fetch this from the API so it stays correct and secure.</span>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4">
@@ -108,7 +158,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string; playe
       </div>
 
       <div className="mt-6 flex items-center gap-3">
-        <Button type="button" onClick={submit} disabled={saving || missingPlayerUserId || !strengths.trim() || !improvements.trim()}>
+        <Button type="button" onClick={submit} disabled={saving || !canSubmit}>
           {saving ? "Submitting..." : "Submit evaluation"}
         </Button>
         {status ? <p className="text-sm text-slate-300">{status}</p> : null}

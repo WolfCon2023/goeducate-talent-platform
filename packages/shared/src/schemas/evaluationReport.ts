@@ -17,7 +17,6 @@ export type EvaluationReport = z.infer<typeof EvaluationReportSchema>;
 
 export const EvaluationReportCreateSchema = z.object({
   filmSubmissionId: z.string().min(1),
-  playerUserId: z.string().min(1),
   overallGrade: z.number().int().min(1).max(10),
   strengths: z.string().min(1).max(2000),
   improvements: z.string().min(1).max(2000),
