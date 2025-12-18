@@ -51,6 +51,7 @@ export function CoachPlayerDetail(props: { userId: string }) {
   const [evals, setEvals] = useState<EvaluationReport[]>([]);
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [contactError, setContactError] = useState<string | null>(null);
+  const [viewerRole, setViewerRole] = useState<string | null>(null);
 
   async function load(userId: string) {
     setError(null);
@@ -60,6 +61,7 @@ export function CoachPlayerDetail(props: { userId: string }) {
       const role = getTokenRole(token);
       if (!token) throw new Error("Please login as a coach first.");
       if (role !== "coach" && role !== "admin" && role !== "evaluator") throw new Error("Insufficient permissions.");
+      setViewerRole(role ?? null);
 
       const p = await apiFetch<PlayerProfile>(`/player-profiles/player/${userId}`, { token });
       const f = await apiFetch<{ results: FilmSubmission[] }>(`/film-submissions/player/${userId}`, { token });
@@ -100,7 +102,7 @@ export function CoachPlayerDetail(props: { userId: string }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold">Overview</h2>
-            <p className="mt-1 text-sm text-slate-300">Coach visibility and contact gating can be added later.</p>
+            <p className="mt-1 text-sm text-slate-300">Player profile, film, evaluations, and subscription-gated contact info.</p>
           </div>
           <Button type="button" onClick={() => load(props.userId)} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
@@ -132,7 +134,17 @@ export function CoachPlayerDetail(props: { userId: string }) {
             <div key={s._id} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div className="font-semibold">{s.title}</div>
-                <div className="text-xs uppercase tracking-wide text-slate-400">{s.status}</div>
+                <div
+                  className={`text-xs uppercase tracking-wide ${
+                    s.status === "completed"
+                      ? "text-emerald-300"
+                      : s.status === "in_review"
+                        ? "text-amber-300"
+                        : "text-slate-400"
+                  }`}
+                >
+                  {s.status.replace("_", " ")}
+                </div>
               </div>
               <div className="mt-1 text-sm text-slate-300">
                 {s.opponent ? <>Opponent: {s.opponent}</> : null}
@@ -186,19 +198,39 @@ export function CoachPlayerDetail(props: { userId: string }) {
 
       <Card>
         <h2 className="text-lg font-semibold">Contact info</h2>
-        <p className="mt-1 text-sm text-slate-300">Contact info is subscription gated for coaches (Stripe later).</p>
-        <div className="mt-4 flex items-center gap-3">
-          <Button type="button" onClick={loadContact} disabled={loading}>
-            View contact info
-          </Button>
-          {contactError ? <p className="text-sm text-red-300">{contactError}</p> : null}
-        </div>
-        {contact ? (
-          <div className="mt-4 text-sm text-slate-200">
-            <div>Email: {contact.contactEmail ?? "Not provided"}</div>
-            <div className="mt-1">Phone: {contact.contactPhone ?? "Not provided"}</div>
-          </div>
-        ) : null}
+        <p className="mt-1 text-sm text-slate-300">Coaches require an active subscription to view contact details.</p>
+
+        {viewerRole === "evaluator" ? (
+          <p className="mt-4 text-sm text-slate-400">Evaluators do not have access to player contact info.</p>
+        ) : (
+          <>
+            <div className="mt-4 flex items-center gap-3">
+              <Button type="button" onClick={loadContact} disabled={loading}>
+                {contact ? "Refresh contact info" : "View contact info"}
+              </Button>
+              {contactError ? <p className="text-sm text-red-300">{contactError}</p> : null}
+            </div>
+
+            {contact ? (
+              <div className="mt-4 text-sm text-slate-200">
+                <div>Email: {contact.contactEmail ?? "Not provided"}</div>
+                <div className="mt-1">Phone: {contact.contactPhone ?? "Not provided"}</div>
+              </div>
+            ) : contactError?.toLowerCase().includes("subscription required") ? (
+              <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
+                <div className="text-sm font-semibold text-slate-200">Locked</div>
+                <p className="mt-1 text-sm text-slate-300">
+                  Upgrade to view this player’s contact email and phone. (Billing integration coming next.)
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
+                <div className="text-sm font-semibold text-slate-200">Not loaded</div>
+                <p className="mt-1 text-sm text-slate-400">Click “View contact info” to load contact details.</p>
+              </div>
+            )}
+          </>
+        )}
       </Card>
     </div>
   );

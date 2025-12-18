@@ -1,0 +1,210 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+import { Button, Card } from "@/components/ui";
+import { apiFetch } from "@/lib/api";
+import { getAccessToken, getTokenRole } from "@/lib/auth";
+
+type FilmSubmission = {
+  _id: string;
+  title: string;
+  opponent?: string;
+  gameDate?: string;
+  status: string;
+  videoUrl?: string;
+  notes?: string;
+  createdAt?: string;
+};
+
+type EvaluationReport = {
+  _id: string;
+  filmSubmissionId: string;
+  overallGrade: number;
+  strengths: string;
+  improvements: string;
+  notes?: string;
+  createdAt?: string;
+};
+
+export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
+  const filmSubmissionId = props.filmSubmissionId;
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [film, setFilm] = useState<FilmSubmission | null>(null);
+  const [report, setReport] = useState<EvaluationReport | null>(null);
+  const [reportError, setReportError] = useState<string | null>(null);
+
+  async function load() {
+    setError(null);
+    setReportError(null);
+    setLoading(true);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role && role !== "player") throw new Error("This page is only available to player accounts.");
+
+      const f = await apiFetch<FilmSubmission>(`/film-submissions/${filmSubmissionId}`, { token });
+      setFilm(f);
+
+      try {
+        const r = await apiFetch<EvaluationReport>(`/evaluations/film/${filmSubmissionId}`, { token });
+        setReport(r);
+      } catch (err) {
+        // Evaluation might not exist yet.
+        setReport(null);
+        setReportError(err instanceof Error ? err.message : "No evaluation yet.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load evaluation");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filmSubmissionId]);
+
+  const shareText = useMemo(() => {
+    if (!film) return "";
+    const lines = [
+      `GoEducate Talent Platform – Evaluation`,
+      ``,
+      `Film: ${film.title}`,
+      film.opponent ? `Opponent: ${film.opponent}` : null,
+      film.gameDate ? `Game date: ${new Date(film.gameDate).toLocaleDateString()}` : null,
+      `Status: ${film.status.replace("_", " ")}`,
+      report ? `Overall grade: ${report.overallGrade}/10` : `Evaluation: not completed yet`,
+      ``,
+      `Link: ${typeof window !== "undefined" ? window.location.href : ""}`
+    ].filter(Boolean) as string[];
+    return lines.join("\n");
+  }, [film, report]);
+
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // ignore
+    }
+  }
+
+  function downloadJson() {
+    const payload = { film, report };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `evaluation-${filmSubmissionId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  return (
+    <div className="grid gap-8">
+      <div className="flex flex-wrap items-start justify-between gap-6 print:hidden">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Evaluation</h1>
+          <p className="mt-2 text-sm text-slate-300">Full evaluation report for this film submission.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link href="/player/film" className="text-sm text-slate-300 hover:text-white">
+            Back to submissions
+          </Link>
+          <Button type="button" onClick={load} disabled={loading}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </Button>
+        </div>
+      </div>
+
+      {error ? <p className="text-sm text-red-300">{error}</p> : null}
+
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">{film?.title ?? (loading ? "Loading..." : "Film")}</h2>
+            <div className="mt-1 text-sm text-slate-300">
+              {film?.opponent ? <>Opponent: {film.opponent}</> : null}
+              {film?.opponent && film?.gameDate ? " · " : null}
+              {film?.gameDate ? <>Game date: {new Date(film.gameDate).toLocaleDateString()}</> : null}
+              {film ? ` · ${film.status.replace("_", " ")}` : null}
+            </div>
+            {film?.videoUrl ? (
+              <div className="mt-2 text-sm print:hidden">
+                <a className="text-slate-200 underline hover:text-white" href={film.videoUrl} target="_blank" rel="noreferrer">
+                  View video link
+                </a>
+              </div>
+            ) : null}
+            {film?.notes ? <p className="mt-3 text-sm text-slate-300 whitespace-pre-wrap">{film.notes}</p> : null}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 print:hidden">
+            <Button type="button" onClick={() => copy(window.location.href)} disabled={!film}>
+              Copy link
+            </Button>
+            <Button type="button" onClick={() => copy(shareText)} disabled={!film}>
+              Copy summary
+            </Button>
+            <Button type="button" onClick={() => window.print()} disabled={!film}>
+              Print / Save PDF
+            </Button>
+            <Button type="button" onClick={downloadJson} disabled={!film}>
+              Download JSON
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold">Evaluation report</h2>
+          {report?.createdAt ? <div className="text-xs text-slate-500">Created: {new Date(report.createdAt).toLocaleString()}</div> : null}
+        </div>
+
+        {report ? (
+          <div className="mt-5 grid gap-5 text-sm text-slate-200">
+            <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+              <div className="text-xs uppercase tracking-wide text-slate-400">Overall grade</div>
+              <div className="mt-1 text-2xl font-semibold">{report.overallGrade}/10</div>
+            </div>
+
+            <div>
+              <div className="text-xs uppercase tracking-wide text-slate-400">Strengths</div>
+              <div className="mt-2 whitespace-pre-wrap">{report.strengths}</div>
+            </div>
+
+            <div>
+              <div className="text-xs uppercase tracking-wide text-slate-400">Improvements</div>
+              <div className="mt-2 whitespace-pre-wrap">{report.improvements}</div>
+            </div>
+
+            {report.notes ? (
+              <div>
+                <div className="text-xs uppercase tracking-wide text-slate-400">Notes</div>
+                <div className="mt-2 whitespace-pre-wrap">{report.notes}</div>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="mt-4">
+            <p className="text-sm text-slate-300">
+              {reportError?.toLowerCase().includes("not found") || reportError?.toLowerCase().includes("no evaluation")
+                ? "No evaluation yet. Check back once an evaluator completes your report."
+                : reportError ?? "No evaluation yet."}
+            </p>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+

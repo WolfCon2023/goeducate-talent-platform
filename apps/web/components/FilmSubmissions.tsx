@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button, Card, Input, Label } from "@/components/ui";
@@ -220,14 +221,17 @@ export function FilmSubmissions() {
 
               {s.status === "completed" ? (
                 <div className="mt-4">
-                  <Button
-                    type="button"
-                    className="bg-slate-100"
-                    onClick={() => loadReport(s._id)}
-                    disabled={!!reportLoading[s._id]}
-                  >
-                    {reportLoading[s._id] ? "Loading evaluation..." : "View evaluation"}
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      href={`/player/film/${s._id}`}
+                      className="rounded-md bg-white px-4 py-2 text-sm font-medium text-slate-900 hover:bg-slate-200"
+                    >
+                      Open evaluation
+                    </Link>
+                    <Button type="button" onClick={() => loadReport(s._id)} disabled={!!reportLoading[s._id]}>
+                      {reportLoading[s._id] ? "Loading..." : "Refresh report"}
+                    </Button>
+                  </div>
 
                   {reports[s._id] ? (
                     <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
