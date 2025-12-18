@@ -8,6 +8,7 @@ import { getEnv } from "../env.js";
 import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth } from "../middleware/auth.js";
+import { EvaluatorInviteModel, hashInviteToken } from "../models/EvaluatorInvite.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { UserModel } from "../models/User.js";
 
@@ -99,6 +100,60 @@ authRouter.get("/auth/me", requireAuth, async (req, res, next) => {
         role: user.role,
         displayName
       }
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Public: accept evaluator invite token and create evaluator account.
+authRouter.post("/auth/accept-invite", async (req, res, next) => {
+  const token = String((req.body as { token?: unknown }).token ?? "").trim();
+  const firstName = String((req.body as { firstName?: unknown }).firstName ?? "").trim();
+  const lastName = String((req.body as { lastName?: unknown }).lastName ?? "").trim();
+  const password = String((req.body as { password?: unknown }).password ?? "");
+
+  if (!token || token.length < 20) {
+    return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invite token is required" }));
+  }
+  if (!firstName || !lastName) {
+    return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "First and last name are required" }));
+  }
+  if (!password || password.length < 8) {
+    return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Password must be at least 8 characters" }));
+  }
+
+  try {
+    const tokenHash = hashInviteToken(token);
+    const invite = await EvaluatorInviteModel.findOne({ tokenHash });
+    if (!invite) return next(new ApiError({ status: 400, code: "INVALID_INVITE", message: "Invalid invite token" }));
+    if (invite.usedAt) return next(new ApiError({ status: 409, code: "INVITE_USED", message: "Invite already used" }));
+    if (invite.expiresAt.getTime() < Date.now()) {
+      return next(new ApiError({ status: 410, code: "INVITE_EXPIRED", message: "Invite expired" }));
+    }
+
+    const email = invite.email;
+    const existing = await UserModel.findOne({ email }).lean();
+    if (existing) return next(new ApiError({ status: 409, code: "EMAIL_TAKEN", message: "Email already registered" }));
+
+    const passwordHash = await hashPassword(password);
+    const user = await UserModel.create({
+      email,
+      passwordHash,
+      role: invite.role,
+      firstName,
+      lastName
+    });
+
+    invite.usedAt = new Date();
+    await invite.save();
+
+    const env = getEnv();
+    const jwt = signAccessToken({ sub: String(user._id), role: user.role }, env.JWT_SECRET);
+
+    return res.status(201).json({
+      token: jwt,
+      user: { id: String(user._id), email: user.email, role: user.role }
     });
   } catch (err) {
     return next(err);

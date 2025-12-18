@@ -8,6 +8,7 @@ import { getEnv } from "../env.js";
 import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { EvaluatorInviteModel, generateInviteToken, hashInviteToken } from "../models/EvaluatorInvite.js";
 import { UserModel } from "../models/User.js";
 
 export const adminRouter = Router();
@@ -71,6 +72,44 @@ adminRouter.post("/admin/users", requireAuth, requireRole([ROLE.ADMIN]), async (
     const passwordHash = await hashPassword(password);
     const user = await UserModel.create({ email, passwordHash, role });
     return res.status(201).json({ user: { id: String(user._id), email: user.email, role: user.role } });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: generate an evaluator invite code (one-time use, expires).
+adminRouter.post("/admin/evaluator-invites", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  const email = String((req.body as { email?: unknown }).email ?? "").trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid email is required" }));
+  }
+
+  try {
+    const existingUser = await UserModel.findOne({ email }).lean();
+    if (existingUser) {
+      return next(new ApiError({ status: 409, code: "EMAIL_TAKEN", message: "Email already registered" }));
+    }
+
+    const token = generateInviteToken();
+    const tokenHash = hashInviteToken(token);
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
+
+    await EvaluatorInviteModel.create({
+      email,
+      role: ROLE.EVALUATOR,
+      tokenHash,
+      createdByUserId: req.user!.id as any,
+      expiresAt
+    });
+
+    return res.status(201).json({
+      invite: {
+        email,
+        role: ROLE.EVALUATOR,
+        token,
+        expiresAt: expiresAt.toISOString()
+      }
+    });
   } catch (err) {
     return next(err);
   }
