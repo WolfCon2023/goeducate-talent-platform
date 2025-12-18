@@ -69,30 +69,6 @@ filmSubmissionsRouter.get(
   }
 );
 
-// Fetch a specific film submission by id.
-// - player can only fetch their own
-// - coach/admin/evaluator can fetch any (subscription gating later)
-filmSubmissionsRouter.get(
-  "/film-submissions/:id([0-9a-fA-F]{24})",
-  requireAuth,
-  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.ADMIN, ROLE.EVALUATOR]),
-  async (req, res, next) => {
-    try {
-      const _id = new mongoose.Types.ObjectId(req.params.id);
-      const film = await FilmSubmissionModel.findById(_id).lean();
-      if (!film) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
-
-      if (req.user?.role === ROLE.PLAYER && String(film.userId) !== String(req.user.id)) {
-        return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Insufficient permissions" }));
-      }
-
-      return res.json(film);
-    } catch (err) {
-      return next(err);
-    }
-  }
-);
-
 // Evaluator/Admin: basic evaluation queue (submitted)
 filmSubmissionsRouter.get(
   "/film-submissions/queue",
@@ -131,6 +107,34 @@ filmSubmissionsRouter.patch(
       const updated = await FilmSubmissionModel.findByIdAndUpdate(_id, { $set: { status } }, { new: true });
       if (!updated) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
       return res.json(updated);
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+// Fetch a specific film submission by id.
+// Keep this AFTER more specific routes like /queue to avoid route collisions.
+// - player can only fetch their own
+// - coach/admin/evaluator can fetch any (subscription gating later)
+filmSubmissionsRouter.get(
+  "/film-submissions/:id",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.ADMIN, ROLE.EVALUATOR]),
+  async (req, res, next) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) {
+        return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
+      }
+      const _id = new mongoose.Types.ObjectId(req.params.id);
+      const film = await FilmSubmissionModel.findById(_id).lean();
+      if (!film) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
+
+      if (req.user?.role === ROLE.PLAYER && String(film.userId) !== String(req.user.id)) {
+        return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Insufficient permissions" }));
+      }
+
+      return res.json(film);
     } catch (err) {
       return next(err);
     }
