@@ -8,6 +8,32 @@
   --surface: #111318;
   --brand-600: #4f46e5;
   --brand-500: #6366f1;
+
+  /* Additional semantic tokens (dark default) */
+  --muted: rgba(237, 237, 237, 0.8);
+  --muted-2: rgba(237, 237, 237, 0.7);
+  --muted-3: rgba(237, 237, 237, 0.6);
+  --border: rgba(255, 255, 255, 0.1);
+  --surface-soft: rgba(255, 255, 255, 0.05);
+  --link: #a5b4fc; /* indigo-300 */
+  --link-hover: #c7d2fe; /* indigo-200 */
+}
+
+/* Light theme */
+html[data-theme="light"] {
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --surface: #f4f4f5; /* zinc-100 */
+  --brand-600: #4f46e5;
+  --brand-500: #6366f1;
+
+  --muted: rgba(10, 10, 10, 0.8);
+  --muted-2: rgba(10, 10, 10, 0.7);
+  --muted-3: rgba(10, 10, 10, 0.6);
+  --border: rgba(10, 10, 10, 0.12);
+  --surface-soft: rgba(10, 10, 10, 0.04);
+  --link: var(--brand-600);
+  --link-hover: var(--brand-500);
 }
 
 html,
@@ -33,11 +59,38 @@ body {
   }
 
   .card-surface {
-    @apply rounded-2xl border border-white/10 bg-[var(--surface)] p-5;
+    @apply rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-5;
   }
 
   .eyebrow {
-    @apply mb-2 inline-block rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/80;
+    @apply mb-2 inline-block rounded-full border border-[color:var(--border)] bg-[var(--surface-soft)] px-2.5 py-1 text-[11px] font-semibold;
+    color: var(--muted-2);
+  }
+
+  .text-muted {
+    color: var(--muted);
+  }
+  .text-muted-2 {
+    color: var(--muted-2);
+  }
+  .text-muted-3 {
+    color: var(--muted-3);
+  }
+  .border-standard {
+    border-color: var(--border);
+  }
+  .bg-surface {
+    background: var(--surface);
+  }
+  .bg-surface-soft {
+    background: var(--surface-soft);
+  }
+  .link {
+    color: var(--link);
+  }
+  .link:hover {
+    color: var(--link-hover);
+    text-decoration: underline;
   }
 }
 

@@ -60,14 +60,14 @@ export function ConfirmProvider(props: { children: React.ReactNode }) {
       {state.open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70" onClick={() => close(false)} />
-          <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--surface)] p-6 shadow-2xl">
-            <div className="text-lg font-semibold text-white">{state.title}</div>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-white/80">{state.message}</p>
+          <div className="relative w-full max-w-lg rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-6 shadow-2xl">
+            <div className="text-lg font-semibold text-[color:var(--foreground)]">{state.title}</div>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-[color:var(--muted)]">{state.message}</p>
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <button
                 type="button"
-                className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                className="rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-4 py-2 text-sm font-medium text-[color:var(--foreground)] hover:bg-[var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 onClick={() => close(false)}
               >
                 {state.cancelText}

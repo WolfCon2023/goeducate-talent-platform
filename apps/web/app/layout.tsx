@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { AuthNav } from "@/components/AuthNav";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import "./globals.css";
 
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <ConfirmProvider>
           <header className="sticky top-0 z-50 border-b border-white/10 bg-black/60 backdrop-blur">
@@ -23,7 +24,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Image src="/logo.png" alt="GoEducate Talent" width={28} height={28} className="h-7 w-7" priority />
                 <span>GoEducate Talent</span>
               </Link>
-              <AuthNav />
+              <div className="flex items-center gap-3">
+                <ThemeToggle />
+                <AuthNav />
+              </div>
             </div>
           </header>
           <main className="mx-auto max-w-7xl px-6 py-10 sm:px-8">{children}</main>

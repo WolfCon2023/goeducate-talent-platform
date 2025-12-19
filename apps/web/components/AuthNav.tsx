@@ -49,7 +49,7 @@ export function AuthNav() {
   function navItem(href: string) {
     const active = pathname === href || (href !== "/" && pathname?.startsWith(href));
     return `rounded-md px-2.5 py-1.5 text-sm ${
-      active ? "bg-white/10 text-white" : "text-white/90 hover:bg-white/10 hover:text-white"
+      active ? "bg-[var(--surface-soft)] text-[color:var(--foreground)]" : "text-[color:var(--muted)] hover:bg-[var(--surface-soft)]"
     }`;
   }
 
@@ -74,14 +74,14 @@ export function AuthNav() {
           <Link href={dashboardHref} className={navItem(dashboardHref)}>
             Dashboard
           </Link>
-          <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/80">
+          <span className="rounded-full border border-[color:var(--border)] bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-semibold text-[color:var(--muted-2)]">
             {role}
             {displayName ? ` · ${displayName}` : ""}
           </span>
           <button
             type="button"
             onClick={logout}
-            className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            className="rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-1.5 text-sm text-[color:var(--foreground)] hover:bg-[var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
             Logout
           </button>
