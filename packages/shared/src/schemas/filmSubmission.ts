@@ -16,6 +16,8 @@ export const FilmSubmissionSchema = z.object({
   gameDate: z.string().datetime().optional(),
   notes: z.string().max(2000).optional(),
   videoUrl: z.string().url().optional(),
+  // Optional: when uploaded via Cloudinary, store the public_id so we can delete the asset later.
+  cloudinaryPublicId: z.string().min(1).max(500).optional(),
   status: z.enum([
     FILM_SUBMISSION_STATUS.SUBMITTED,
     FILM_SUBMISSION_STATUS.IN_REVIEW,
@@ -32,7 +34,8 @@ export const FilmSubmissionCreateSchema = z.object({
   opponent: FilmSubmissionSchema.shape.opponent,
   gameDate: FilmSubmissionSchema.shape.gameDate,
   notes: FilmSubmissionSchema.shape.notes,
-  videoUrl: FilmSubmissionSchema.shape.videoUrl
+  videoUrl: FilmSubmissionSchema.shape.videoUrl,
+  cloudinaryPublicId: FilmSubmissionSchema.shape.cloudinaryPublicId
 });
 
 export type FilmSubmissionCreateInput = z.infer<typeof FilmSubmissionCreateSchema>;

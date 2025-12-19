@@ -9,6 +9,7 @@ export type FilmSubmissionDoc = {
   gameDate?: Date;
   notes?: string;
   videoUrl?: string;
+  cloudinaryPublicId?: string;
   status: FilmSubmissionStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -22,6 +23,7 @@ const FilmSubmissionSchema = new Schema<FilmSubmissionDoc>(
     gameDate: { type: Date },
     notes: { type: String },
     videoUrl: { type: String },
+    cloudinaryPublicId: { type: String },
     status: {
       type: String,
       required: true,

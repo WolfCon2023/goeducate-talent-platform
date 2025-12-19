@@ -14,6 +14,7 @@ type FilmSubmission = {
   gameDate?: string;
   notes?: string;
   videoUrl?: string;
+  cloudinaryPublicId?: string;
   status: string;
   createdAt?: string;
 };
@@ -48,6 +49,7 @@ export function FilmSubmissions() {
   const [opponent, setOpponent] = useState("");
   const [gameDate, setGameDate] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [cloudinaryPublicId, setCloudinaryPublicId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
   const titleRequired = !title.trim();
@@ -142,9 +144,10 @@ export function FilmSubmissions() {
         throw new Error(`Upload failed: ${cloudinaryRes.status} ${text}`);
       }
 
-      const json = (await cloudinaryRes.json()) as { secure_url?: string };
+      const json = (await cloudinaryRes.json()) as { secure_url?: string; public_id?: string };
       if (!json.secure_url) throw new Error("Upload failed: missing secure_url");
       setVideoUrl(json.secure_url);
+      setCloudinaryPublicId(json.public_id ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {
@@ -169,6 +172,7 @@ export function FilmSubmissions() {
           opponent: opponent || undefined,
           gameDate: gameDate ? new Date(gameDate).toISOString() : undefined,
           videoUrl: videoUrl || undefined,
+          cloudinaryPublicId: cloudinaryPublicId || undefined,
           notes: notes || undefined
         })
       });
@@ -177,12 +181,29 @@ export function FilmSubmissions() {
       setOpponent("");
       setGameDate("");
       setVideoUrl("");
+      setCloudinaryPublicId(null);
       setNotes("");
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create submission");
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function removeSubmission(id: string) {
+    const ok = window.confirm("Delete this submission? This cannot be undone.");
+    if (!ok) return;
+    setError(null);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login as a player first.");
+      if (role && role !== "player") throw new Error("This page is only available to player accounts.");
+      await apiFetch(`/film-submissions/${id}`, { method: "DELETE", token });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete submission");
     }
   }
 
@@ -338,7 +359,12 @@ export function FilmSubmissions() {
               ) : s.status === "in_review" ? (
                 <p className="mt-4 text-sm text-slate-300">In review. An evaluator is working on your film.</p>
               ) : (
-                <p className="mt-4 text-sm text-slate-400">Submitted. Waiting for evaluator review.</p>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-slate-400">Submitted. Waiting for evaluator review.</p>
+                  <Button type="button" onClick={() => removeSubmission(s._id)}>
+                    Delete
+                  </Button>
+                </div>
               )}
             </div>
           ))}
