@@ -55,6 +55,13 @@ body {
 }
 
 @layer base {
+  html[data-theme="dark"] {
+    color-scheme: dark;
+  }
+  html[data-theme="light"] {
+    color-scheme: light;
+  }
+
   body {
     background: var(--background);
     color: var(--foreground);
@@ -63,6 +70,16 @@ body {
 
   a {
     @apply underline-offset-4;
+  }
+
+  /* Native form controls: improve dropdown readability across browsers */
+  select {
+    background: var(--color-panel);
+    color: var(--color-text);
+  }
+  option {
+    background: var(--color-panel);
+    color: var(--color-text);
   }
 }
 
