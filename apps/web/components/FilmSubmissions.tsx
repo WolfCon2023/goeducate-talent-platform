@@ -50,6 +50,7 @@ export function FilmSubmissions() {
   const [videoUrl, setVideoUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const titleRequired = !title.trim();
 
   const load = useCallback(async () => {
     setError(null);
@@ -107,6 +108,12 @@ export function FilmSubmissions() {
     setError(null);
     setUploading(true);
     try {
+      // Nice UX: if title is blank, default it from the filename (sans extension).
+      if (!title.trim()) {
+        const base = file.name.replace(/\.[^/.]+$/, "");
+        setTitle(base);
+      }
+
       const token = getAccessToken();
       const role = getTokenRole(token);
       if (!token) throw new Error("Please login as a player first.");
@@ -182,15 +189,16 @@ export function FilmSubmissions() {
   return (
     <div className="grid gap-6">
       <Card>
-        <h2 className="text-lg font-semibold">Submit film (manual MVP)</h2>
+        <h2 className="text-lg font-semibold">Submit film</h2>
         <p className="mt-1 text-sm text-slate-300">
-          Add game film metadata. Cloudinary uploads come later. For now, paste a hosted video URL if you have one.
+          Add game film metadata. You can upload a video file (Cloudinary) or paste a hosted video URL.
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="title">Title</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Week 3 vs Central" />
+            {titleRequired ? <p className="text-xs text-amber-300">Title is required.</p> : null}
           </div>
           <div className="grid gap-2">
             <Label htmlFor="opponent">Opponent</Label>
@@ -237,8 +245,8 @@ export function FilmSubmissions() {
         </div>
 
         <div className="mt-4 flex items-center gap-3">
-          <Button type="button" onClick={create} disabled={creating || !title.trim()}>
-            {creating ? "Submitting..." : "Submit"}
+          <Button type="button" onClick={create} disabled={creating || uploading || titleRequired}>
+            {uploading ? "Uploading..." : creating ? "Submitting..." : "Submit"}
           </Button>
           {error ? <p className="text-sm text-red-300">{error}</p> : null}
         </div>
