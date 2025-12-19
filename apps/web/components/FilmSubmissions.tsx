@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { useConfirm } from "@/components/ConfirmDialog";
 import { Button, Card, Input, Label } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
@@ -38,6 +39,7 @@ type CloudinarySignResponse = {
 };
 
 export function FilmSubmissions() {
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -192,7 +194,13 @@ export function FilmSubmissions() {
   }
 
   async function removeSubmission(id: string) {
-    const ok = window.confirm("Delete this submission? This cannot be undone.");
+    const ok = await confirm({
+      title: "Delete submission?",
+      message: "Delete this submission? This cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      destructive: true
+    });
     if (!ok) return;
     setError(null);
     try {
