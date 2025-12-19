@@ -24,7 +24,9 @@ const EnvSchema = z.object({
   SMTP_USER: z.string().min(1).optional(),
   SMTP_PASS: z.string().min(1).optional(),
   SMTP_SECURE: z.coerce.boolean().optional(), // true for 465, false for 587 typically
-  INVITE_FROM_EMAIL: z.string().email().optional(),
+  // Can be either a plain email (no-reply@domain.com) or a formatted sender
+  // like "GoEducate Talent <no-reply@domain.com>"
+  INVITE_FROM_EMAIL: z.string().min(3).optional(),
   WEB_APP_URL: z.string().url().optional()
 });
 

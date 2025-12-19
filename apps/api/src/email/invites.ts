@@ -25,11 +25,24 @@ export function isInviteEmailConfigured() {
   return !!(env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASS && env.INVITE_FROM_EMAIL && env.WEB_APP_URL);
 }
 
+function extractEmailAddress(from: string) {
+  const trimmed = from.trim();
+  const match = trimmed.match(/<([^>]+)>/);
+  const email = (match?.[1] ?? trimmed).trim();
+  if (!email.includes("@")) {
+    throw new ApiError({ status: 500, code: "INVALID_CONFIG", message: "INVITE_FROM_EMAIL must contain a valid email address" });
+  }
+  return email;
+}
+
 export async function sendInviteEmail(input: InviteEmail) {
   const env = getEnv();
   if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS || !env.INVITE_FROM_EMAIL || !env.WEB_APP_URL) {
     throw new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Email is not configured" });
   }
+
+  // Validate sender format (allow "Name <email>" or "email").
+  extractEmailAddress(env.INVITE_FROM_EMAIL);
 
   const transporter = nodemailer.createTransport({
     host: env.SMTP_HOST,
