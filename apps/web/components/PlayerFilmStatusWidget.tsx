@@ -63,13 +63,13 @@ export function PlayerFilmStatusWidget() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Evaluation status</h2>
-          <p className="mt-1 text-sm text-slate-300">Track where your film is in the evaluation process.</p>
+          <p className="mt-1 text-sm text-white/80">Track where your film is in the evaluation process.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button type="button" onClick={load} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
           </Button>
-          <Link href="/player/film" className="text-sm text-slate-300 hover:text-white">
+          <Link href="/player/film" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
             View submissions
           </Link>
         </div>
@@ -78,26 +78,26 @@ export function PlayerFilmStatusWidget() {
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-          <div className="text-xs uppercase tracking-wide text-slate-400">Submitted</div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="text-xs uppercase tracking-wide text-white/70">Submitted</div>
           <div className="mt-1 text-2xl font-semibold">{counts.submitted}</div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-          <div className="text-xs uppercase tracking-wide text-slate-400">In review</div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="text-xs uppercase tracking-wide text-white/70">In review</div>
           <div className="mt-1 text-2xl font-semibold">{counts.in_review}</div>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-          <div className="text-xs uppercase tracking-wide text-slate-400">Completed</div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+          <div className="text-xs uppercase tracking-wide text-white/70">Completed</div>
           <div className="mt-1 text-2xl font-semibold">{counts.completed}</div>
         </div>
       </div>
 
       {latest ? (
-        <p className="mt-4 text-sm text-slate-300">
-          Latest: <span className="text-slate-100">{latest.title}</span> ({latest.status.replace("_", " ")})
+        <p className="mt-4 text-sm text-white/80">
+          Latest: <span className="text-white">{latest.title}</span> ({latest.status.replace("_", " ")})
         </p>
       ) : (
-        <p className="mt-4 text-sm text-slate-400">No submissions yet.</p>
+        <p className="mt-4 text-sm text-white/70">No submissions yet.</p>
       )}
     </Card>
   );

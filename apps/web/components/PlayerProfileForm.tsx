@@ -115,14 +115,14 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Athlete profile</h2>
-          <p className="mt-1 text-sm text-slate-300">This powers coach search and evaluation workflows.</p>
+          <p className="mt-1 text-sm text-white/80">This powers coach search and evaluation workflows.</p>
         </div>
         <Button type="button" onClick={save} disabled={saving}>
           {saving ? "Saving..." : "Save"}
         </Button>
       </div>
 
-      {loading ? <p className="mt-4 text-sm text-slate-300">Loading your saved profile...</p> : null}
+      {loading ? <p className="mt-4 text-sm text-white/80">Loading your saved profile...</p> : null}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
@@ -197,7 +197,7 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
         </div>
       </div>
 
-      {status ? <p className="mt-4 text-sm text-slate-300">{status}</p> : null}
+      {status ? <p className="mt-4 text-sm text-white/80">{status}</p> : null}
     </Card>
   );
 }

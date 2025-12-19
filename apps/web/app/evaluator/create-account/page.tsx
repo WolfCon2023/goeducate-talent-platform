@@ -43,7 +43,7 @@ export default function EvaluatorCreateAccountPage() {
     <div className="mx-auto max-w-md">
       <Card>
         <h1 className="text-xl font-semibold">Evaluator create account</h1>
-        <p className="mt-1 text-sm text-slate-300">Use the invite code provided by an admin.</p>
+        <p className="mt-1 text-sm text-white/80">Use the invite code provided by an admin.</p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
           <div className="grid gap-2">

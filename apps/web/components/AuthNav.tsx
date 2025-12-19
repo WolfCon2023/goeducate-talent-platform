@@ -46,6 +46,13 @@ export function AuthNav() {
 
   const dashboardHref = useMemo(() => roleToDashboard(role), [role]);
 
+  function navItem(href: string) {
+    const active = pathname === href || (href !== "/" && pathname?.startsWith(href));
+    return `rounded-md px-2.5 py-1.5 text-sm ${
+      active ? "bg-white/10 text-white" : "text-white/90 hover:bg-white/10 hover:text-white"
+    }`;
+  }
+
   function logout() {
     clearAccessToken();
     setRole(null);
@@ -54,37 +61,37 @@ export function AuthNav() {
   }
 
   return (
-    <nav className="flex items-center gap-4 text-sm text-slate-200">
-      <Link href="/player" className="hover:text-white">
+    <nav className="flex items-center gap-2 text-sm">
+      <Link href="/player" className={navItem("/player")}>
         Player
       </Link>
-      <Link href="/coach" className="hover:text-white">
+      <Link href="/coach" className={navItem("/coach")}>
         Coach
       </Link>
 
       {role ? (
         <>
-          <Link href={dashboardHref} className="hover:text-white">
+          <Link href={dashboardHref} className={navItem(dashboardHref)}>
             Dashboard
           </Link>
-          <span className="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-200">
+          <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-semibold text-white/80">
             {role}
             {displayName ? ` · ${displayName}` : ""}
           </span>
           <button
             type="button"
             onClick={logout}
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-white hover:bg-slate-900"
+            className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
             Logout
           </button>
         </>
       ) : (
         <>
-          <Link href="/login" className="hover:text-white">
+          <Link href="/login" className={navItem("/login")}>
             Login
           </Link>
-          <Link href="/register" className="rounded-md bg-white px-3 py-1.5 text-slate-900 hover:bg-slate-200">
+          <Link href="/register" className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
             Create account
           </Link>
         </>

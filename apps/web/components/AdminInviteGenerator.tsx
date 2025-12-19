@@ -39,7 +39,7 @@ export function AdminInviteGenerator() {
   return (
     <Card>
       <h2 className="text-lg font-semibold">Create evaluator invite</h2>
-      <p className="mt-1 text-sm text-slate-300">Generates a one-time invite code (expires in 7 days).</p>
+      <p className="mt-1 text-sm text-white/80">Generates a one-time invite code (expires in 7 days).</p>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="inviteEmail">Evaluator email</Label>
@@ -50,7 +50,7 @@ export function AdminInviteGenerator() {
         <Button type="button" onClick={createInvite} disabled={creatingInvite || !inviteEmail.trim()}>
           {creatingInvite ? "Creating..." : "Create invite"}
         </Button>
-        {inviteStatus ? <p className="text-sm text-slate-300">{inviteStatus}</p> : null}
+        {inviteStatus ? <p className="text-sm text-white/80">{inviteStatus}</p> : null}
       </div>
     </Card>
   );

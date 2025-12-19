@@ -15,10 +15,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-slate-950 text-slate-50">
+      <body className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <ConfirmProvider>
-          <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+          <header className="sticky top-0 z-50 border-b border-white/10 bg-black/60 backdrop-blur">
+            <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-8">
               <Link href="/" className="flex items-center gap-3 text-lg font-semibold tracking-tight">
                 <Image src="/logo.png" alt="GoEducate Talent" width={28} height={28} className="h-7 w-7" priority />
                 <span>GoEducate Talent</span>
@@ -26,8 +26,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <AuthNav />
             </div>
           </header>
-          <main className="mx-auto max-w-6xl px-4 py-10">{children}</main>
-          <footer className="border-t border-slate-800 py-10 text-center text-sm text-slate-400">
+          <main className="mx-auto max-w-7xl px-6 py-10 sm:px-8">{children}</main>
+          <footer className="border-t border-white/10 py-10 text-center text-sm text-white/60">
             © {new Date().getFullYear()} GoEducate
           </footer>
         </ConfirmProvider>

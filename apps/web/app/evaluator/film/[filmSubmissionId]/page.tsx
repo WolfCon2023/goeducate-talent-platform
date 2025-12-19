@@ -16,10 +16,10 @@ export default async function EvaluatorFilmPage(props: {
         <div className="flex items-start justify-between gap-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Complete evaluation</h1>
-            <p className="mt-2 text-sm text-slate-300">Submit an evaluation report and mark the film as completed.</p>
+            <p className="mt-2 text-sm text-white/80">Submit an evaluation report and mark the film as completed.</p>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/evaluator" className="text-sm text-slate-300 hover:text-white">
+            <Link href="/evaluator" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
               Back to queue
             </Link>
           </div>

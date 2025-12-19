@@ -43,7 +43,7 @@ export function AdminCreateUser() {
   return (
     <Card>
       <h2 className="text-lg font-semibold">Create internal user</h2>
-      <p className="mt-1 text-sm text-slate-300">Admins can create evaluator/admin accounts.</p>
+      <p className="mt-1 text-sm text-white/80">Admins can create evaluator/admin accounts.</p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
@@ -64,7 +64,7 @@ export function AdminCreateUser() {
           <Label htmlFor="role">Role</Label>
           <select
             id="role"
-            className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             value={role}
             onChange={(e) => setRole(e.target.value as Role)}
           >
@@ -78,7 +78,7 @@ export function AdminCreateUser() {
         <Button type="button" onClick={create} disabled={saving || !email.trim() || password.length < 8}>
           {saving ? "Creating..." : "Create user"}
         </Button>
-        {status ? <p className="text-sm text-slate-300">{status}</p> : null}
+        {status ? <p className="text-sm text-white/80">{status}</p> : null}
       </div>
     </Card>
   );

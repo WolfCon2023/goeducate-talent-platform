@@ -92,15 +92,15 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
   return (
     <Card>
       <div className="grid gap-2">
-        <div className="text-sm text-slate-300">
+        <div className="text-sm text-white/80">
           Film:{" "}
-          <span className="text-slate-100">
+          <span className="text-white">
             {film ? `${film.title}${film.opponent ? ` vs ${film.opponent}` : ""}` : "(not loaded)"}
           </span>
         </div>
-        <div className="text-sm text-slate-300">
+        <div className="text-sm text-white/80">
           Player:{" "}
-          <span className="text-slate-100">
+          <span className="text-white">
             {player
               ? `${player.firstName} ${player.lastName} · ${player.position} · ${player.gradYear} · ${player.city}, ${player.state}`
               : "(not loaded)"}
@@ -110,7 +110,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           <Button type="button" onClick={loadMeta} disabled={loadingMeta}>
             {loadingMeta ? "Loading details..." : film ? "Reload details" : "Load details"}
           </Button>
-          <span className="text-xs text-slate-400">We fetch this from the API so it stays correct and secure.</span>
+          <span className="text-xs text-white/60">We fetch this from the API so it stays correct and secure.</span>
         </div>
       </div>
 
@@ -130,7 +130,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           <Label htmlFor="strengths">Strengths</Label>
           <textarea
             id="strengths"
-            className="min-h-28 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="min-h-28 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             value={strengths}
             onChange={(e) => setStrengths(e.target.value)}
             placeholder="What stood out positively..."
@@ -140,7 +140,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           <Label htmlFor="improvements">Improvements</Label>
           <textarea
             id="improvements"
-            className="min-h-28 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="min-h-28 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             value={improvements}
             onChange={(e) => setImprovements(e.target.value)}
             placeholder="What to improve next..."
@@ -150,7 +150,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           <Label htmlFor="notes">Notes (optional)</Label>
           <textarea
             id="notes"
-            className="min-h-28 w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            className="min-h-28 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
           />
@@ -161,7 +161,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
         <Button type="button" onClick={submit} disabled={saving || !canSubmit}>
           {saving ? "Submitting..." : "Submit evaluation"}
         </Button>
-        {status ? <p className="text-sm text-slate-300">{status}</p> : null}
+        {status ? <p className="text-sm text-white/80">{status}</p> : null}
       </div>
     </Card>
   );

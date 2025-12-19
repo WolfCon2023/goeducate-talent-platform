@@ -10,9 +10,9 @@ export default function EvaluatorDashboardPage() {
         <div className="flex items-start justify-between gap-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Evaluator queue</h1>
-            <p className="mt-2 text-sm text-slate-300">Review submitted film. Tagging and reports are next.</p>
+            <p className="mt-2 text-sm text-white/80">Review submitted film. Tagging and reports are next.</p>
           </div>
-          <Link href="/" className="text-sm text-slate-300 hover:text-white">
+          <Link href="/" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
             Home
           </Link>
         </div>

@@ -102,7 +102,7 @@ export function CoachPlayerDetail(props: { userId: string }) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold">Overview</h2>
-            <p className="mt-1 text-sm text-slate-300">Player profile, film, evaluations, and subscription-gated contact info.</p>
+            <p className="mt-1 text-sm text-white/80">Player profile, film, evaluations, and subscription-gated contact info.</p>
           </div>
           <Button type="button" onClick={() => load(props.userId)} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
@@ -112,18 +112,18 @@ export function CoachPlayerDetail(props: { userId: string }) {
         {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
 
         {profile ? (
-          <div className="mt-6 text-sm text-slate-200">
+          <div className="mt-6 text-sm text-white/90">
             <div className="text-base font-semibold">
               {profile.firstName} {profile.lastName}
             </div>
-            <div className="mt-1 text-slate-300">
+            <div className="mt-1 text-white/80">
               {profile.position} · {profile.gradYear} · {profile.city}, {profile.state}
               {profile.heightIn ? ` · ${profile.heightIn} in` : ""}
               {profile.weightLb ? ` · ${profile.weightLb} lb` : ""}
             </div>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-slate-400">{loading ? "Loading..." : "No profile found."}</p>
+          <p className="mt-4 text-sm text-white/70">{loading ? "Loading..." : "No profile found."}</p>
         )}
       </Card>
 
@@ -131,7 +131,7 @@ export function CoachPlayerDetail(props: { userId: string }) {
         <h2 className="text-lg font-semibold">Film submissions</h2>
         <div className="mt-4 grid gap-3">
           {films.map((s) => (
-            <div key={s._id} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+            <div key={s._id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div className="font-semibold">{s.title}</div>
                 <div
@@ -140,28 +140,28 @@ export function CoachPlayerDetail(props: { userId: string }) {
                       ? "text-emerald-300"
                       : s.status === "in_review"
                         ? "text-amber-300"
-                        : "text-slate-400"
+                        : "text-white/70"
                   }`}
                 >
                   {s.status.replace("_", " ")}
                 </div>
               </div>
-              <div className="mt-1 text-sm text-slate-300">
+              <div className="mt-1 text-sm text-white/80">
                 {s.opponent ? <>Opponent: {s.opponent}</> : null}
                 {s.opponent && s.gameDate ? " · " : null}
                 {s.gameDate ? <>Game date: {new Date(s.gameDate).toLocaleDateString()}</> : null}
               </div>
               {s.videoUrl ? (
                 <div className="mt-2 text-sm">
-                  <a className="text-slate-200 underline hover:text-white" href={s.videoUrl} target="_blank" rel="noreferrer">
+                  <a className="text-indigo-300 hover:text-indigo-200 hover:underline" href={s.videoUrl} target="_blank" rel="noreferrer">
                     View video link
                   </a>
                 </div>
               ) : null}
-              {s.notes ? <p className="mt-2 text-sm text-slate-300">{s.notes}</p> : null}
+              {s.notes ? <p className="mt-2 text-sm text-white/80">{s.notes}</p> : null}
             </div>
           ))}
-          {films.length === 0 ? <p className="text-sm text-slate-400">No film submissions yet.</p> : null}
+          {films.length === 0 ? <p className="text-sm text-white/70">No film submissions yet.</p> : null}
         </div>
       </Card>
 
@@ -169,39 +169,39 @@ export function CoachPlayerDetail(props: { userId: string }) {
         <h2 className="text-lg font-semibold">Evaluations</h2>
         <div className="mt-4 grid gap-3">
           {evals.map((r) => (
-            <div key={r._id} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+            <div key={r._id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div className="font-semibold">Grade: {r.overallGrade}/10</div>
-                <div className="text-xs text-slate-500">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</div>
+                <div className="text-xs text-white/60">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</div>
               </div>
-              <div className="mt-3 grid gap-3 text-sm text-slate-200">
+              <div className="mt-3 grid gap-3 text-sm text-white/90">
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-slate-400">Strengths</div>
+                  <div className="text-xs uppercase tracking-wide text-white/70">Strengths</div>
                   <div className="mt-1 whitespace-pre-wrap">{r.strengths}</div>
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-slate-400">Improvements</div>
+                  <div className="text-xs uppercase tracking-wide text-white/70">Improvements</div>
                   <div className="mt-1 whitespace-pre-wrap">{r.improvements}</div>
                 </div>
                 {r.notes ? (
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-slate-400">Notes</div>
+                    <div className="text-xs uppercase tracking-wide text-white/70">Notes</div>
                     <div className="mt-1 whitespace-pre-wrap">{r.notes}</div>
                   </div>
                 ) : null}
               </div>
             </div>
           ))}
-          {evals.length === 0 ? <p className="text-sm text-slate-400">No evaluations yet.</p> : null}
+          {evals.length === 0 ? <p className="text-sm text-white/70">No evaluations yet.</p> : null}
         </div>
       </Card>
 
       <Card>
         <h2 className="text-lg font-semibold">Contact info</h2>
-        <p className="mt-1 text-sm text-slate-300">Coaches require an active subscription to view contact details.</p>
+        <p className="mt-1 text-sm text-white/80">Coaches require an active subscription to view contact details.</p>
 
         {viewerRole === "evaluator" ? (
-          <p className="mt-4 text-sm text-slate-400">Evaluators do not have access to player contact info.</p>
+          <p className="mt-4 text-sm text-white/70">Evaluators do not have access to player contact info.</p>
         ) : (
           <>
             <div className="mt-4 flex items-center gap-3">
@@ -212,21 +212,21 @@ export function CoachPlayerDetail(props: { userId: string }) {
             </div>
 
             {contact ? (
-              <div className="mt-4 text-sm text-slate-200">
+              <div className="mt-4 text-sm text-white/90">
                 <div>Email: {contact.contactEmail ?? "Not provided"}</div>
                 <div className="mt-1">Phone: {contact.contactPhone ?? "Not provided"}</div>
               </div>
             ) : contactError?.toLowerCase().includes("subscription required") ? (
-              <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <div className="text-sm font-semibold text-slate-200">Locked</div>
-                <p className="mt-1 text-sm text-slate-300">
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm font-semibold text-white/90">Locked</div>
+                <p className="mt-1 text-sm text-white/80">
                   Upgrade to view this player’s contact email and phone. (Billing integration coming next.)
                 </p>
               </div>
             ) : (
-              <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
-                <div className="text-sm font-semibold text-slate-200">Not loaded</div>
-                <p className="mt-1 text-sm text-slate-400">Click “View contact info” to load contact details.</p>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm font-semibold text-white/90">Not loaded</div>
+                <p className="mt-1 text-sm text-white/70">Click “View contact info” to load contact details.</p>
               </div>
             )}
           </>

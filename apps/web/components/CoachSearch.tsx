@@ -77,7 +77,7 @@ export function CoachSearch() {
     <div className="grid gap-6">
       <Card>
         <h2 className="text-lg font-semibold">Player search</h2>
-        <p className="mt-1 text-sm text-slate-300">
+        <p className="mt-1 text-sm text-white/80">
           Subscription enforcement is later. RBAC is enforced by the API.
         </p>
 
@@ -111,20 +111,20 @@ export function CoachSearch() {
 
       <div className="grid gap-3">
         {results.map((p) => (
-          <div key={p._id} className="rounded-xl border border-slate-800 bg-slate-950 p-5">
+          <div key={p._id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="text-base font-semibold">
-                <a className="text-white underline hover:text-slate-200" href={`/coach/player/${p.userId}`}>
+                <a className="text-indigo-300 hover:text-indigo-200 hover:underline" href={`/coach/player/${p.userId}`}>
                   {p.firstName} {p.lastName}
                 </a>
               </div>
-              <div className="text-sm text-slate-300">
+              <div className="text-sm text-white/80">
                 {p.position} · {p.gradYear} · {p.city}, {p.state}
               </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {watchlisted[p.userId] ? (
-                <Button type="button" className="bg-slate-100" onClick={() => removeFromWatchlist(p.userId)}>
+                <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => removeFromWatchlist(p.userId)}>
                   Remove from watchlist
                 </Button>
               ) : (
@@ -135,7 +135,7 @@ export function CoachSearch() {
             </div>
           </div>
         ))}
-        {results.length === 0 ? <p className="text-sm text-slate-400">No results yet.</p> : null}
+        {results.length === 0 ? <p className="text-sm text-white/70">No results yet.</p> : null}
       </div>
     </div>
   );

@@ -63,7 +63,7 @@ export function CoachWatchlist() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Watchlist</h2>
-          <p className="mt-1 text-sm text-slate-300">Save players you want to track.</p>
+          <p className="mt-1 text-sm text-white/80">Save players you want to track.</p>
         </div>
         <Button type="button" onClick={load} disabled={loading}>
           {loading ? "Refreshing..." : "Refresh"}
@@ -74,31 +74,31 @@ export function CoachWatchlist() {
 
       <div className="mt-6 grid gap-3">
         {results.map((w) => (
-          <div key={w._id} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+          <div key={w._id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="font-semibold">
-                  <a className="text-white underline hover:text-slate-200" href={`/coach/player/${w.playerUserId}`}>
+                  <a className="text-indigo-300 hover:text-indigo-200 hover:underline" href={`/coach/player/${w.playerUserId}`}>
                     {w.playerProfile?.firstName
                       ? `${w.playerProfile.firstName} ${w.playerProfile.lastName ?? ""}`.trim()
                       : "Player (profile not created yet)"}
                   </a>
                 </div>
                 {w.playerProfile?.position ? (
-                  <div className="mt-1 text-sm text-slate-300">
+                  <div className="mt-1 text-sm text-white/80">
                     {w.playerProfile.position}
                     {typeof w.playerProfile.gradYear === "number" ? ` · ${w.playerProfile.gradYear}` : ""}
                     {w.playerProfile.city && w.playerProfile.state ? ` · ${w.playerProfile.city}, ${w.playerProfile.state}` : ""}
                   </div>
                 ) : null}
               </div>
-              <Button type="button" className="bg-slate-100" onClick={() => remove(w.playerUserId)}>
+              <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => remove(w.playerUserId)}>
                 Remove
               </Button>
             </div>
           </div>
         ))}
-        {results.length === 0 ? <p className="text-sm text-slate-400">No players saved yet.</p> : null}
+        {results.length === 0 ? <p className="text-sm text-white/70">No players saved yet.</p> : null}
       </div>
     </Card>
   );

@@ -69,7 +69,7 @@ export function EvaluatorQueue() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Submitted</h2>
-          <p className="mt-1 text-sm text-slate-300">Includes submitted and in-review. Oldest first.</p>
+          <p className="mt-1 text-sm text-white/80">Includes submitted and in-review. Oldest first.</p>
         </div>
         <Button type="button" onClick={load} disabled={loading}>
           {loading ? "Refreshing..." : "Refresh"}
@@ -80,17 +80,17 @@ export function EvaluatorQueue() {
 
       <div className="mt-6 grid gap-3">
         {results.map((s) => (
-          <div key={s._id} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+          <div key={s._id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="font-semibold">{s.title}</div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">{s.status}</div>
+              <div className="text-xs uppercase tracking-wide text-white/70">{s.status.replace("_", " ")}</div>
             </div>
-            <div className="mt-1 text-sm text-slate-300">
+            <div className="mt-1 text-sm text-white/80">
               {s.opponent ? <>Opponent: {s.opponent}</> : null}
               {s.opponent && s.gameDate ? " · " : null}
               {s.gameDate ? <>Game date: {new Date(s.gameDate).toLocaleDateString()}</> : null}
             </div>
-            <div className="mt-2 text-xs text-slate-500">
+            <div className="mt-2 text-xs text-white/60">
               {s.playerProfile?.firstName ? (
                 <>
                   Player: {s.playerProfile.firstName} {s.playerProfile.lastName}
@@ -107,7 +107,7 @@ export function EvaluatorQueue() {
                 Mark in review
               </Button>
               <a
-                className="rounded-md border border-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-900"
+                className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10"
                 href={`/evaluator/film/${s._id}`}
               >
                 Complete evaluation
@@ -115,7 +115,7 @@ export function EvaluatorQueue() {
             </div>
           </div>
         ))}
-        {results.length === 0 && !error ? <p className="text-sm text-slate-400">No submissions in queue.</p> : null}
+        {results.length === 0 && !error ? <p className="text-sm text-white/70">No submissions in queue.</p> : null}
       </div>
     </Card>
   );

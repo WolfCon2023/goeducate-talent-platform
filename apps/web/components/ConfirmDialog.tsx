@@ -60,14 +60,14 @@ export function ConfirmProvider(props: { children: React.ReactNode }) {
       {state.open ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70" onClick={() => close(false)} />
-          <div className="relative w-full max-w-lg rounded-xl border border-slate-800 bg-slate-950 p-6 shadow-2xl">
-            <div className="text-lg font-semibold text-slate-50">{state.title}</div>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-300">{state.message}</p>
+          <div className="relative w-full max-w-lg rounded-2xl border border-white/10 bg-[var(--surface)] p-6 shadow-2xl">
+            <div className="text-lg font-semibold text-white">{state.title}</div>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-white/80">{state.message}</p>
 
             <div className="mt-6 flex flex-wrap justify-end gap-3">
               <button
                 type="button"
-                className="rounded-md border border-slate-700 bg-transparent px-4 py-2 text-sm font-medium text-slate-200 hover:bg-slate-900"
+                className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 onClick={() => close(false)}
               >
                 {state.cancelText}
@@ -75,7 +75,9 @@ export function ConfirmProvider(props: { children: React.ReactNode }) {
               <button
                 type="button"
                 className={`rounded-md px-4 py-2 text-sm font-medium ${
-                  state.destructive ? "bg-red-500 text-white hover:bg-red-600" : "bg-white text-slate-900 hover:bg-slate-200"
+                  state.destructive
+                    ? "bg-red-500 text-white hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                    : "bg-indigo-600 text-white hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                 }`}
                 onClick={() => close(true)}
               >

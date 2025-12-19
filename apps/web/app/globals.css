@@ -2,9 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --surface: #111318;
+  --brand-600: #4f46e5;
+  --brand-500: #6366f1;
+}
+
 html,
 body {
   height: 100%;
+}
+
+@layer base {
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-size: 17px;
+  }
+
+  a {
+    @apply underline-offset-4;
+  }
+}
+
+@layer utilities {
+  .section {
+    @apply mx-auto max-w-7xl px-6 py-16 sm:px-8 sm:py-20;
+  }
+
+  .card-surface {
+    @apply rounded-2xl border border-white/10 bg-[var(--surface)] p-5;
+  }
+
+  .eyebrow {
+    @apply mb-2 inline-block rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-white/80;
+  }
 }
 
 

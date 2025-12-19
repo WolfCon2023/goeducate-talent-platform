@@ -112,10 +112,10 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
       <div className="flex flex-wrap items-start justify-between gap-6 print:hidden">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Evaluation</h1>
-          <p className="mt-2 text-sm text-slate-300">Full evaluation report for this film submission.</p>
+          <p className="mt-2 text-sm text-white/80">Full evaluation report for this film submission.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/player/film" className="text-sm text-slate-300 hover:text-white">
+          <Link href="/player/film" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
             Back to submissions
           </Link>
           <Button type="button" onClick={load} disabled={loading}>
@@ -130,7 +130,7 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold">{film?.title ?? (loading ? "Loading..." : "Film")}</h2>
-            <div className="mt-1 text-sm text-slate-300">
+            <div className="mt-1 text-sm text-white/80">
               {film?.opponent ? <>Opponent: {film.opponent}</> : null}
               {film?.opponent && film?.gameDate ? " · " : null}
               {film?.gameDate ? <>Game date: {new Date(film.gameDate).toLocaleDateString()}</> : null}
@@ -138,12 +138,12 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
             </div>
             {film?.videoUrl ? (
               <div className="mt-2 text-sm print:hidden">
-                <a className="text-slate-200 underline hover:text-white" href={film.videoUrl} target="_blank" rel="noreferrer">
+                <a className="text-indigo-300 hover:text-indigo-200 hover:underline" href={film.videoUrl} target="_blank" rel="noreferrer">
                   View video link
                 </a>
               </div>
             ) : null}
-            {film?.notes ? <p className="mt-3 text-sm text-slate-300 whitespace-pre-wrap">{film.notes}</p> : null}
+            {film?.notes ? <p className="mt-3 text-sm text-white/80 whitespace-pre-wrap">{film.notes}</p> : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -166,36 +166,36 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
       <Card>
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-lg font-semibold">Evaluation report</h2>
-          {report?.createdAt ? <div className="text-xs text-slate-500">Created: {new Date(report.createdAt).toLocaleString()}</div> : null}
+          {report?.createdAt ? <div className="text-xs text-white/60">Created: {new Date(report.createdAt).toLocaleString()}</div> : null}
         </div>
 
         {report ? (
-          <div className="mt-5 grid gap-5 text-sm text-slate-200">
-            <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-              <div className="text-xs uppercase tracking-wide text-slate-400">Overall grade</div>
+          <div className="mt-5 grid gap-5 text-sm text-white/90">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-xs uppercase tracking-wide text-white/70">Overall grade</div>
               <div className="mt-1 text-2xl font-semibold">{report.overallGrade}/10</div>
             </div>
 
             <div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">Strengths</div>
+              <div className="text-xs uppercase tracking-wide text-white/70">Strengths</div>
               <div className="mt-2 whitespace-pre-wrap">{report.strengths}</div>
             </div>
 
             <div>
-              <div className="text-xs uppercase tracking-wide text-slate-400">Improvements</div>
+              <div className="text-xs uppercase tracking-wide text-white/70">Improvements</div>
               <div className="mt-2 whitespace-pre-wrap">{report.improvements}</div>
             </div>
 
             {report.notes ? (
               <div>
-                <div className="text-xs uppercase tracking-wide text-slate-400">Notes</div>
+                <div className="text-xs uppercase tracking-wide text-white/70">Notes</div>
                 <div className="mt-2 whitespace-pre-wrap">{report.notes}</div>
               </div>
             ) : null}
           </div>
         ) : (
           <div className="mt-4">
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-white/80">
               {reportError?.toLowerCase().includes("not found") || reportError?.toLowerCase().includes("no evaluation")
                 ? "No evaluation yet. Check back once an evaluator completes your report."
                 : reportError ?? "No evaluation yet."}

@@ -11,9 +11,9 @@ export default async function CoachPlayerDetailPage(props: { params: Promise<{ u
         <div className="flex items-start justify-between gap-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Player profile</h1>
-            <p className="mt-2 text-sm text-slate-300">Profile, film submissions, and evaluations.</p>
+            <p className="mt-2 text-sm text-white/80">Profile, film submissions, and evaluations.</p>
           </div>
-          <Link href="/coach" className="text-sm text-slate-300 hover:text-white">
+          <Link href="/coach" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
             Back to search
           </Link>
         </div>

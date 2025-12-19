@@ -40,7 +40,7 @@ export function AdminCoachSubscriptionToggle() {
   return (
     <Card>
       <h2 className="text-lg font-semibold">Coach subscription (scaffold)</h2>
-      <p className="mt-1 text-sm text-slate-300">Temporary admin toggle until Stripe is implemented.</p>
+      <p className="mt-1 text-sm text-white/80">Temporary admin toggle until Stripe is implemented.</p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
@@ -51,7 +51,7 @@ export function AdminCoachSubscriptionToggle() {
           <Label htmlFor="status">Status</Label>
           <select
             id="status"
-            className="w-full rounded-md border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-50"
+            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             value={status}
             onChange={(e) => setStatus(e.target.value as any)}
           >
@@ -65,7 +65,7 @@ export function AdminCoachSubscriptionToggle() {
         <Button type="button" onClick={update} disabled={saving || !coachUserId.trim()}>
           {saving ? "Updating..." : "Update"}
         </Button>
-        {msg ? <p className="text-sm text-slate-300">{msg}</p> : null}
+        {msg ? <p className="text-sm text-white/80">{msg}</p> : null}
       </div>
     </Card>
   );

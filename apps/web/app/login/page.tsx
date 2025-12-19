@@ -40,7 +40,7 @@ export default function LoginPage() {
     <div className="mx-auto max-w-md">
       <Card>
         <h1 className="text-xl font-semibold">Login</h1>
-        <p className="mt-1 text-sm text-slate-300">Sign in to your account.</p>
+        <p className="mt-1 text-sm text-white/80">Sign in to your account.</p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
           <div className="grid gap-2">
