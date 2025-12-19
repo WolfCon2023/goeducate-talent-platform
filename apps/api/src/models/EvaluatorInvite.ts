@@ -1,11 +1,11 @@
 import crypto from "crypto";
 import mongoose, { Schema } from "mongoose";
 
-import { ROLE, type Role } from "@goeducate/shared";
+import { ALL_ROLES, type Role } from "@goeducate/shared";
 
 export type EvaluatorInviteDoc = {
   email: string;
-  role: Role; // evaluator/admin (we'll use evaluator)
+  role: Role; // invited role (player/coach/evaluator/admin)
   tokenHash: string;
   createdByUserId: mongoose.Types.ObjectId;
   expiresAt: Date;
@@ -17,7 +17,7 @@ export type EvaluatorInviteDoc = {
 const EvaluatorInviteSchema = new Schema<EvaluatorInviteDoc>(
   {
     email: { type: String, required: true, lowercase: true, trim: true, index: true },
-    role: { type: String, required: true, enum: [ROLE.EVALUATOR, ROLE.ADMIN] },
+    role: { type: String, required: true, enum: ALL_ROLES },
     tokenHash: { type: String, required: true, unique: true, index: true },
     createdByUserId: { type: Schema.Types.ObjectId, ref: "User", required: true },
     expiresAt: { type: Date, required: true, index: true },

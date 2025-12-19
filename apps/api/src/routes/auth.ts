@@ -117,9 +117,6 @@ authRouter.post("/auth/accept-invite", async (req, res, next) => {
   if (!token || token.length < 20) {
     return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invite token is required" }));
   }
-  if (!firstName || !lastName) {
-    return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "First and last name are required" }));
-  }
   if (!password || password.length < 8) {
     return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Password must be at least 8 characters" }));
   }
@@ -137,13 +134,23 @@ authRouter.post("/auth/accept-invite", async (req, res, next) => {
     const existing = await UserModel.findOne({ email }).lean();
     if (existing) return next(new ApiError({ status: 409, code: "EMAIL_TAKEN", message: "Email already registered" }));
 
+    // Name requirements:
+    // - coach/evaluator/admin must provide first + last name
+    // - player may omit (they can fill athlete profile later)
+    if (invite.role === ROLE.COACH || invite.role === ROLE.EVALUATOR || invite.role === ROLE.ADMIN) {
+      if (!firstName || !lastName) {
+        return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "First and last name are required" }));
+      }
+    }
+
     const passwordHash = await hashPassword(password);
     const user = await UserModel.create({
       email,
       passwordHash,
       role: invite.role,
-      firstName,
-      lastName
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
+      ...(invite.role === ROLE.COACH ? { subscriptionStatus: "inactive" } : {})
     });
 
     invite.usedAt = new Date();
