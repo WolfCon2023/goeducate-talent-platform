@@ -16,7 +16,16 @@ const EnvSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().min(1).optional(),
   CLOUDINARY_API_KEY: z.string().min(1).optional(),
   CLOUDINARY_API_SECRET: z.string().min(1).optional(),
-  CLOUDINARY_FOLDER: z.string().min(1).optional()
+  CLOUDINARY_FOLDER: z.string().min(1).optional(),
+
+  // Email (optional). If set, invite emails will be sent via SMTP.
+  SMTP_HOST: z.string().min(1).optional(),
+  SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  SMTP_USER: z.string().min(1).optional(),
+  SMTP_PASS: z.string().min(1).optional(),
+  SMTP_SECURE: z.coerce.boolean().optional(), // true for 465, false for 587 typically
+  INVITE_FROM_EMAIL: z.string().email().optional(),
+  WEB_APP_URL: z.string().url().optional()
 });
 
 export type Env = z.infer<typeof EnvSchema>;

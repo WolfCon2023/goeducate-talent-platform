@@ -15,6 +15,7 @@ import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 import { EvaluationReportModel } from "../models/EvaluationReport.js";
 import { WatchlistModel } from "../models/Watchlist.js";
+import { isInviteEmailConfigured, sendInviteEmail } from "../email/invites.js";
 
 export const adminRouter = Router();
 
@@ -133,8 +134,26 @@ adminRouter.post("/admin/invites", requireAuth, requireRole([ROLE.ADMIN]), async
     const role = String((req.body as { role?: unknown }).role ?? "");
     const invite = await createInvite({ email, role, createdByUserId: req.user!.id as any });
 
+    // If email is configured, send the invite email.
+    const emailConfigured = isInviteEmailConfigured();
+    let emailSent = false;
+    if (emailConfigured) {
+      const env = getEnv();
+      const baseUrl = (env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+      const inviteUrl = `${baseUrl}/invite`;
+      await sendInviteEmail({
+        to: invite.email,
+        role: invite.role,
+        code: invite.token,
+        inviteUrl,
+        expiresAtIso: invite.expiresAt
+      });
+      emailSent = true;
+    }
+
     return res.status(201).json({
-      invite
+      invite,
+      emailSent
     });
   } catch (err) {
     return next(err);
@@ -146,7 +165,24 @@ adminRouter.post("/admin/evaluator-invites", requireAuth, requireRole([ROLE.ADMI
   try {
     const email = String((req.body as { email?: unknown }).email ?? "");
     const invite = await createInvite({ email, role: ROLE.EVALUATOR, createdByUserId: req.user!.id as any });
-    return res.status(201).json({ invite });
+
+    const emailConfigured = isInviteEmailConfigured();
+    let emailSent = false;
+    if (emailConfigured) {
+      const env = getEnv();
+      const baseUrl = (env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+      const inviteUrl = `${baseUrl}/invite`;
+      await sendInviteEmail({
+        to: invite.email,
+        role: invite.role,
+        code: invite.token,
+        inviteUrl,
+        expiresAtIso: invite.expiresAt
+      });
+      emailSent = true;
+    }
+
+    return res.status(201).json({ invite, emailSent });
   } catch (err) {
     return next(err);
   }
