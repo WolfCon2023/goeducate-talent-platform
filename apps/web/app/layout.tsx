@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import { AuthNav } from "@/components/AuthNav";
@@ -18,8 +19,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ConfirmProvider>
           <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur">
             <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-              <Link href="/" className="text-lg font-semibold tracking-tight">
-                GoEducate Talent
+              <Link href="/" className="flex items-center gap-3 text-lg font-semibold tracking-tight">
+                <Image src="/logo.png" alt="GoEducate Talent" width={28} height={28} className="h-7 w-7" priority />
+                <span>GoEducate Talent</span>
               </Link>
               <AuthNav />
             </div>
