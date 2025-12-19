@@ -27,8 +27,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </header>
           <main className="mx-auto max-w-7xl px-6 py-10 sm:px-8">{children}</main>
-          <footer className="border-t border-white/10 py-10 text-center text-sm text-white/60">
-            © {new Date().getFullYear()} GoEducate
+          <footer className="border-t border-white/10 py-10 text-sm text-white/60">
+            <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+              <div>© 2025 GoEducate, Inc. All rights reserved.</div>
+              <div>Built by Wolf Consulting Group, LLC.</div>
+            </div>
           </footer>
         </ConfirmProvider>
       </body>
