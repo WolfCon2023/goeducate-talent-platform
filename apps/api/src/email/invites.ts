@@ -45,10 +45,13 @@ export async function sendInviteEmail(input: InviteEmail) {
   extractEmailAddress(env.INVITE_FROM_EMAIL);
 
   const transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
+    host: env.SMTP_HOST.trim(),
     port: env.SMTP_PORT,
     secure: env.SMTP_SECURE ?? env.SMTP_PORT === 465,
-    auth: { user: env.SMTP_USER, pass: env.SMTP_PASS }
+    // Force STARTTLS on 587 (many providers require TLS before auth).
+    requireTLS: (env.SMTP_SECURE ?? env.SMTP_PORT === 465) ? undefined : env.SMTP_PORT === 587 ? true : undefined,
+    auth: { user: env.SMTP_USER.trim(), pass: env.SMTP_PASS.trim() },
+    ...(env.SMTP_AUTH_METHOD ? { authMethod: env.SMTP_AUTH_METHOD } : {})
   });
 
   const subject = `GoEducate Talent – You're invited (${input.role})`;

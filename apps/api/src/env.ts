@@ -32,6 +32,8 @@ const EnvSchema = z.object({
       return v;
     }, z.boolean())
     .optional(), // true for 465, false for 587 typically
+  // Optional override for SMTP auth mechanism (e.g. "LOGIN"). Leave unset unless your provider requires it.
+  SMTP_AUTH_METHOD: z.string().min(1).optional(),
   // Can be either a plain email (no-reply@domain.com) or a formatted sender
   // like "GoEducate Talent <no-reply@domain.com>"
   INVITE_FROM_EMAIL: z.string().min(3).optional(),
