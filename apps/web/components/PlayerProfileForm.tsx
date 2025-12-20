@@ -35,6 +35,12 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
     contactPhone: props.initial?.contactPhone,
     hudlLink: props.initial?.hudlLink
   });
+  const [heightFt, setHeightFt] = useState<number | undefined>(() =>
+    typeof props.initial?.heightIn === "number" ? Math.floor(props.initial.heightIn / 12) : undefined
+  );
+  const [heightInPart, setHeightInPart] = useState<number | undefined>(() =>
+    typeof props.initial?.heightIn === "number" ? props.initial.heightIn % 12 : undefined
+  );
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -66,6 +72,8 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
           contactPhone: res.contactPhone,
           hudlLink: res.hudlLink
         }));
+        setHeightFt(typeof res.heightIn === "number" ? Math.floor(res.heightIn / 12) : undefined);
+        setHeightInPart(typeof res.heightIn === "number" ? res.heightIn % 12 : undefined);
       } catch (err) {
         // Ignore "no profile yet" case
         const msg = err instanceof Error ? err.message : "";
@@ -84,6 +92,15 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
     setForm((p) => ({ ...p, [key]: value }));
   }
 
+  function computeHeightIn(ft?: number, inch?: number) {
+    if (typeof ft !== "number" && typeof inch !== "number") return undefined;
+    const safeFt = typeof ft === "number" ? ft : 0;
+    const safeIn = typeof inch === "number" ? inch : 0;
+    if (safeFt < 0 || safeIn < 0) return undefined;
+    const total = safeFt * 12 + safeIn;
+    return Number.isFinite(total) ? total : undefined;
+  }
+
   async function save() {
     setStatus(null);
     setSaving(true);
@@ -92,13 +109,14 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
       if (!token) throw new Error("Please login first.");
       const role = getTokenRole(token);
       if (role && role !== "player") throw new Error("This page is only available to player accounts.");
+      const heightIn = computeHeightIn(heightFt, heightInPart);
       await apiFetch("/player-profiles/me", {
         method: "PUT",
         token,
         body: JSON.stringify({
           ...form,
           gradYear: Number(form.gradYear),
-          heightIn: form.heightIn ? Number(form.heightIn) : undefined,
+          heightIn,
           weightLb: form.weightLb ? Number(form.weightLb) : undefined
         })
       });
@@ -155,13 +173,37 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
           <Input id="state" value={form.state} onChange={(e) => set("state", e.target.value)} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="heightIn">Height (inches)</Label>
-          <Input
-            id="heightIn"
-            type="number"
-            value={form.heightIn ?? ""}
-            onChange={(e) => set("heightIn", e.target.value ? Number(e.target.value) : undefined)}
-          />
+          <div className="text-sm font-medium text-[color:var(--muted)]">Height</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-2">
+              <div className="text-xs text-white/70">Ft</div>
+              <Input
+                id="heightFt"
+                type="number"
+                min={4}
+                max={7}
+                value={heightFt ?? ""}
+                onChange={(e) => {
+                  const next = e.target.value ? Number(e.target.value) : undefined;
+                  setHeightFt(Number.isFinite(next as number) ? next : undefined);
+                }}
+              />
+            </div>
+            <div className="grid gap-2">
+              <div className="text-xs text-white/70">In</div>
+              <Input
+                id="heightInPart"
+                type="number"
+                min={0}
+                max={11}
+                value={heightInPart ?? ""}
+                onChange={(e) => {
+                  const next = e.target.value ? Number(e.target.value) : undefined;
+                  setHeightInPart(Number.isFinite(next as number) ? next : undefined);
+                }}
+              />
+            </div>
+          </div>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="weightLb">Weight (lbs)</Label>

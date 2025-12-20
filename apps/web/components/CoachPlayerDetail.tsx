@@ -43,6 +43,13 @@ type ContactInfo = {
   contactPhone: string | null;
 };
 
+function formatHeight(heightIn?: number) {
+  if (typeof heightIn !== "number" || !Number.isFinite(heightIn) || heightIn <= 0) return null;
+  const ft = Math.floor(heightIn / 12);
+  const inches = heightIn % 12;
+  return `${ft}'${inches}"`;
+}
+
 export function CoachPlayerDetail(props: { userId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +125,7 @@ export function CoachPlayerDetail(props: { userId: string }) {
             </div>
             <div className="mt-1 text-white/80">
               {profile.position} · {profile.gradYear} · {profile.city}, {profile.state}
-              {profile.heightIn ? ` · ${profile.heightIn} in` : ""}
+              {profile.heightIn ? ` · ${formatHeight(profile.heightIn)}` : ""}
               {profile.weightLb ? ` · ${profile.weightLb} lb` : ""}
             </div>
           </div>
