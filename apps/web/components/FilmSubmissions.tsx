@@ -219,7 +219,7 @@ export function FilmSubmissions() {
     <div className="grid gap-6">
       <Card>
         <h2 className="text-lg font-semibold">Submit film</h2>
-        <p className="mt-1 text-sm text-white/80">
+        <p className="mt-1 text-sm text-[color:var(--muted)]">
           Add game film metadata. You can upload a video file (Cloudinary) or paste a hosted video URL.
         </p>
 
@@ -227,7 +227,7 @@ export function FilmSubmissions() {
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="title">Title</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Week 3 vs Central" />
-            {titleRequired ? <p className="text-xs text-white/70">Title is required.</p> : null}
+            {titleRequired ? <p className="text-xs text-[color:var(--muted-2)]">Title is required.</p> : null}
           </div>
           <div className="grid gap-2">
             <Label htmlFor="opponent">Opponent</Label>
@@ -254,9 +254,9 @@ export function FilmSubmissions() {
                   const f = e.target.files?.[0];
                   if (f) void uploadToCloudinary(f);
                 }}
-                className="text-sm text-white/80 file:mr-4 file:rounded-md file:border-0 file:bg-indigo-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-500"
+                className="text-sm text-[color:var(--muted)] file:mr-4 file:rounded-md file:border-0 file:bg-indigo-600 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-indigo-500"
               />
-              <span className="text-xs text-white/60">
+              <span className="text-xs text-[color:var(--muted-3)]">
                 {uploading ? "Uploading..." : "Upload a file to auto-fill the Video URL (Cloudinary)."}
               </span>
             </div>
@@ -265,7 +265,7 @@ export function FilmSubmissions() {
             <Label htmlFor="notes">Notes (optional)</Label>
             <textarea
               id="notes"
-              className="min-h-28 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              className="min-h-28 w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] placeholder:text-[color:var(--muted-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Anything you want evaluators to focus on..."
@@ -285,7 +285,7 @@ export function FilmSubmissions() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold">Your submissions</h2>
-            <p className="mt-1 text-sm text-white/80">Status is shown for evaluator workflow.</p>
+            <p className="mt-1 text-sm text-[color:var(--muted)]">Status is shown for evaluator workflow.</p>
           </div>
           <Button type="button" onClick={load} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
@@ -294,7 +294,7 @@ export function FilmSubmissions() {
 
         <div className="mt-6 grid gap-3">
           {results.map((s) => (
-            <div key={s._id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div key={s._id} className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface-soft)] p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <div className="font-semibold">{s.title}</div>
                 <div
@@ -303,13 +303,13 @@ export function FilmSubmissions() {
                       ? "text-emerald-300"
                       : s.status === "in_review"
                         ? "text-amber-300"
-                        : "text-white/70"
+                        : "text-[color:var(--muted-2)]"
                   }`}
                 >
                   {s.status.replace("_", " ")}
                 </div>
               </div>
-              <div className="mt-1 text-sm text-white/80">
+              <div className="mt-1 text-sm text-[color:var(--muted)]">
                 {s.opponent ? <>Opponent: {s.opponent}</> : null}
                 {s.opponent && s.gameDate ? " · " : null}
                 {s.gameDate ? <>Game date: {new Date(s.gameDate).toLocaleDateString()}</> : null}
@@ -321,7 +321,7 @@ export function FilmSubmissions() {
                   </a>
                 </div>
               ) : null}
-              {s.notes ? <p className="mt-2 text-sm text-white/80">{s.notes}</p> : null}
+              {s.notes ? <p className="mt-2 text-sm text-[color:var(--muted)]">{s.notes}</p> : null}
 
               {s.status === "completed" ? (
                 <div className="mt-4">
@@ -338,37 +338,37 @@ export function FilmSubmissions() {
                   </div>
 
                   {reports[s._id] ? (
-                    <div className="mt-4 rounded-2xl border border-white/10 bg-[var(--surface)] p-4">
+                    <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
                       <div className="flex flex-wrap items-baseline justify-between gap-2">
                         <div className="font-semibold">Evaluation</div>
-                        <div className="text-sm text-white/80">Grade: {reports[s._id]!.overallGrade}/10</div>
+                        <div className="text-sm text-[color:var(--muted)]">Grade: {reports[s._id]!.overallGrade}/10</div>
                       </div>
-                      <div className="mt-3 grid gap-3 text-sm text-white/90">
+                      <div className="mt-3 grid gap-3 text-sm text-[color:var(--foreground)]">
                         <div>
-                          <div className="text-xs uppercase tracking-wide text-white/70">Strengths</div>
+                          <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Strengths</div>
                           <div className="mt-1 whitespace-pre-wrap">{reports[s._id]!.strengths}</div>
                         </div>
                         <div>
-                          <div className="text-xs uppercase tracking-wide text-white/70">Improvements</div>
+                          <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Improvements</div>
                           <div className="mt-1 whitespace-pre-wrap">{reports[s._id]!.improvements}</div>
                         </div>
                         {reports[s._id]!.notes ? (
                           <div>
-                            <div className="text-xs uppercase tracking-wide text-white/70">Notes</div>
+                            <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Notes</div>
                             <div className="mt-1 whitespace-pre-wrap">{reports[s._id]!.notes}</div>
                           </div>
                         ) : null}
                       </div>
                     </div>
                   ) : reports[s._id] === null ? (
-                    <p className="mt-3 text-sm text-white/80">No evaluation yet.</p>
+                    <p className="mt-3 text-sm text-[color:var(--muted)]">No evaluation yet.</p>
                   ) : null}
                 </div>
               ) : s.status === "in_review" ? (
-                <p className="mt-4 text-sm text-white/80">In review. An evaluator is working on your film.</p>
+                <p className="mt-4 text-sm text-[color:var(--muted)]">In review. An evaluator is working on your film.</p>
               ) : (
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <p className="text-sm text-white/70">Submitted. Waiting for evaluator review.</p>
+                  <p className="text-sm text-[color:var(--muted-2)]">Submitted. Waiting for evaluator review.</p>
                   <Button type="button" onClick={() => removeSubmission(s._id)}>
                     Delete
                   </Button>
@@ -376,7 +376,7 @@ export function FilmSubmissions() {
               )}
             </div>
           ))}
-          {results.length === 0 ? <p className="text-sm text-white/70">No submissions yet.</p> : null}
+          {results.length === 0 ? <p className="text-sm text-[color:var(--muted-2)]">No submissions yet.</p> : null}
         </div>
       </Card>
     </div>
