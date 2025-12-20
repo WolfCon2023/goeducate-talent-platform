@@ -42,8 +42,13 @@ export function AdminInviteGenerator() {
       <p className="mt-1 text-sm text-white/80">Generates a one-time invite code (expires in 7 days).</p>
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2 sm:col-span-2">
-          <Label htmlFor="inviteEmail">Evaluator email</Label>
-          <Input id="inviteEmail" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} autoComplete="off" />
+          <Label htmlFor="evaluatorInviteEmail">Evaluator email</Label>
+          <Input
+            id="evaluatorInviteEmail"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            autoComplete="off"
+          />
         </div>
       </div>
       <div className="mt-4 flex items-center gap-3">

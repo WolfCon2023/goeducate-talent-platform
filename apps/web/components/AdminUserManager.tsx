@@ -211,8 +211,8 @@ export function AdminUserManager() {
 
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           <div className="grid gap-2 sm:col-span-2">
-            <Label htmlFor="inviteEmail">Email</Label>
-            <Input id="inviteEmail" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} autoComplete="off" />
+            <Label htmlFor="adminInviteEmail">Email</Label>
+            <Input id="adminInviteEmail" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} autoComplete="off" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="inviteRole">Role</Label>
