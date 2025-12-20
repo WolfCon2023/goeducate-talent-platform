@@ -96,7 +96,11 @@ export function AdminUserManager() {
       if (!token) throw new Error("Please login first.");
       if (tokenRole !== "admin") throw new Error("Insufficient permissions.");
 
-      const res = await apiFetch<{ invite: { email: string; role: string; token: string; expiresAt: string }; emailSent?: boolean }>(
+      const res = await apiFetch<{
+        invite: { email: string; role: string; token: string; expiresAt: string };
+        emailSent?: boolean;
+        emailError?: string;
+      }>(
         "/admin/invites",
         {
         method: "POST",
@@ -111,7 +115,9 @@ export function AdminUserManager() {
           `Invite emailed to ${res.invite.email} (${res.invite.role}). Link: ${link} (code also shown below). Code: ${res.invite.token}`
         );
       } else {
-        setInviteStatus(`Invite created for ${res.invite.email} (${res.invite.role}). Code: ${res.invite.token}. Link: ${link}`);
+        setInviteStatus(
+          `Invite created for ${res.invite.email} (${res.invite.role}). Email not sent${res.emailError ? ` (${res.emailError})` : ""}. Code: ${res.invite.token}. Link: ${link}`
+        );
       }
       setInviteEmail("");
     } catch (err) {
