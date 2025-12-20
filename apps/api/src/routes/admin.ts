@@ -128,6 +128,88 @@ adminRouter.post("/admin/users", requireAuth, requireRole([ROLE.ADMIN]), async (
   }
 });
 
+// Admin-only: high-level dashboard stats (submissions + evaluations + rating buckets)
+adminRouter.get("/admin/stats", requireAuth, requireRole([ROLE.ADMIN]), async (_req, res, next) => {
+  try {
+    const submissionCountsRaw = await FilmSubmissionModel.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
+    const submissionCounts: Record<string, number> = Object.fromEntries(
+      submissionCountsRaw.map((r) => [String(r._id), Number(r.count)])
+    );
+    const submissionsTotal = Object.values(submissionCounts).reduce((a, b) => a + b, 0);
+
+    const evaluationsTotal = await EvaluationReportModel.countDocuments();
+
+    // Group evaluations by overallGrade, include a few recent examples per grade.
+    const evaluationsByGrade = await EvaluationReportModel.aggregate([
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: "filmsubmissions",
+          localField: "filmSubmissionId",
+          foreignField: "_id",
+          as: "film"
+        }
+      },
+      { $unwind: { path: "$film", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "playerprofiles",
+          localField: "playerUserId",
+          foreignField: "userId",
+          as: "playerProfile"
+        }
+      },
+      { $unwind: { path: "$playerProfile", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 1,
+          createdAt: 1,
+          overallGrade: 1,
+          filmSubmissionId: 1,
+          playerUserId: 1,
+          filmTitle: "$film.title",
+          playerFirstName: "$playerProfile.firstName",
+          playerLastName: "$playerProfile.lastName"
+        }
+      },
+      {
+        $group: {
+          _id: "$overallGrade",
+          count: { $sum: 1 },
+          items: {
+            $push: {
+              evaluationId: "$_id",
+              createdAt: "$createdAt",
+              filmSubmissionId: "$filmSubmissionId",
+              filmTitle: "$filmTitle",
+              playerUserId: "$playerUserId",
+              playerFirstName: "$playerFirstName",
+              playerLastName: "$playerLastName"
+            }
+          }
+        }
+      },
+      { $project: { grade: "$_id", count: 1, items: { $slice: ["$items", 5] } } },
+      { $sort: { grade: -1 } }
+    ]);
+
+    return res.json({
+      submissions: {
+        total: submissionsTotal,
+        byStatus: submissionCounts
+      },
+      evaluations: {
+        total: evaluationsTotal,
+        byGrade: evaluationsByGrade
+      }
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // Admin-only: generate an invite code (one-time use, expires) for any role.
 adminRouter.post("/admin/invites", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
   try {

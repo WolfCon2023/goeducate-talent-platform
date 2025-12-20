@@ -5,6 +5,7 @@ import { AdminCreateUser } from "@/components/AdminCreateUser";
 import { AdminInviteGenerator } from "@/components/AdminInviteGenerator";
 import { AdminCoachSubscriptionToggle } from "@/components/AdminCoachSubscriptionToggle";
 import { AdminUserManager } from "@/components/AdminUserManager";
+import { AdminStats } from "@/components/AdminStats";
 import { AdminGuard } from "./Guard";
 
 export default function AdminPage() {
@@ -27,6 +28,8 @@ export default function AdminPage() {
             Admin UI for moderating content is planned. For now, you can create internal users below.
           </p>
         </Card>
+
+        <AdminStats />
 
         <AdminUserManager />
 
