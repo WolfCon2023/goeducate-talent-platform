@@ -23,7 +23,15 @@ const EnvSchema = z.object({
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).optional(),
   SMTP_USER: z.string().min(1).optional(),
   SMTP_PASS: z.string().min(1).optional(),
-  SMTP_SECURE: z.coerce.boolean().optional(), // true for 465, false for 587 typically
+  // IMPORTANT: don't use z.coerce.boolean() for env strings because Boolean("false") === true.
+  // Accepts true/false booleans or "true"/"false" strings.
+  SMTP_SECURE: z
+    .preprocess((v) => {
+      if (v === "true") return true;
+      if (v === "false") return false;
+      return v;
+    }, z.boolean())
+    .optional(), // true for 465, false for 587 typically
   // Can be either a plain email (no-reply@domain.com) or a formatted sender
   // like "GoEducate Talent <no-reply@domain.com>"
   INVITE_FROM_EMAIL: z.string().min(3).optional(),
