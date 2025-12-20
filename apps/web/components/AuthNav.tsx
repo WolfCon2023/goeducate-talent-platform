@@ -28,6 +28,13 @@ export function AuthNav() {
     setRole(tokenRole);
     setDisplayName(null);
     setUnreadCount(0);
+    let interval: number | null = null;
+    let cancelled = false;
+
+    async function refreshUnread(t: string) {
+      const unread = await apiFetch<{ count: number }>("/notifications/unread-count", { token: t }).catch(() => ({ count: 0 }));
+      if (!cancelled) setUnreadCount(unread.count ?? 0);
+    }
 
     async function loadMe() {
       if (!token) return;
@@ -37,8 +44,7 @@ export function AuthNav() {
         setDisplayName(res.user.displayName);
 
         // Notification badge (best-effort)
-        const unread = await apiFetch<{ count: number }>("/notifications/unread-count", { token }).catch(() => ({ count: 0 }));
-        setUnreadCount(unread.count ?? 0);
+        await refreshUnread(token);
       } catch {
         // Token is invalid/expired: log out locally
         clearAccessToken();
@@ -49,6 +55,25 @@ export function AuthNav() {
     }
 
     void loadMe();
+
+    // Keep badge fresh even if the user stays on the same page (e.g. submits film).
+    if (token) {
+      interval = window.setInterval(() => {
+        void refreshUnread(token);
+      }, 15000);
+    }
+
+    // Instant refresh when notifications are updated elsewhere in the app.
+    const onChanged = () => {
+      if (token) void refreshUnread(token);
+    };
+    window.addEventListener("goeducate:notifications-changed", onChanged);
+
+    return () => {
+      cancelled = true;
+      if (interval) window.clearInterval(interval);
+      window.removeEventListener("goeducate:notifications-changed", onChanged);
+    };
   }, [pathname]);
 
   const dashboardHref = useMemo(() => roleToDashboard(role), [role]);

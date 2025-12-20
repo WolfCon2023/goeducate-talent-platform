@@ -42,6 +42,7 @@ export function NotificationsCenter() {
       if (!token) throw new Error("Please login first.");
       await apiFetch(`/notifications/${id}/read`, { method: "PATCH", token });
       await load();
+      window.dispatchEvent(new Event("goeducate:notifications-changed"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to mark read");
     }
