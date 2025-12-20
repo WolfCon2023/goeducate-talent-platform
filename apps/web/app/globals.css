@@ -30,6 +30,54 @@ html[data-theme="light"] {
   --color-border: #e2e8f0;
 }
 
+/* Light-mode compatibility layer
+   Many components were originally authored with dark-first Tailwind utilities like:
+   - text-white/80, border-white/10, bg-white/5, placeholder:text-white/40, ring-white/60
+   In light mode those are unreadable. These overrides remap them to theme tokens. */
+html[data-theme="light"] .text-white,
+html[data-theme="light"] .text-white\/90,
+html[data-theme="light"] .text-white\/80,
+html[data-theme="light"] .text-white\/70,
+html[data-theme="light"] .text-white\/60,
+html[data-theme="light"] .text-white\/50,
+html[data-theme="light"] .text-white\/40 {
+  color: var(--foreground) !important;
+}
+
+html[data-theme="light"] .text-white\/90,
+html[data-theme="light"] .text-white\/80 {
+  color: var(--foreground) !important;
+}
+html[data-theme="light"] .text-white\/70,
+html[data-theme="light"] .text-white\/60 {
+  color: var(--muted) !important;
+}
+html[data-theme="light"] .text-white\/50,
+html[data-theme="light"] .text-white\/40 {
+  color: var(--muted-2) !important;
+}
+
+html[data-theme="light"] .bg-white\/5,
+html[data-theme="light"] .bg-white\/10 {
+  background: var(--surface-soft) !important;
+}
+
+html[data-theme="light"] .border-white\/5,
+html[data-theme="light"] .border-white\/10,
+html[data-theme="light"] .border-white\/15 {
+  border-color: var(--border) !important;
+}
+
+html[data-theme="light"] .placeholder\:text-white\/40::placeholder,
+html[data-theme="light"] .placeholder\:text-white\/60::placeholder,
+html[data-theme="light"] .placeholder\:text-white\/70::placeholder {
+  color: var(--muted-2) !important;
+}
+
+html[data-theme="light"] .focus-visible\:ring-white\/60:focus-visible {
+  --tw-ring-color: var(--color-primary-600) !important;
+}
+
 /* Backwards-compatible aliases used throughout the app */
 :root,
 html[data-theme="dark"],
