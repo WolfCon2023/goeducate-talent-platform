@@ -217,6 +217,11 @@ export function CoachPlayerDetail(props: { userId: string }) {
               <Button type="button" onClick={loadContact} disabled={loading}>
                 {contact ? "Refresh contact info" : "View contact info"}
               </Button>
+              {viewerRole === "coach" ? (
+                <Link href="/coach/billing" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+                  Manage billing
+                </Link>
+              ) : null}
               {contactError ? <p className="text-sm text-red-300">{contactError}</p> : null}
             </div>
 
