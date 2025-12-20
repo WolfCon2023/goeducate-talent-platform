@@ -283,16 +283,20 @@ adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), as
       return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "SMTP is not configured" }));
     }
 
+    const host = String(env.SMTP_HOST).trim().replace(/^["']|["']$/g, "");
+    const user = String(env.SMTP_USER).trim().replace(/^["']|["']$/g, "");
+    const secure = env.SMTP_SECURE ?? Number(env.SMTP_PORT) === 465;
+
     const transporter = nodemailer.createTransport({
-      host: String(env.SMTP_HOST).trim().replace(/^["']|["']$/g, ""),
+      host,
       port: Number(env.SMTP_PORT),
-      secure: env.SMTP_SECURE ?? Number(env.SMTP_PORT) === 465,
+      secure,
       auth: {
-        user: String(env.SMTP_USER).trim().replace(/^["']|["']$/g, ""),
+        user,
         pass: String(env.SMTP_PASS).trim().replace(/^["']|["']$/g, "")
       },
       ...(env.SMTP_AUTH_METHOD ? { authMethod: env.SMTP_AUTH_METHOD } : {}),
-      tls: { minVersion: "TLSv1.2", servername: String(env.SMTP_HOST).trim().replace(/^["']|["']$/g, "") }
+      tls: { minVersion: "TLSv1.2", servername: host }
     });
 
     await transporter.verify();
@@ -311,15 +315,31 @@ adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), as
       emailConfigured: isInviteEmailConfigured(),
       sentTo: to || null,
       transport: {
-        host: env.SMTP_HOST,
+        host,
         port: env.SMTP_PORT,
-        secure: env.SMTP_SECURE ?? Number(env.SMTP_PORT) === 465,
-        user: env.SMTP_USER,
+        secure,
+        user,
         authMethod: env.SMTP_AUTH_METHOD ?? null
       }
     });
   } catch (err) {
-    return next(err);
+    const e = err as any;
+    return next(
+      new ApiError({
+        status: 502,
+        code: "SMTP_ERROR",
+        message: e?.message ?? "SMTP error",
+        details: {
+          name: e?.name,
+          code: e?.code,
+          command: e?.command,
+          responseCode: e?.responseCode,
+          response: e?.response,
+          rejected: e?.rejected,
+          rejectedErrors: e?.rejectedErrors
+        }
+      })
+    );
   }
 });
 
