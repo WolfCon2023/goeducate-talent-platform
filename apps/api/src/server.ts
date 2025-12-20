@@ -15,6 +15,8 @@ import { playerProfilesRouter } from "./routes/playerProfiles.js";
 import { watchlistsRouter } from "./routes/watchlists.js";
 import { contactRouter } from "./routes/contact.js";
 import { uploadsRouter } from "./routes/uploads.js";
+import { billingRouter } from "./routes/billing.js";
+import { stripeWebhookHandler } from "./routes/stripeWebhooks.js";
 
 async function main() {
   const env = getEnv();
@@ -34,11 +36,16 @@ async function main() {
       credentials: true
     })
   );
+
+  // Stripe webhook must receive the raw request body for signature verification.
+  app.post("/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookHandler);
+
   app.use(express.json({ limit: "2mb" }));
 
   app.use(healthRouter);
   app.use(authRouter);
   app.use(adminRouter);
+  app.use(billingRouter);
   app.use(evaluationsRouter);
   app.use(filmSubmissionsRouter);
   app.use(playerProfilesRouter);

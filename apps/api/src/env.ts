@@ -37,7 +37,13 @@ const EnvSchema = z.object({
   // Can be either a plain email (no-reply@domain.com) or a formatted sender
   // like "GoEducate Talent <no-reply@domain.com>"
   INVITE_FROM_EMAIL: z.string().min(3).optional(),
-  WEB_APP_URL: z.string().url().optional()
+  WEB_APP_URL: z.string().url().optional(),
+
+  // Stripe (optional). If set, enables coach subscriptions & billing portal.
+  STRIPE_SECRET_KEY: z.string().min(10).optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().min(10).optional(),
+  STRIPE_PRICE_ID_MONTHLY: z.string().min(3).optional(),
+  STRIPE_PRICE_ID_ANNUAL: z.string().min(3).optional()
 });
 
 export type Env = z.infer<typeof EnvSchema>;

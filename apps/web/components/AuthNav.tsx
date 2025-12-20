@@ -74,6 +74,11 @@ export function AuthNav() {
           <Link href={dashboardHref} className={navItem(dashboardHref)}>
             Dashboard
           </Link>
+          {role === "coach" ? (
+            <Link href="/coach/billing" className={navItem("/coach/billing")}>
+              Billing
+            </Link>
+          ) : null}
           <span className="rounded-full border border-[color:var(--border)] bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-semibold text-[color:var(--muted-2)]">
             {role}
             {displayName ? ` · ${displayName}` : ""}

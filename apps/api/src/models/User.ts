@@ -18,6 +18,8 @@ export type UserDoc = {
   lastName?: string;
   // Scaffold for Stripe later. For now, admin can toggle this manually.
   subscriptionStatus?: CoachSubscriptionStatus;
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -29,7 +31,9 @@ const UserSchema = new Schema<UserDoc>(
     role: { type: String, required: true, enum: ALL_ROLES },
     firstName: { type: String, trim: true },
     lastName: { type: String, trim: true },
-    subscriptionStatus: { type: String, enum: Object.values(COACH_SUBSCRIPTION_STATUS) }
+    subscriptionStatus: { type: String, enum: Object.values(COACH_SUBSCRIPTION_STATUS) },
+    stripeCustomerId: { type: String, trim: true, index: true },
+    stripeSubscriptionId: { type: String, trim: true, index: true }
   },
   { timestamps: true }
 );

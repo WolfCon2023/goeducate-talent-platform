@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
+
 import { Card, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
@@ -227,8 +229,16 @@ export function CoachPlayerDetail(props: { userId: string }) {
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
                 <div className="text-sm font-semibold text-white/90">Locked</div>
                 <p className="mt-1 text-sm text-white/80">
-                  Upgrade to view this player’s contact email and phone. (Billing integration coming next.)
+                  Upgrade to view this player’s contact email and phone.
                 </p>
+                <div className="mt-3">
+                  <Link
+                    href="/coach/billing"
+                    className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                  >
+                    Upgrade
+                  </Link>
+                </div>
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
