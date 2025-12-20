@@ -16,6 +16,7 @@ import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 import { EvaluationReportModel } from "../models/EvaluationReport.js";
 import { WatchlistModel } from "../models/Watchlist.js";
 import { isInviteEmailConfigured, sendInviteEmail } from "../email/invites.js";
+import nodemailer from "nodemailer";
 
 export const adminRouter = Router();
 
@@ -268,6 +269,55 @@ adminRouter.delete("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), a
 
     await user.deleteOne();
     return res.status(204).send();
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: verify SMTP configuration and (optionally) send a test email.
+adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const env = getEnv();
+    const to = String((req.body as { to?: unknown }).to ?? "").trim();
+    if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS || !env.INVITE_FROM_EMAIL) {
+      return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "SMTP is not configured" }));
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: String(env.SMTP_HOST).trim().replace(/^["']|["']$/g, ""),
+      port: Number(env.SMTP_PORT),
+      secure: env.SMTP_SECURE ?? Number(env.SMTP_PORT) === 465,
+      auth: {
+        user: String(env.SMTP_USER).trim().replace(/^["']|["']$/g, ""),
+        pass: String(env.SMTP_PASS).trim().replace(/^["']|["']$/g, "")
+      },
+      ...(env.SMTP_AUTH_METHOD ? { authMethod: env.SMTP_AUTH_METHOD } : {}),
+      tls: { minVersion: "TLSv1.2", servername: String(env.SMTP_HOST).trim().replace(/^["']|["']$/g, "") }
+    });
+
+    await transporter.verify();
+
+    if (to) {
+      await transporter.sendMail({
+        from: env.INVITE_FROM_EMAIL,
+        to,
+        subject: "GoEducate Talent – SMTP test",
+        text: "This is a test email from GoEducate Talent. SMTP configuration is working."
+      });
+    }
+
+    return res.json({
+      ok: true,
+      emailConfigured: isInviteEmailConfigured(),
+      sentTo: to || null,
+      transport: {
+        host: env.SMTP_HOST,
+        port: env.SMTP_PORT,
+        secure: env.SMTP_SECURE ?? Number(env.SMTP_PORT) === 465,
+        user: env.SMTP_USER,
+        authMethod: env.SMTP_AUTH_METHOD ?? null
+      }
+    });
   } catch (err) {
     return next(err);
   }
