@@ -8,6 +8,11 @@ import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { EvaluationReportModel } from "../models/EvaluationReport.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
+import { NotificationModel, NOTIFICATION_TYPE } from "../models/Notification.js";
+import { PlayerProfileModel } from "../models/PlayerProfile.js";
+import { WatchlistModel } from "../models/Watchlist.js";
+import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
+import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
 
 export const evaluationsRouter = Router();
 
@@ -40,6 +45,67 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
 
     film.status = FILM_SUBMISSION_STATUS.COMPLETED;
     await film.save();
+
+    // Player notification (in-app + email best-effort)
+    await NotificationModel.create({
+      userId: playerUserId,
+      type: NOTIFICATION_TYPE.EVALUATION_COMPLETED,
+      title: "Evaluation completed",
+      message: `Your evaluation is ready for "${film.title}".`,
+      href: `/player/film/${String(filmSubmissionId)}`
+    });
+
+    if (isNotificationEmailConfigured()) {
+      const playerUser = await UserModel.findById(playerUserId).lean();
+      if (playerUser?.email) {
+        void sendNotificationEmail({
+          to: playerUser.email,
+          subject: "GoEducate Talent – Evaluation completed",
+          title: "Evaluation completed",
+          message: `Your evaluation is ready for "${film.title}".`,
+          href: `/player/film/${String(filmSubmissionId)}`
+        }).catch(() => {});
+      }
+    }
+
+    // Coach watchlist notifications (subscribed coaches only)
+    const playerProfile = await PlayerProfileModel.findOne({ userId: playerUserId }).lean();
+    const playerName = playerProfile ? `${playerProfile.firstName} ${playerProfile.lastName}`.trim() : "A watchlisted player";
+
+    const watchlistItems = await WatchlistModel.find({ playerUserId }).lean();
+    const coachIds = [...new Set(watchlistItems.map((w) => String(w.coachUserId)))];
+    if (coachIds.length > 0) {
+      const coaches = await UserModel.find({ _id: { $in: coachIds }, role: ROLE.COACH }).lean();
+      const subscribed = coaches.filter((c) => c.subscriptionStatus === COACH_SUBSCRIPTION_STATUS.ACTIVE);
+
+      if (subscribed.length > 0) {
+        await NotificationModel.insertMany(
+          subscribed.map((c) => ({
+            userId: new mongoose.Types.ObjectId(String(c._id)),
+            type: NOTIFICATION_TYPE.WATCHLIST_EVAL_COMPLETED,
+            title: "New evaluation posted",
+            message: `A new evaluation was posted for ${playerName}.`,
+            href: `/coach/player/${String(playerUserId)}`
+          }))
+        );
+
+        if (isNotificationEmailConfigured()) {
+          await Promise.all(
+            subscribed
+              .filter((c) => Boolean(c.email))
+              .map((c) =>
+                sendNotificationEmail({
+                  to: c.email,
+                  subject: "GoEducate Talent – New evaluation for your watchlist",
+                  title: "New evaluation posted",
+                  message: `A new evaluation was posted for ${playerName}.`,
+                  href: `/coach/player/${String(playerUserId)}`
+                }).catch(() => {})
+              )
+          );
+        }
+      }
+    }
 
     return res.status(201).json(created);
   } catch (err) {

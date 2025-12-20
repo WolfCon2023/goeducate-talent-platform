@@ -9,6 +9,9 @@ import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { getEnv } from "../env.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
+import { NotificationModel, NOTIFICATION_TYPE } from "../models/Notification.js";
+import { UserModel } from "../models/User.js";
+import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
 
 export const filmSubmissionsRouter = Router();
 
@@ -33,6 +36,30 @@ filmSubmissionsRouter.post(
         cloudinaryPublicId: parsed.data.cloudinaryPublicId,
         status: FILM_SUBMISSION_STATUS.SUBMITTED
       });
+
+      // In-app notification for the player (best-effort).
+      await NotificationModel.create({
+        userId,
+        type: NOTIFICATION_TYPE.FILM_SUBMITTED,
+        title: "Film submitted",
+        message: `We received your submission: "${created.title}".`,
+        href: "/player/film"
+      });
+
+      // Email notification for the player (best-effort).
+      if (isNotificationEmailConfigured()) {
+        const user = await UserModel.findById(userId).lean();
+        if (user?.email) {
+          void sendNotificationEmail({
+            to: user.email,
+            subject: "GoEducate Talent – Film submitted",
+            title: "Film submitted",
+            message: `We received your submission: "${created.title}".`,
+            href: "/player/film"
+          }).catch(() => {});
+        }
+      }
+
       return res.status(201).json(created);
     } catch (err) {
       return next(err);

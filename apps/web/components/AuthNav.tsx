@@ -20,12 +20,14 @@ export function AuthNav() {
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
     const token = getAccessToken();
     const tokenRole = getTokenRole(token);
     setRole(tokenRole);
     setDisplayName(null);
+    setUnreadCount(0);
 
     async function loadMe() {
       if (!token) return;
@@ -33,11 +35,16 @@ export function AuthNav() {
         const res = await apiFetch<{ user: { role: string; displayName: string } }>("/auth/me", { token });
         setRole(res.user.role);
         setDisplayName(res.user.displayName);
+
+        // Notification badge (best-effort)
+        const unread = await apiFetch<{ count: number }>("/notifications/unread-count", { token }).catch(() => ({ count: 0 }));
+        setUnreadCount(unread.count ?? 0);
       } catch {
         // Token is invalid/expired: log out locally
         clearAccessToken();
         setRole(null);
         setDisplayName(null);
+        setUnreadCount(0);
       }
     }
 
@@ -79,6 +86,16 @@ export function AuthNav() {
               Billing
             </Link>
           ) : null}
+          <Link href="/notifications" className={navItem("/notifications")}>
+            <span className="inline-flex items-center gap-2">
+              <span>Notifications</span>
+              {unreadCount > 0 ? (
+                <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              ) : null}
+            </span>
+          </Link>
           <span className="rounded-full border border-[color:var(--border)] bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-semibold text-[color:var(--muted-2)]">
             {role}
             {displayName ? ` · ${displayName}` : ""}

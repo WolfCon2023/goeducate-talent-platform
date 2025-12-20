@@ -17,6 +17,7 @@ import { contactRouter } from "./routes/contact.js";
 import { uploadsRouter } from "./routes/uploads.js";
 import { billingRouter } from "./routes/billing.js";
 import { stripeWebhookHandler } from "./routes/stripeWebhooks.js";
+import { notificationsRouter } from "./routes/notifications.js";
 
 async function main() {
   const env = getEnv();
@@ -52,6 +53,7 @@ async function main() {
   app.use(watchlistsRouter);
   app.use(contactRouter);
   app.use(uploadsRouter);
+  app.use(notificationsRouter);
 
   app.use(errorHandler);
 
