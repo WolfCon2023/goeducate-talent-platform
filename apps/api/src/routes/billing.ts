@@ -23,7 +23,9 @@ billingRouter.get("/billing/status", requireAuth, requireRole([ROLE.COACH]), asy
     if (!isStripeConfigured(env)) {
       return res.json({
         configured: false,
-        status: COACH_SUBSCRIPTION_STATUS.INACTIVE
+        status: COACH_SUBSCRIPTION_STATUS.INACTIVE,
+        hasCustomer: false,
+        hasSubscription: false
       });
     }
 
@@ -31,7 +33,9 @@ billingRouter.get("/billing/status", requireAuth, requireRole([ROLE.COACH]), asy
     const coach = getCoachOrThrow(user);
     return res.json({
       configured: true,
-      status: coach.subscriptionStatus ?? COACH_SUBSCRIPTION_STATUS.INACTIVE
+      status: coach.subscriptionStatus ?? COACH_SUBSCRIPTION_STATUS.INACTIVE,
+      hasCustomer: Boolean(coach.stripeCustomerId),
+      hasSubscription: Boolean(coach.stripeSubscriptionId)
     });
   } catch (err) {
     return next(err);
@@ -100,9 +104,24 @@ billingRouter.post("/billing/portal", requireAuth, requireRole([ROLE.COACH]), as
     const stripe = getStripe(env);
     const user = await UserModel.findById(new mongoose.Types.ObjectId(req.user!.id));
     const coach = getCoachOrThrow(user);
+    // If coach was manually toggled active before Stripe existed, create a customer record now.
     if (!coach.stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: coach.email,
+        metadata: { userId: String(coach._id), role: ROLE.COACH }
+      });
+      coach.stripeCustomerId = customer.id;
+      await coach.save();
+    }
+
+    // Portal is only meaningful if there's a Stripe subscription.
+    if (!coach.stripeSubscriptionId) {
       return next(
-        new ApiError({ status: 409, code: "NO_CUSTOMER", message: "No Stripe customer found. Create a subscription first." })
+        new ApiError({
+          status: 409,
+          code: "NO_SUBSCRIPTION",
+          message: "No Stripe subscription found. Use Upgrade to create one first."
+        })
       );
     }
 

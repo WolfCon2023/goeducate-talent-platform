@@ -9,6 +9,8 @@ import { getAccessToken, getTokenRole } from "@/lib/auth";
 type BillingStatus = {
   configured: boolean;
   status: "active" | "inactive";
+  hasCustomer: boolean;
+  hasSubscription: boolean;
 };
 
 export function CoachBilling() {
@@ -19,6 +21,7 @@ export function CoachBilling() {
 
   const isActive = status?.status === "active";
   const configured = status?.configured ?? false;
+  const hasSubscription = status?.hasSubscription ?? false;
 
   const planLabel = useMemo(() => (plan === "annual" ? "Annual" : "Monthly"), [plan]);
 
@@ -97,12 +100,17 @@ export function CoachBilling() {
               Status: {isActive ? "Active" : "Inactive"}
             </span>
 
-            {isActive ? (
+            {isActive && hasSubscription ? (
               <Button type="button" onClick={openPortal}>
                 Manage subscription
               </Button>
             ) : (
               <>
+                {isActive && !hasSubscription ? (
+                  <span className="text-sm text-[color:var(--muted)]">
+                    Your account is active, but a Stripe subscription hasn’t been created yet. Use Upgrade to create one.
+                  </span>
+                ) : null}
                 <div className="flex items-center gap-2 rounded-2xl border border-[color:var(--border)] bg-[var(--surface-soft)] p-2">
                   <button
                     type="button"
