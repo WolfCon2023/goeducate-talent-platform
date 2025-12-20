@@ -12,6 +12,7 @@ import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 import { NotificationModel, NOTIFICATION_TYPE } from "../models/Notification.js";
 import { UserModel } from "../models/User.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
+import { PlayerProfileModel } from "../models/PlayerProfile.js";
 
 export const filmSubmissionsRouter = Router();
 
@@ -58,6 +59,40 @@ filmSubmissionsRouter.post(
             href: "/player/film"
           }).catch(() => {});
         }
+
+        // Ops + evaluator alerts (best-effort, fire-and-forget).
+        void (async () => {
+          try {
+            const env = getEnv();
+            const profile = await PlayerProfileModel.findOne({ userId }).lean();
+            const playerName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : "A player";
+
+            const evaluators = await UserModel.find({ role: ROLE.EVALUATOR }).select({ email: 1 }).lean();
+            const evaluatorEmails = evaluators.map((e) => String(e.email ?? "").trim()).filter((e) => e.includes("@"));
+
+            const opsEmails = String(env.SUBMISSION_ALERT_EMAILS ?? "info@goeducateinc.org")
+              .split(",")
+              .map((s) => s.trim())
+              .filter((s) => s.includes("@"));
+
+            const recipients = [...new Set([...evaluatorEmails, ...opsEmails])];
+            if (recipients.length === 0) return;
+
+            await Promise.all(
+              recipients.map((to) =>
+                sendNotificationEmail({
+                  to,
+                  subject: "GoEducate Talent – New film submission received",
+                  title: "New film submission received",
+                  message: `${playerName} submitted: "${created.title}".`,
+                  href: "/evaluator"
+                }).catch(() => {})
+              )
+            );
+          } catch {
+            // best-effort: ignore
+          }
+        })();
       }
 
       return res.status(201).json(created);

@@ -38,6 +38,9 @@ const EnvSchema = z.object({
   // like "GoEducate Talent <no-reply@domain.com>"
   INVITE_FROM_EMAIL: z.string().min(3).optional(),
   WEB_APP_URL: z.string().url().optional(),
+  // Optional: extra recipients for operational alerts (comma-separated).
+  // Example: "info@goeducateinc.org,ops@goeducateinc.org"
+  SUBMISSION_ALERT_EMAILS: z.string().min(3).optional(),
 
   // Stripe (optional). If set, enables coach subscriptions & billing portal.
   STRIPE_SECRET_KEY: z.string().min(10).optional(),
