@@ -67,8 +67,27 @@ filmSubmissionsRouter.post(
             const profile = await PlayerProfileModel.findOne({ userId }).lean();
             const playerName = profile ? `${profile.firstName} ${profile.lastName}`.trim() : "A player";
 
-            const evaluators = await UserModel.find({ role: ROLE.EVALUATOR }).select({ email: 1 }).lean();
+            const evaluators = await UserModel.find({ role: ROLE.EVALUATOR }).select({ _id: 1, email: 1 }).lean();
             const evaluatorEmails = evaluators.map((e) => String(e.email ?? "").trim()).filter((e) => e.includes("@"));
+
+            // In-app notifications for all evaluators + admins (so their Notifications badge isn't 0).
+            const admins = await UserModel.find({ role: ROLE.ADMIN }).select({ _id: 1 }).lean();
+            const internalIds = [
+              ...evaluators.map((e) => String(e._id)).filter(Boolean),
+              ...admins.map((a) => String(a._id)).filter(Boolean)
+            ];
+            const uniqueInternalIds = [...new Set(internalIds)].filter((id) => mongoose.isValidObjectId(id));
+            if (uniqueInternalIds.length > 0) {
+              await NotificationModel.insertMany(
+                uniqueInternalIds.map((id) => ({
+                  userId: new mongoose.Types.ObjectId(id),
+                  type: NOTIFICATION_TYPE.QUEUE_NEW_SUBMISSION,
+                  title: "New film submission received",
+                  message: `${playerName} submitted: "${created.title}".`,
+                  href: "/evaluator"
+                }))
+              );
+            }
 
             const opsEmails = String(env.SUBMISSION_ALERT_EMAILS ?? "info@goeducateinc.org")
               .split(",")

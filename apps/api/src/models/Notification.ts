@@ -2,6 +2,7 @@ import mongoose, { Schema } from "mongoose";
 
 export const NOTIFICATION_TYPE = {
   FILM_SUBMITTED: "film_submitted",
+  QUEUE_NEW_SUBMISSION: "queue_new_submission",
   EVALUATION_COMPLETED: "evaluation_completed",
   WATCHLIST_EVAL_COMPLETED: "watchlist_eval_completed"
 } as const;
