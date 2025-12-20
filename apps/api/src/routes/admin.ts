@@ -276,17 +276,25 @@ adminRouter.delete("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), a
 
 // Admin-only: verify SMTP configuration and (optionally) send a test email.
 adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  const env = getEnv();
+  const to = String((req.body as { to?: unknown }).to ?? "").trim();
+  if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS || !env.INVITE_FROM_EMAIL) {
+    return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "SMTP is not configured" }));
+  }
+
+  const host = String(env.SMTP_HOST).trim().replace(/^["']|["']$/g, "");
+  const user = String(env.SMTP_USER).trim().replace(/^["']|["']$/g, "");
+  const secure = env.SMTP_SECURE ?? Number(env.SMTP_PORT) === 465;
+
+  const transport = {
+    host,
+    port: env.SMTP_PORT,
+    secure,
+    user,
+    authMethod: env.SMTP_AUTH_METHOD ?? null
+  };
+
   try {
-    const env = getEnv();
-    const to = String((req.body as { to?: unknown }).to ?? "").trim();
-    if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS || !env.INVITE_FROM_EMAIL) {
-      return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "SMTP is not configured" }));
-    }
-
-    const host = String(env.SMTP_HOST).trim().replace(/^["']|["']$/g, "");
-    const user = String(env.SMTP_USER).trim().replace(/^["']|["']$/g, "");
-    const secure = env.SMTP_SECURE ?? Number(env.SMTP_PORT) === 465;
-
     const transporter = nodemailer.createTransport({
       host,
       port: Number(env.SMTP_PORT),
@@ -314,32 +322,27 @@ adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), as
       ok: true,
       emailConfigured: isInviteEmailConfigured(),
       sentTo: to || null,
-      transport: {
-        host,
-        port: env.SMTP_PORT,
-        secure,
-        user,
-        authMethod: env.SMTP_AUTH_METHOD ?? null
-      }
+      transport
     });
   } catch (err) {
+    // NOTE: Return 200 so PowerShell (WindowsPowerShell 5.1) prints the body without throwing.
     const e = err as any;
-    return next(
-      new ApiError({
-        status: 502,
-        code: "SMTP_ERROR",
+    return res.json({
+      ok: false,
+      emailConfigured: isInviteEmailConfigured(),
+      sentTo: to || null,
+      transport,
+      error: {
         message: e?.message ?? "SMTP error",
-        details: {
-          name: e?.name,
-          code: e?.code,
-          command: e?.command,
-          responseCode: e?.responseCode,
-          response: e?.response,
-          rejected: e?.rejected,
-          rejectedErrors: e?.rejectedErrors
-        }
-      })
-    );
+        name: e?.name,
+        code: e?.code,
+        command: e?.command,
+        responseCode: e?.responseCode,
+        response: e?.response,
+        rejected: e?.rejected,
+        rejectedErrors: e?.rejectedErrors
+      }
+    });
   }
 });
 
