@@ -220,7 +220,7 @@ export function FilmSubmissions() {
       <Card>
         <h2 className="text-lg font-semibold">Submit film</h2>
         <p className="mt-1 text-sm text-[color:var(--muted)]">
-          Add game film metadata. You can upload a video file (Cloudinary) or paste a hosted video URL.
+          Add game film metadata. You can upload a video file or paste a hosted video URL.
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
