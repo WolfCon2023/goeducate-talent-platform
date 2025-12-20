@@ -6,6 +6,7 @@ import { AdminInviteGenerator } from "@/components/AdminInviteGenerator";
 import { AdminCoachSubscriptionToggle } from "@/components/AdminCoachSubscriptionToggle";
 import { AdminUserManager } from "@/components/AdminUserManager";
 import { AdminStats } from "@/components/AdminStats";
+import { AdminNotificationQueue } from "@/components/AdminNotificationQueue";
 import { AdminGuard } from "./Guard";
 
 export default function AdminPage() {
@@ -30,6 +31,8 @@ export default function AdminPage() {
         </Card>
 
         <AdminStats />
+
+        <AdminNotificationQueue />
 
         <AdminUserManager />
 

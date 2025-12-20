@@ -15,6 +15,7 @@ import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 import { EvaluationReportModel } from "../models/EvaluationReport.js";
 import { WatchlistModel } from "../models/Watchlist.js";
+import { NotificationModel } from "../models/Notification.js";
 import { isInviteEmailConfigured, sendInviteEmail } from "../email/invites.js";
 import nodemailer from "nodemailer";
 
@@ -205,6 +206,66 @@ adminRouter.get("/admin/stats", requireAuth, requireRole([ROLE.ADMIN]), async (_
         byGrade: evaluationsByGrade
       }
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: notifications "queue" (latest notifications across all users)
+adminRouter.get("/admin/notifications", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const unreadOnly = String(req.query.unreadOnly ?? "").trim() === "1";
+    const limitRaw = Number(req.query.limit ?? 50);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
+
+    const match: any = {};
+    if (unreadOnly) match.readAt = { $exists: false };
+
+    const results = await NotificationModel.aggregate([
+      { $match: match },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "user"
+        }
+      },
+      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 1,
+          type: 1,
+          title: 1,
+          message: 1,
+          href: 1,
+          createdAt: 1,
+          readAt: 1,
+          user: { id: "$user._id", email: "$user.email", role: "$user.role" }
+        }
+      }
+    ]);
+
+    return res.json({ results });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: delete a notification by id (remove from queue)
+adminRouter.delete("/admin/notifications/:id", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Notification not found" }));
+    }
+    const _id = new mongoose.Types.ObjectId(req.params.id);
+    const deleted = await NotificationModel.deleteOne({ _id });
+    if (!deleted.deletedCount) {
+      return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Notification not found" }));
+    }
+    return res.status(204).send();
   } catch (err) {
     return next(err);
   }
