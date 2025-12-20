@@ -22,8 +22,19 @@ export async function apiFetch<T>(path: string, init?: RequestInit & { token?: s
 
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as ApiError;
-    const msg = body.error?.message ?? `Request failed: ${res.status}`;
-    throw new Error(msg);
+    const baseMsg = body.error?.message ?? `Request failed: ${res.status}`;
+    const details = body.error?.details;
+    if (details && typeof details === "object") {
+      // Common Zod flatten shape: { fieldErrors: { ... }, formErrors: [...] }
+      const maybeFieldErrors = (details as any).fieldErrors;
+      const maybeFormErrors = (details as any).formErrors;
+      const extra =
+        maybeFieldErrors || maybeFormErrors
+          ? JSON.stringify({ fieldErrors: maybeFieldErrors ?? {}, formErrors: maybeFormErrors ?? [] })
+          : JSON.stringify(details);
+      throw new Error(`${baseMsg} (${extra})`);
+    }
+    throw new Error(baseMsg);
   }
 
   // 204 No Content
