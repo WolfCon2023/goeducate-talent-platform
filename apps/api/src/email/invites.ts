@@ -44,20 +44,17 @@ export async function sendInviteEmail(input: InviteEmail) {
   // Validate sender format (allow "Name <email>" or "email").
   extractEmailAddress(env.INVITE_FROM_EMAIL);
 
-  // Normalize boolean parsing for env-provided values.
-  // 587 (STARTTLS): SMTP_SECURE=false
-  // 465 (implicit TLS): SMTP_SECURE=true
-  const smtpSecure =
-    (env as any).SMTP_SECURE === true ||
-    (env as any).SMTP_SECURE === "true" ||
-    (env as any).SMTP_SECURE === 1 ||
-    (env as any).SMTP_SECURE === "1";
-
   const transporter = nodemailer.createTransport({
-    host: String(env.SMTP_HOST).trim(),
-    port: Number(env.SMTP_PORT),
-    secure: smtpSecure, // must be a real boolean
-    auth: { user: String(env.SMTP_USER).trim(), pass: String(env.SMTP_PASS) }
+    host: env.SMTP_HOST.trim(),
+    port: env.SMTP_PORT,
+    // Use parsed boolean from env.ts; if unset, default based on port (465 => true, otherwise false).
+    secure: env.SMTP_SECURE ?? env.SMTP_PORT === 465,
+    auth: { user: env.SMTP_USER.trim(), pass: env.SMTP_PASS },
+    ...(env.SMTP_AUTH_METHOD ? { authMethod: env.SMTP_AUTH_METHOD } : {}),
+    tls: {
+      minVersion: "TLSv1.2",
+      servername: env.SMTP_HOST.trim()
+    }
   });
 
   const subject = `GoEducate Talent – You're invited (${input.role})`;
