@@ -23,6 +23,35 @@ export default function AdminPage() {
           </Link>
         </div>
 
+        <div className="sticky top-4 z-40 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)]/80 p-4 backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-semibold text-[color:var(--foreground)]">Jump to</div>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-stats">
+                Stats
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-notifications">
+                Notifications
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-users">
+                Users
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-invites">
+                Invites
+              </a>
+              <a
+                className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10"
+                href="#admin-coach-subscriptions"
+              >
+                Coach subscriptions
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-create-user">
+                Create user
+              </a>
+            </div>
+          </div>
+        </div>
+
         <Card>
           <h2 className="text-lg font-semibold">Next</h2>
           <p className="mt-2 text-sm text-white/80">
@@ -30,17 +59,29 @@ export default function AdminPage() {
           </p>
         </Card>
 
-        <AdminStats />
+        <section id="admin-stats" className="scroll-mt-28">
+          <AdminStats />
+        </section>
 
-        <AdminNotificationQueue />
+        <section id="admin-notifications" className="scroll-mt-28">
+          <AdminNotificationQueue />
+        </section>
 
-        <AdminUserManager />
+        <section id="admin-users" className="scroll-mt-28">
+          <AdminUserManager />
+        </section>
 
-        <AdminInviteGenerator />
+        <section id="admin-invites" className="scroll-mt-28">
+          <AdminInviteGenerator />
+        </section>
 
-        <AdminCoachSubscriptionToggle />
+        <section id="admin-coach-subscriptions" className="scroll-mt-28">
+          <AdminCoachSubscriptionToggle />
+        </section>
 
-        <AdminCreateUser />
+        <section id="admin-create-user" className="scroll-mt-28">
+          <AdminCreateUser />
+        </section>
       </div>
     </AdminGuard>
   );
