@@ -92,6 +92,18 @@ export function NotificationsCenter() {
     }
   }
 
+  async function markAllRead() {
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login first.");
+      await apiFetch<{ modifiedCount: number }>(`/notifications/me/read?unreadOnly=1`, { method: "PATCH", token });
+      await load();
+      window.dispatchEvent(new Event("goeducate:notifications-changed"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to mark all read");
+    }
+  }
+
   useEffect(() => {
     void load();
   }, []);
@@ -104,6 +116,14 @@ export function NotificationsCenter() {
           <p className="mt-1 text-sm text-[color:var(--muted)]">Film submissions, evaluations, and watchlist updates.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+            onClick={markAllRead}
+            disabled={loading || results.length === 0}
+          >
+            Mark all read
+          </Button>
           <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={deleteAll} disabled={loading || results.length === 0}>
             Delete all
           </Button>

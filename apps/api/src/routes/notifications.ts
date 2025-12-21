@@ -119,4 +119,24 @@ notificationsRouter.delete(
   }
 );
 
+// Authenticated: bulk mark notifications as read (all or unread-only)
+notificationsRouter.patch(
+  "/notifications/me/read",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      const userId = new mongoose.Types.ObjectId(req.user!.id);
+      const unreadOnly = String(req.query.unreadOnly ?? "").trim() === "1";
+      const query: any = { userId };
+      if (unreadOnly) query.readAt = { $exists: false };
+
+      const result = await NotificationModel.updateMany(query, { $set: { readAt: new Date() } });
+      return res.json({ modifiedCount: (result as any).modifiedCount ?? 0 });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 
