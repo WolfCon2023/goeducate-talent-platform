@@ -158,13 +158,17 @@ filmSubmissionsRouter.get(
   "/film-submissions/queue",
   requireAuth,
   requireRole([ROLE.EVALUATOR, ROLE.ADMIN]),
-  async (_req, res, next) => {
+  async (req, res, next) => {
     try {
+      const mine = String(req.query.mine ?? "").trim() === "1";
+      const evaluatorUserId = mine ? new mongoose.Types.ObjectId(req.user!.id) : null;
+
       // Include both new submissions and ones currently being worked.
       const results = await FilmSubmissionModel.aggregate([
         {
           $match: {
-            status: { $in: [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW] }
+            status: { $in: [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW] },
+            ...(mine ? { assignedEvaluatorUserId: evaluatorUserId } : {})
           }
         },
         { $sort: { createdAt: 1 } },
@@ -184,6 +188,20 @@ filmSubmissionsRouter.get(
           }
         },
         {
+          $lookup: {
+            from: "users",
+            localField: "assignedEvaluatorUserId",
+            foreignField: "_id",
+            as: "assignedEvaluator"
+          }
+        },
+        {
+          $unwind: {
+            path: "$assignedEvaluator",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
           $project: {
             _id: 1,
             userId: 1,
@@ -193,6 +211,12 @@ filmSubmissionsRouter.get(
             status: 1,
             createdAt: 1,
             updatedAt: 1,
+            assignedEvaluatorUserId: 1,
+            assignedAt: 1,
+            assignedEvaluator: {
+              _id: "$assignedEvaluator._id",
+              email: "$assignedEvaluator.email"
+            },
             playerProfile: {
               firstName: "$playerProfile.firstName",
               lastName: "$playerProfile.lastName",
@@ -205,6 +229,71 @@ filmSubmissionsRouter.get(
         }
       ]);
       return res.json({ results });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+// Evaluator/Admin: assignment controls (assign-to-me / unassign)
+filmSubmissionsRouter.patch(
+  "/film-submissions/:id/assignment",
+  requireAuth,
+  requireRole([ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) {
+        return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
+      }
+
+      const action = String((req.body as { action?: unknown }).action ?? "").trim();
+      const force = Boolean((req.body as { force?: unknown }).force);
+      if (action !== "assign_to_me" && action !== "unassign") {
+        return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid action" }));
+      }
+
+      const _id = new mongoose.Types.ObjectId(req.params.id);
+      const evaluatorUserId = new mongoose.Types.ObjectId(req.user!.id);
+      const isAdmin = req.user?.role === ROLE.ADMIN;
+
+      const film = await FilmSubmissionModel.findById(_id);
+      if (!film) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
+      if (film.status === FILM_SUBMISSION_STATUS.COMPLETED) {
+        return next(new ApiError({ status: 409, code: "CANNOT_ASSIGN", message: "Cannot assign a completed submission" }));
+      }
+
+      if (action === "assign_to_me") {
+        if (film.assignedEvaluatorUserId && String(film.assignedEvaluatorUserId) !== String(evaluatorUserId)) {
+          if (!isAdmin || !force) {
+            return next(
+              new ApiError({
+                status: 409,
+                code: "ALREADY_ASSIGNED",
+                message: "Already assigned to another evaluator"
+              })
+            );
+          }
+        }
+        film.assignedEvaluatorUserId = evaluatorUserId;
+        film.assignedAt = new Date();
+        if (film.status === FILM_SUBMISSION_STATUS.SUBMITTED) {
+          film.status = FILM_SUBMISSION_STATUS.IN_REVIEW;
+        }
+        await film.save();
+        return res.json(film);
+      }
+
+      // unassign
+      if (film.assignedEvaluatorUserId && String(film.assignedEvaluatorUserId) !== String(evaluatorUserId) && !isAdmin) {
+        return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Insufficient permissions" }));
+      }
+      film.assignedEvaluatorUserId = undefined;
+      film.assignedAt = undefined;
+      if (film.status === FILM_SUBMISSION_STATUS.IN_REVIEW) {
+        film.status = FILM_SUBMISSION_STATUS.SUBMITTED;
+      }
+      await film.save();
+      return res.json(film);
     } catch (err) {
       return next(err);
     }

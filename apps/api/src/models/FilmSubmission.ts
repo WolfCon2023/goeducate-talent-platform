@@ -11,6 +11,8 @@ export type FilmSubmissionDoc = {
   videoUrl?: string;
   cloudinaryPublicId?: string;
   status: FilmSubmissionStatus;
+  assignedEvaluatorUserId?: mongoose.Types.ObjectId;
+  assignedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -24,6 +26,8 @@ const FilmSubmissionSchema = new Schema<FilmSubmissionDoc>(
     notes: { type: String },
     videoUrl: { type: String },
     cloudinaryPublicId: { type: String },
+    assignedEvaluatorUserId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    assignedAt: { type: Date },
     status: {
       type: String,
       required: true,
@@ -35,6 +39,7 @@ const FilmSubmissionSchema = new Schema<FilmSubmissionDoc>(
 );
 
 FilmSubmissionSchema.index({ userId: 1, createdAt: -1 });
+FilmSubmissionSchema.index({ assignedEvaluatorUserId: 1, createdAt: 1 });
 
 export const FilmSubmissionModel =
   (mongoose.models.FilmSubmission as mongoose.Model<FilmSubmissionDoc> | undefined) ??

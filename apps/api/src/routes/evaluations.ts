@@ -30,6 +30,22 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
     if (!film) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
     const playerUserId = new mongoose.Types.ObjectId(String(film.userId));
 
+    // Enforce evaluator assignment:
+    // - if assigned to someone else, evaluators cannot complete it
+    // - if unassigned, auto-assign to the evaluator on first completion attempt
+    if (req.user?.role === ROLE.EVALUATOR) {
+      if (film.assignedEvaluatorUserId && String(film.assignedEvaluatorUserId) !== String(evaluatorUserId)) {
+        return next(new ApiError({ status: 409, code: "ALREADY_ASSIGNED", message: "Assigned to another evaluator" }));
+      }
+      if (!film.assignedEvaluatorUserId) {
+        film.assignedEvaluatorUserId = evaluatorUserId;
+        film.assignedAt = new Date();
+      }
+      if (film.status === FILM_SUBMISSION_STATUS.SUBMITTED) {
+        film.status = FILM_SUBMISSION_STATUS.IN_REVIEW;
+      }
+    }
+
     const existing = await EvaluationReportModel.findOne({ filmSubmissionId }).lean();
     if (existing) return next(new ApiError({ status: 409, code: "ALREADY_EXISTS", message: "Evaluation already exists" }));
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Button, Card } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
-import { getAccessToken, getTokenRole } from "@/lib/auth";
+import { getAccessToken, getTokenRole, getTokenSub } from "@/lib/auth";
 
 type FilmSubmission = {
   _id: string;
@@ -14,6 +14,9 @@ type FilmSubmission = {
   createdAt?: string;
   status: string;
   userId: string;
+  assignedEvaluatorUserId?: string;
+  assignedAt?: string;
+  assignedEvaluator?: { _id?: string; email?: string } | null;
   playerProfile?: {
     firstName?: string;
     lastName?: string;
@@ -28,6 +31,7 @@ export function EvaluatorQueue() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<FilmSubmission[]>([]);
+  const [view, setView] = useState<"all" | "mine">("all");
 
   async function load() {
     setError(null);
@@ -37,12 +41,41 @@ export function EvaluatorQueue() {
       const role = getTokenRole(token);
       if (!token) throw new Error("Please login first.");
       if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
-      const res = await apiFetch<{ results: FilmSubmission[] }>("/film-submissions/queue", { token });
+      const mine = view === "mine" ? "?mine=1" : "";
+      const res = await apiFetch<{ results: FilmSubmission[] }>(`/film-submissions/queue${mine}`, { token });
       setResults(res.results);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load queue");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function assignToMe(id: string) {
+    setError(null);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
+      await apiFetch(`/film-submissions/${id}/assignment`, { method: "PATCH", token, body: JSON.stringify({ action: "assign_to_me" }) });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to assign");
+    }
+  }
+
+  async function unassign(id: string) {
+    setError(null);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
+      await apiFetch(`/film-submissions/${id}/assignment`, { method: "PATCH", token, body: JSON.stringify({ action: "unassign" }) });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to unassign");
     }
   }
 
@@ -62,24 +95,51 @@ export function EvaluatorQueue() {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [view]);
 
   return (
     <Card>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Submitted</h2>
+          <h2 className="text-lg font-semibold">Queue</h2>
           <p className="mt-1 text-sm text-white/80">Includes submitted and in-review. Oldest first.</p>
         </div>
-        <Button type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 p-1">
+            <button
+              type="button"
+              onClick={() => setView("all")}
+              className={`rounded-xl px-3 py-1.5 text-sm ${view === "all" ? "bg-indigo-600 text-white" : "text-white/80 hover:bg-white/10"}`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("mine")}
+              className={`rounded-xl px-3 py-1.5 text-sm ${view === "mine" ? "bg-indigo-600 text-white" : "text-white/80 hover:bg-white/10"}`}
+            >
+              My queue
+            </button>
+          </div>
+          <Button type="button" onClick={load} disabled={loading}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </Button>
+        </div>
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
 
       <div className="mt-6 grid gap-3">
-        {results.map((s) => (
+        {results.map((s) => {
+          const token = getAccessToken();
+          const myId = getTokenSub(token);
+          const assignedToMe = myId && s.assignedEvaluatorUserId && String(s.assignedEvaluatorUserId) === String(myId);
+          const assignedLabel = s.assignedEvaluator?.email
+            ? `Assigned: ${s.assignedEvaluator.email}`
+            : s.assignedEvaluatorUserId
+              ? "Assigned"
+              : "Unassigned";
+          return (
           <div key={s._id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <div className="font-semibold">{s.title}</div>
@@ -90,6 +150,7 @@ export function EvaluatorQueue() {
               {s.opponent && s.gameDate ? " · " : null}
               {s.gameDate ? <>Game date: {new Date(s.gameDate).toLocaleDateString()}</> : null}
             </div>
+            <div className="mt-2 text-xs text-white/60">{assignedLabel}</div>
             <div className="mt-2 text-xs text-white/60">
               {s.playerProfile?.firstName ? (
                 <>
@@ -103,6 +164,14 @@ export function EvaluatorQueue() {
               )}
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" onClick={() => assignToMe(s._id)} disabled={loading || !!s.assignedEvaluatorUserId}>
+                Assign to me
+              </Button>
+              {assignedToMe ? (
+                <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => unassign(s._id)}>
+                  Unassign
+                </Button>
+              ) : null}
               <Button type="button" onClick={() => markInReview(s._id)} disabled={loading || s.status !== "submitted"}>
                 Mark in review
               </Button>
@@ -114,7 +183,7 @@ export function EvaluatorQueue() {
               </a>
             </div>
           </div>
-        ))}
+        )})}
         {results.length === 0 && !error ? <p className="text-sm text-white/70">No submissions in queue.</p> : null}
       </div>
     </Card>

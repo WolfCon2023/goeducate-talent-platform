@@ -28,6 +28,18 @@ export function getTokenRole(token: string | null): string | null {
   }
 }
 
+export function getTokenSub(token: string | null): string | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const payload = JSON.parse(base64UrlDecode(parts[1] ?? ""));
+    return typeof payload?.sub === "string" ? payload.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 export function setAccessToken(token: string) {
   window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, token);
 }
