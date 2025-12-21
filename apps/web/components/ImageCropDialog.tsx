@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui";
 
@@ -47,10 +48,15 @@ export function ImageCropDialog(props: {
   onCancel: () => void;
   onConfirm: (cropped: File) => void;
 }) {
+  const [mounted, setMounted] = useState(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const objectUrl = useMemo(() => URL.createObjectURL(props.file), [props.file]);
   useEffect(() => {
@@ -79,7 +85,17 @@ export function ImageCropDialog(props: {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [props]);
 
-  return (
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
       role="dialog"
@@ -134,6 +150,8 @@ export function ImageCropDialog(props: {
         </div>
       </div>
     </div>
+    ,
+    document.body
   );
 }
 

@@ -22,6 +22,7 @@ export function AuthNav() {
   const [role, setRole] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [profilePhotoBust, setProfilePhotoBust] = useState<number>(0);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
@@ -47,6 +48,7 @@ export function AuthNav() {
         setRole(res.user.role);
         setDisplayName(res.user.displayName);
         setProfilePhotoUrl(res.user.profilePhotoUrl ?? null);
+        setProfilePhotoBust(Date.now());
 
         // Notification badge (best-effort)
         await refreshUnread(token);
@@ -87,6 +89,8 @@ export function AuthNav() {
   }, [pathname]);
 
   const dashboardHref = useMemo(() => roleToDashboard(role), [role]);
+  const apiBase = useMemo(() => (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, ""), []);
+  const avatarSrc = profilePhotoUrl ? `${apiBase}${profilePhotoUrl}?v=${profilePhotoBust}` : null;
 
   function navItem(href: string) {
     const active = pathname === href || (href !== "/" && pathname?.startsWith(href));
@@ -124,14 +128,14 @@ export function AuthNav() {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- served from API static uploads; keep simple/reliable */}
                 <img
-                  src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "")}${profilePhotoUrl}`}
+                  src={avatarSrc ?? `${apiBase}${profilePhotoUrl}`}
                   alt="Profile photo"
                   className="h-8 w-8 rounded-full border border-white/10 object-cover"
                 />
               </button>
               {photoOpen ? (
                 <ImageLightbox
-                  src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "")}${profilePhotoUrl}`}
+                  src={avatarSrc ?? `${apiBase}${profilePhotoUrl}`}
                   alt="Profile photo"
                   onClose={() => setPhotoOpen(false)}
                 />

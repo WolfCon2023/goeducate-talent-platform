@@ -19,6 +19,7 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
   const [status, setStatus] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoBust, setPhotoBust] = useState<number>(0);
   const [open, setOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
 
@@ -28,7 +29,11 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
       const token = getAccessToken();
       if (!token) return;
       const res = await apiFetch<{ user: { profilePhotoUrl?: string } }>("/auth/me", { token }).catch(() => null);
-      if (!cancelled) setPhotoUrl(res?.user?.profilePhotoUrl ?? null);
+      if (!cancelled) {
+        const next = res?.user?.profilePhotoUrl ?? null;
+        setPhotoUrl(next);
+        setPhotoBust(Date.now());
+      }
     }
     void load();
 
@@ -70,12 +75,15 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
 
       setStatus("Profile photo updated.");
       setPhotoUrl(body?.profilePhotoUrl ? String(body.profilePhotoUrl) : null);
+      setPhotoBust(Date.now());
       window.dispatchEvent(new Event("goeducate:me-changed"));
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
     }
   }
+
+  const fullSrc = photoUrl ? `${getApiBaseUrl()}${photoUrl}?v=${photoBust}` : null;
 
   return (
     <Card>
@@ -97,12 +105,12 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- preview thumbnail; keep simple/reliable */}
                 <img
-                  src={`${getApiBaseUrl()}${photoUrl}`}
+                  src={fullSrc ?? `${getApiBaseUrl()}${photoUrl}`}
                   alt="Profile photo"
                   className="h-10 w-10 rounded-full border border-white/10 object-cover"
                 />
               </button>
-              {open ? <ImageLightbox src={`${getApiBaseUrl()}${photoUrl}`} alt="Profile photo" onClose={() => setOpen(false)} /> : null}
+              {open ? <ImageLightbox src={fullSrc ?? `${getApiBaseUrl()}${photoUrl}`} alt="Profile photo" onClose={() => setOpen(false)} /> : null}
             </>
           ) : null}
           <input

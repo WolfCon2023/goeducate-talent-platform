@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 export function ImageLightbox(props: { src: string; alt?: string; onClose: () => void }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") props.onClose();
@@ -11,7 +18,17 @@ export function ImageLightbox(props: { src: string; alt?: string; onClose: () =>
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [props]);
 
-  return (
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
       role="dialog"
@@ -36,6 +53,8 @@ export function ImageLightbox(props: { src: string; alt?: string; onClose: () =>
         </div>
       </div>
     </div>
+    ,
+    document.body
   );
 }
 
