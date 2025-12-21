@@ -128,11 +128,14 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
   return (
     <div className="grid gap-8">
       <div className="hidden print:block">
-        <div className="text-sm text-black">GoEd Talent</div>
-        <div className="mt-1 text-xl font-semibold text-black">Evaluation report</div>
-        <div className="mt-1 text-sm text-black/70">
-          {film?.title ? `Film: ${film.title}` : ""}
-          {report?.createdAt ? ` · Created: ${new Date(report.createdAt).toLocaleString()}` : ""}
+        <div className="flex flex-col items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element -- plain <img> renders more reliably in print/PDF */}
+          <img src="/logo.png" alt="GoEducate Talent" className="h-12 w-12" />
+          <div className="text-center text-2xl font-semibold tracking-tight text-black">GoEducate Talent Report</div>
+          <div className="text-center text-sm text-black/70">
+            {film?.title ? `Film: ${film.title}` : ""}
+            {report?.createdAt ? ` · Created: ${new Date(report.createdAt).toLocaleString()}` : ""}
+          </div>
         </div>
         <div className="mt-4 border-b border-neutral-300" />
       </div>
