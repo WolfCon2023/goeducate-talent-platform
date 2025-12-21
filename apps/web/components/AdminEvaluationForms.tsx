@@ -362,7 +362,7 @@ export function AdminEvaluationForms() {
 
                     {t.type === "select" ? (
                       <div className="mt-3 grid gap-2">
-                        <Label htmlFor={`${c.key}-${t.key}-options`}>Options (comma-separated "value:label:score")</Label>
+                        <Label htmlFor={`${c.key}-${t.key}-options`}>Options (comma-separated &quot;value:label:score&quot;)</Label>
                         <Input
                           id={`${c.key}-${t.key}-options`}
                           value={(t.options ?? [])

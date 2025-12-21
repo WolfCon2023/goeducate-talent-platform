@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button, Card } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
@@ -33,7 +33,7 @@ export function EvaluatorQueue() {
   const [results, setResults] = useState<FilmSubmission[]>([]);
   const [view, setView] = useState<"all" | "mine">("all");
 
-  async function load() {
+  const load = useCallback(async () => {
     setError(null);
     setLoading(true);
     try {
@@ -49,7 +49,7 @@ export function EvaluatorQueue() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [view]);
 
   async function assignToMe(id: string) {
     setError(null);
@@ -95,7 +95,7 @@ export function EvaluatorQueue() {
 
   useEffect(() => {
     void load();
-  }, [view]);
+  }, [load]);
 
   return (
     <Card>
