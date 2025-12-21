@@ -12,6 +12,8 @@ export const EvaluationReportSchema = z.object({
   overallGrade: z.number().int().min(1).max(10),
   rubric: EvaluationRubricResponseSchema.optional(),
   overallGradeRaw: z.number().min(1).max(10).optional(),
+  suggestedProjection: z.enum(["developmental", "solid", "high_upside", "elite_upside"]).optional(),
+  suggestedProjectionLabel: z.string().max(60).optional(),
   strengths: z.string().min(1).max(2000),
   improvements: z.string().min(1).max(2000),
   notes: z.string().max(4000).optional(),

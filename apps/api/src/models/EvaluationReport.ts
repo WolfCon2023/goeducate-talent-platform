@@ -9,6 +9,8 @@ export type EvaluationReportDoc = {
   positionOther?: string;
   overallGrade: number;
   overallGradeRaw?: number;
+  suggestedProjection?: string;
+  suggestedProjectionLabel?: string;
   rubric?: unknown;
   formId?: mongoose.Types.ObjectId;
   strengths: string;
@@ -28,6 +30,8 @@ const EvaluationReportSchema = new Schema<EvaluationReportDoc>(
     positionOther: { type: String, trim: true },
     overallGrade: { type: Number, required: true, min: 1, max: 10 },
     overallGradeRaw: { type: Number, min: 1, max: 10 },
+    suggestedProjection: { type: String, trim: true },
+    suggestedProjectionLabel: { type: String, trim: true },
     rubric: { type: Schema.Types.Mixed },
     formId: { type: Schema.Types.ObjectId, ref: "EvaluationForm", index: true },
     strengths: { type: String, required: true },

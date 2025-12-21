@@ -38,6 +38,7 @@ type EvaluationReport = {
   positionOther?: string;
   overallGrade: number;
   overallGradeRaw?: number;
+  suggestedProjectionLabel?: string;
   rubric?: {
     categories: Array<{
       key: string;
@@ -213,7 +214,9 @@ export function CoachPlayerDetail(props: { userId: string }) {
                     <div className="text-xs uppercase tracking-wide text-white/70">Average score</div>
                     <div className="mt-1 flex flex-wrap items-baseline justify-between gap-3">
                       <div className="font-semibold text-white">{r.overallGradeRaw.toFixed(1)}/10</div>
-                      <div className="text-xs text-white/70">Suggested projection: {suggestedProjectionFromAverage(r.overallGradeRaw)}</div>
+                      <div className="text-xs text-white/70">
+                        Suggested projection: {r.suggestedProjectionLabel ?? suggestedProjectionFromAverage(r.overallGradeRaw)}
+                      </div>
                     </div>
                     <div className="mt-2 relative h-2.5 w-full overflow-hidden rounded-full border border-white/10 bg-white/5">
                       <div

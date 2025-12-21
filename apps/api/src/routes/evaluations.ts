@@ -68,6 +68,13 @@ function computeGradeFromRubric(opts: {
   return { overallGradeRaw: bounded, overallGrade: rounded };
 }
 
+function suggestedProjectionFromAverage(avg: number): { key: string; label: string } {
+  if (avg >= 9) return { key: "elite_upside", label: "Elite Upside" };
+  if (avg >= 7.5) return { key: "high_upside", label: "High Upside" };
+  if (avg >= 6) return { key: "solid", label: "Solid" };
+  return { key: "developmental", label: "Developmental" };
+}
+
 export const evaluationsRouter = Router();
 
 // Evaluator/Admin: submit an evaluation report for a film submission.
@@ -105,6 +112,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
 
     let overallGrade = parsed.data.overallGrade;
     let overallGradeRaw: number | undefined = undefined;
+    let suggestedProjection: { key: string; label: string } | undefined = undefined;
     let formId: mongoose.Types.ObjectId | undefined = undefined;
 
     if (!overallGrade && parsed.data.rubric) {
@@ -115,6 +123,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
         const g = computeGradeFromRubric({ rubric: parsed.data.rubric, form });
         overallGrade = g.overallGrade;
         overallGradeRaw = g.overallGradeRaw;
+        suggestedProjection = suggestedProjectionFromAverage(overallGradeRaw);
         formId = new mongoose.Types.ObjectId(String((form as any)._id));
       } else {
         // If no form exists, still allow submission but require an explicit grade.
@@ -135,6 +144,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
       positionOther: parsed.data.positionOther,
       overallGrade,
       ...(typeof overallGradeRaw === "number" ? { overallGradeRaw } : {}),
+      ...(suggestedProjection ? { suggestedProjection: suggestedProjection.key, suggestedProjectionLabel: suggestedProjection.label } : {}),
       ...(parsed.data.rubric ? { rubric: parsed.data.rubric } : {}),
       ...(formId ? { formId } : {}),
       strengths: parsed.data.strengths,

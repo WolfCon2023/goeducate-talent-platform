@@ -26,6 +26,7 @@ type EvaluationReport = {
   positionOther?: string;
   overallGrade: number;
   overallGradeRaw?: number;
+  suggestedProjectionLabel?: string;
   rubric?: {
     categories: Array<{
       key: string;
@@ -208,7 +209,9 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
                 <div className="text-xs uppercase tracking-wide text-white/70">Average score</div>
                 <div className="mt-1 flex flex-wrap items-baseline justify-between gap-3">
                   <div className="text-2xl font-semibold">{report.overallGradeRaw.toFixed(1)}/10</div>
-                  <div className="text-sm text-white/80">Suggested projection: {suggestedProjectionFromAverage(report.overallGradeRaw)}</div>
+                  <div className="text-sm text-white/80">
+                    Suggested projection: {report.suggestedProjectionLabel ?? suggestedProjectionFromAverage(report.overallGradeRaw)}
+                  </div>
                 </div>
                 <div className="mt-3 relative h-3 w-full overflow-hidden rounded-full border border-white/10 bg-white/5">
                   <div
