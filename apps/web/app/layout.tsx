@@ -20,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <ThemeProvider>
           <ConfirmProvider>
-            <header className="sticky top-0 z-50 border-b border-[color:var(--color-border)] bg-[color:var(--color-panel)]/80 backdrop-blur">
+            <header className="sticky top-0 z-50 border-b border-[color:var(--color-border)] bg-[color:var(--color-panel)]/80 backdrop-blur print:hidden">
               <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-8">
                 <Link href="/" className="flex items-center gap-3 text-lg font-semibold tracking-tight">
                   <Image src="/logo.png" alt="GoEducate Talent" width={28} height={28} className="h-7 w-7" priority />
@@ -34,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </header>
             <main className="mx-auto max-w-7xl px-6 py-10 sm:px-8">{children}</main>
-            <footer className="border-t border-[color:var(--color-border)] py-10 text-sm text-[color:var(--color-text-muted)]">
+            <footer className="border-t border-[color:var(--color-border)] py-10 text-sm text-[color:var(--color-text-muted)] print:hidden">
               <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
                 <div>© 2025 GoEducate, Inc. All rights reserved.</div>
                 <div>Built by Wolf Consulting Group, LLC.</div>

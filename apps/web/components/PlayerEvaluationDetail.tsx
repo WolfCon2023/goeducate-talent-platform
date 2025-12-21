@@ -127,6 +127,15 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
 
   return (
     <div className="grid gap-8">
+      <div className="hidden print:block">
+        <div className="text-sm text-black">GoEd Talent</div>
+        <div className="mt-1 text-xl font-semibold text-black">Evaluation report</div>
+        <div className="mt-1 text-sm text-black/70">
+          {film?.title ? `Film: ${film.title}` : ""}
+          {report?.createdAt ? ` · Created: ${new Date(report.createdAt).toLocaleString()}` : ""}
+        </div>
+        <div className="mt-4 border-b border-neutral-300" />
+      </div>
       <div className="flex flex-wrap items-start justify-between gap-6 print:hidden">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Evaluation</h1>
