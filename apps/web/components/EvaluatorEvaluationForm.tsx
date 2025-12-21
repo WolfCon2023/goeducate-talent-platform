@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button, Card, Input, Label } from "@/components/ui";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -311,7 +311,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
     return Math.max(1, Math.min(10, Math.round(bounded)));
   }
 
-  async function loadForm(nextSport: Sport) {
+  const loadForm = useCallback(async (nextSport: Sport) => {
     setLoadingForm(true);
     try {
       const token = getAccessToken();
@@ -339,7 +339,12 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
     } finally {
       setLoadingForm(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    // Ensure the active sport form is available immediately (no need to toggle sport first).
+    void loadForm(sport);
+  }, [loadForm, sport]);
 
   async function applyTemplate() {
     setStatus(null);

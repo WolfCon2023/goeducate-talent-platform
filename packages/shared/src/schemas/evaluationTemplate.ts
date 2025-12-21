@@ -7,8 +7,9 @@ export const EvaluationTemplateSchema = z.object({
   sport: z.enum(["any", "football", "basketball", "volleyball", "soccer", "track", "other"]).default("any"),
   // Use "any" for a wildcard match across positions/events.
   position: z.string().min(1).max(60).default("any"),
-  strengthsTemplate: z.string().min(1).max(4000),
-  improvementsTemplate: z.string().min(1).max(4000),
+  // Must satisfy the evaluator report minimums (so applying a template won't immediately fail validation).
+  strengthsTemplate: z.string().min(50).max(4000),
+  improvementsTemplate: z.string().min(50).max(4000),
   notesTemplate: z.string().max(4000).optional(),
   isActive: z.boolean().default(true),
   createdAt: z.string().optional(),

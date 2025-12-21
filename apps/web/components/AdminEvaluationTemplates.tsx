@@ -48,9 +48,19 @@ export function AdminEvaluationTemplates() {
   const [improvementsTemplate, setImprovementsTemplate] = useState("");
   const [notesTemplate, setNotesTemplate] = useState("");
 
+  function countBullets(text: string) {
+    return text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("-") || l.startsWith("•")).length;
+  }
+
+  const strengthsOk = useMemo(() => strengthsTemplate.trim().length >= 50 && countBullets(strengthsTemplate) >= 2, [strengthsTemplate]);
+  const improvementsOk = useMemo(() => improvementsTemplate.trim().length >= 50 && countBullets(improvementsTemplate) >= 2, [improvementsTemplate]);
+
   const canCreate = useMemo(
-    () => title.trim() && sport.trim() && position.trim() && strengthsTemplate.trim() && improvementsTemplate.trim(),
-    [title, sport, position, strengthsTemplate, improvementsTemplate]
+    () => title.trim() && sport.trim() && position.trim() && strengthsOk && improvementsOk,
+    [title, sport, position, strengthsOk, improvementsOk]
   );
 
   async function load() {
@@ -199,6 +209,7 @@ export function AdminEvaluationTemplates() {
               onChange={(e) => setStrengthsTemplate(e.target.value)}
               placeholder="- Athleticism:\n- Technique:\n- Competitiveness:"
             />
+            {!strengthsOk ? <div className="text-xs text-amber-300">Required: at least 2 bullet points and 50+ characters.</div> : null}
           </div>
           <div className="grid gap-2 lg:col-span-1">
             <Label htmlFor="tplImprovements">Improvements template</Label>
@@ -209,6 +220,7 @@ export function AdminEvaluationTemplates() {
               onChange={(e) => setImprovementsTemplate(e.target.value)}
               placeholder="- Footwork:\n- Consistency:\n- Film study:"
             />
+            {!improvementsOk ? <div className="text-xs text-amber-300">Required: at least 2 bullet points and 50+ characters.</div> : null}
           </div>
           <div className="grid gap-2 lg:col-span-1">
             <Label htmlFor="tplNotes">Notes template (optional)</Label>

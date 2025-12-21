@@ -14,6 +14,33 @@ function norm(v: unknown) {
   return String(v ?? "").trim();
 }
 
+// Evaluator/Admin: list active templates (optional filters). Useful for a future template picker.
+evaluationTemplatesRouter.get(
+  "/evaluation-templates",
+  requireAuth,
+  requireRole([ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      const sport = norm(req.query.sport).toLowerCase();
+      const position = norm(req.query.position);
+      const q = norm(req.query.q);
+
+      const filter: any = { isActive: true };
+      if (sport) filter.sport = sport;
+      if (position) filter.position = position;
+      if (q) filter.$or = [{ title: { $regex: q, $options: "i" } }];
+
+      const results = await EvaluationTemplateModel.find(filter)
+        .sort({ updatedAt: -1 })
+        .limit(200)
+        .lean();
+      return res.json({ results });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 // Evaluator/Admin: recommend best template for a given sport/position selection.
 evaluationTemplatesRouter.get(
   "/evaluation-templates/recommend",
