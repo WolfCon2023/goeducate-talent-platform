@@ -91,7 +91,7 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
   const shareText = useMemo(() => {
     if (!film) return "";
     const lines = [
-      `GoEducate Talent Platform – Evaluation`,
+      `GoEd Talent Platform – Evaluation`,
       ``,
       `Film: ${film.title}`,
       film.opponent ? `Opponent: ${film.opponent}` : null,

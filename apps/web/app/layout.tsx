@@ -24,7 +24,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-8">
                 <Link href="/" className="flex items-center gap-3 text-lg font-semibold tracking-tight">
                   <Image src="/logo.png" alt="GoEducate Talent" width={28} height={28} className="h-7 w-7" priority />
-                  <span>GoEducate Talent</span>
+                  <span className="print:hidden">GoEducate Talent</span>
+                  <span className="hidden print:inline">GoEd Talent</span>
                 </Link>
                 <div className="flex items-center gap-3">
                   <ThemeToggle />
