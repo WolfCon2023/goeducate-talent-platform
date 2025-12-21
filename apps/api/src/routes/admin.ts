@@ -142,6 +142,98 @@ adminRouter.get("/admin/stats", requireAuth, requireRole([ROLE.ADMIN]), async (_
 
     const evaluationsTotal = await EvaluationReportModel.countDocuments();
 
+    const playersBySport = await PlayerProfileModel.aggregate([
+      {
+        $project: {
+          sport: {
+            $cond: [{ $or: [{ $eq: ["$sport", null] }, { $eq: ["$sport", ""] }] }, "unspecified", "$sport"]
+          }
+        }
+      },
+      { $group: { _id: "$sport", count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 25 },
+      { $project: { _id: 0, sport: "$_id", count: 1 } }
+    ]);
+
+    const playersByPosition = await PlayerProfileModel.aggregate([
+      {
+        $project: {
+          position: {
+            $cond: [{ $or: [{ $eq: ["$position", null] }, { $eq: ["$position", ""] }] }, "unspecified", "$position"]
+          }
+        }
+      },
+      { $group: { _id: "$position", count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 25 },
+      { $project: { _id: 0, position: "$_id", count: 1 } }
+    ]);
+
+    const submissionsBySport = await FilmSubmissionModel.aggregate([
+      {
+        $lookup: {
+          from: "playerprofiles",
+          localField: "userId",
+          foreignField: "userId",
+          as: "playerProfile"
+        }
+      },
+      { $unwind: { path: "$playerProfile", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          sport: {
+            $cond: [
+              {
+                $or: [
+                  { $eq: ["$playerProfile.sport", null] },
+                  { $eq: ["$playerProfile.sport", ""] }
+                ]
+              },
+              "unspecified",
+              "$playerProfile.sport"
+            ]
+          }
+        }
+      },
+      { $group: { _id: "$sport", count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 25 },
+      { $project: { _id: 0, sport: "$_id", count: 1 } }
+    ]);
+
+    const submissionsByPosition = await FilmSubmissionModel.aggregate([
+      {
+        $lookup: {
+          from: "playerprofiles",
+          localField: "userId",
+          foreignField: "userId",
+          as: "playerProfile"
+        }
+      },
+      { $unwind: { path: "$playerProfile", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          position: {
+            $cond: [
+              {
+                $or: [
+                  { $eq: ["$playerProfile.position", null] },
+                  { $eq: ["$playerProfile.position", ""] }
+                ]
+              },
+              "unspecified",
+              "$playerProfile.position"
+            ]
+          }
+        }
+      },
+      { $group: { _id: "$position", count: { $sum: 1 } } },
+      { $sort: { count: -1, _id: 1 } },
+      { $limit: 25 },
+      { $project: { _id: 0, position: "$_id", count: 1 } }
+    ]);
+
     // Group evaluations by overallGrade, include a few recent examples per grade.
     const evaluationsByGrade = await EvaluationReportModel.aggregate([
       { $sort: { createdAt: -1 } },
@@ -196,14 +288,168 @@ adminRouter.get("/admin/stats", requireAuth, requireRole([ROLE.ADMIN]), async (_
       { $sort: { grade: -1 } }
     ]);
 
+    const evaluationsBySportPosition = await EvaluationReportModel.aggregate([
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: "filmsubmissions",
+          localField: "filmSubmissionId",
+          foreignField: "_id",
+          as: "film"
+        }
+      },
+      { $unwind: { path: "$film", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "playerprofiles",
+          localField: "playerUserId",
+          foreignField: "userId",
+          as: "playerProfile"
+        }
+      },
+      { $unwind: { path: "$playerProfile", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          effectiveSport: {
+            $cond: [
+              { $or: [{ $eq: ["$sport", null] }, { $eq: ["$sport", ""] }] },
+              {
+                $cond: [
+                  { $or: [{ $eq: ["$playerProfile.sport", null] }, { $eq: ["$playerProfile.sport", ""] }] },
+                  "unspecified",
+                  "$playerProfile.sport"
+                ]
+              },
+              "$sport"
+            ]
+          },
+          effectivePosition: {
+            $cond: [
+              { $or: [{ $eq: ["$position", null] }, { $eq: ["$position", ""] }] },
+              {
+                $cond: [
+                  { $or: [{ $eq: ["$playerProfile.position", null] }, { $eq: ["$playerProfile.position", ""] }] },
+                  "unspecified",
+                  "$playerProfile.position"
+                ]
+              },
+              "$position"
+            ]
+          },
+          turnaroundHours: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ["$film.createdAt", null] },
+                  { $ne: ["$createdAt", null] }
+                ]
+              },
+              {
+                $divide: [{ $subtract: ["$createdAt", "$film.createdAt"] }, 1000 * 60 * 60]
+              },
+              null
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: { sport: "$effectiveSport", position: "$effectivePosition" },
+          count: { $sum: 1 },
+          avgGrade: { $avg: "$overallGrade" },
+          avgTurnaroundHours: { $avg: "$turnaroundHours" }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 50 },
+      {
+        $project: {
+          _id: 0,
+          sport: "$_id.sport",
+          position: "$_id.position",
+          count: 1,
+          avgGrade: { $round: ["$avgGrade", 2] },
+          avgTurnaroundHours: { $round: ["$avgTurnaroundHours", 2] }
+        }
+      }
+    ]);
+
+    const evaluatorPerformance = await EvaluationReportModel.aggregate([
+      {
+        $lookup: {
+          from: "filmsubmissions",
+          localField: "filmSubmissionId",
+          foreignField: "_id",
+          as: "film"
+        }
+      },
+      { $unwind: { path: "$film", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          turnaroundHours: {
+            $cond: [
+              {
+                $and: [
+                  { $ne: ["$film.createdAt", null] },
+                  { $ne: ["$createdAt", null] }
+                ]
+              },
+              {
+                $divide: [{ $subtract: ["$createdAt", "$film.createdAt"] }, 1000 * 60 * 60]
+              },
+              null
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$evaluatorUserId",
+          count: { $sum: 1 },
+          avgTurnaroundHours: { $avg: "$turnaroundHours" },
+          avgGrade: { $avg: "$overallGrade" }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 50 },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "user"
+        }
+      },
+      { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          _id: 0,
+          evaluatorUserId: "$_id",
+          count: 1,
+          avgGrade: { $round: ["$avgGrade", 2] },
+          avgTurnaroundHours: { $round: ["$avgTurnaroundHours", 2] },
+          user: { id: "$user._id", email: "$user.email", role: "$user.role", firstName: "$user.firstName", lastName: "$user.lastName" }
+        }
+      }
+    ]);
+
     return res.json({
+      players: {
+        total: await PlayerProfileModel.countDocuments(),
+        bySport: playersBySport,
+        byPosition: playersByPosition
+      },
       submissions: {
         total: submissionsTotal,
-        byStatus: submissionCounts
+        byStatus: submissionCounts,
+        bySport: submissionsBySport,
+        byPosition: submissionsByPosition
       },
       evaluations: {
         total: evaluationsTotal,
-        byGrade: evaluationsByGrade
+        byGrade: evaluationsByGrade,
+        bySportPosition: evaluationsBySportPosition,
+        evaluators: evaluatorPerformance
       }
     });
   } catch (err) {
