@@ -10,12 +10,23 @@ import { EvaluationFormModel } from "../models/EvaluationForm.js";
 
 export const evaluationFormsRouter = Router();
 
+const DEFAULT_FORM_VERSION = 2;
+
+function normalizeSport(input: unknown) {
+  const s = String(input ?? "").trim().toLowerCase();
+  return s === "football" || s === "basketball" || s === "volleyball" || s === "soccer" || s === "track" || s === "other"
+    ? s
+    : "other";
+}
+
+function isSystemDefaultForm(doc: any) {
+  // Heuristic: defaults are created by the system (no createdByUserId) and have the "Default ..." title.
+  const title = String(doc?.title ?? "");
+  return title.toLowerCase().startsWith("default ") && !doc?.createdByUserId;
+}
+
 function defaultFormForSport(sport: string) {
-  const s = String(sport).trim().toLowerCase();
-  const normalized =
-    s === "football" || s === "basketball" || s === "volleyball" || s === "soccer" || s === "track" || s === "other"
-      ? s
-      : "other";
+  const normalized = normalizeSport(sport);
 
   const LABELS: Record<
     typeof normalized,
@@ -77,7 +88,7 @@ function defaultFormForSport(sport: string) {
     title: `Default ${normalized} evaluation form`,
     sport: normalized as any,
     isActive: true,
-    version: 1,
+    version: DEFAULT_FORM_VERSION,
     strengthsPrompt:
       "Provide 2–4 strengths with specific evidence (what you saw and where). Use bullet points.\n- Strength 1 (evidence)\n- Strength 2 (evidence)",
     improvementsPrompt:
@@ -240,15 +251,38 @@ function normalizeProjectionTraits(categories: any[]) {
 // Evaluator/Admin: fetch the active form for a sport. If none exists, create a default.
 evaluationFormsRouter.get("/evaluation-forms/active", requireAuth, requireRole([ROLE.EVALUATOR, ROLE.ADMIN]), async (req, res, next) => {
   try {
-    const sport = String(req.query.sport ?? "").trim().toLowerCase();
+    const sport = normalizeSport(req.query.sport);
     if (!sport) return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "sport is required" }));
 
     const existing = await EvaluationFormModel.findOne({ sport, isActive: true }).sort({ updatedAt: -1 }).lean();
     if (existing) {
       const cats = Array.isArray((existing as any).categories) ? ((existing as any).categories as any[]) : [];
       const norm = normalizeProjectionTraits(cats);
+
+      // If this is an older system default form, upgrade it to the latest sport-specific rubric.
+      const existingVersion = Number((existing as any).version ?? 1);
+      const shouldUpgradeDefault = isSystemDefaultForm(existing) && existingVersion < DEFAULT_FORM_VERSION;
+      if (shouldUpgradeDefault) {
+        const def = defaultFormForSport(sport);
+        const updated = await EvaluationFormModel.findByIdAndUpdate(
+          (existing as any)._id,
+          {
+            $set: {
+              title: def.title,
+              version: def.version,
+              strengthsPrompt: def.strengthsPrompt,
+              improvementsPrompt: def.improvementsPrompt,
+              notesHelp: def.notesHelp,
+              categories: def.categories
+            }
+          },
+          { new: true }
+        ).lean();
+        return res.json(updated ?? def);
+      }
+
       if (norm.changed) {
-        // Best-effort: persist normalization so all clients see the updated definition.
+        // Best-effort: persist projection normalization so all clients see the updated definition.
         const updated = await EvaluationFormModel.findByIdAndUpdate(
           (existing as any)._id,
           { $set: { categories: norm.next } },
@@ -256,6 +290,7 @@ evaluationFormsRouter.get("/evaluation-forms/active", requireAuth, requireRole([
         ).lean();
         return res.json(updated ?? { ...(existing as any), categories: norm.next });
       }
+
       return res.json(existing);
     }
 
