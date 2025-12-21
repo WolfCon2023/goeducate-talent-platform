@@ -763,28 +763,3 @@ adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), as
   }
 });
 
-// Admin-only: set a coach subscription status (scaffold for Stripe later)
-adminRouter.patch("/admin/coaches/:userId/subscription", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
-  const status = String((req.body as { status?: unknown }).status ?? "").trim();
-  if (status !== COACH_SUBSCRIPTION_STATUS.ACTIVE && status !== COACH_SUBSCRIPTION_STATUS.INACTIVE) {
-    return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid status" }));
-  }
-  try {
-    const key = String(req.params.userId ?? "").trim();
-    const user = mongoose.isValidObjectId(key)
-      ? await UserModel.findById(key)
-      : await UserModel.findOne({ email: key.toLowerCase() });
-    if (!user) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
-    if (user.role !== ROLE.COACH) {
-      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "User is not a coach" }));
-    }
-    user.subscriptionStatus = status as any;
-    await user.save();
-    return res.json({ user: { id: String(user._id), email: user.email, role: user.role, subscriptionStatus: user.subscriptionStatus } });
-  } catch (err) {
-    return next(err);
-  }
-});
-
-
-
