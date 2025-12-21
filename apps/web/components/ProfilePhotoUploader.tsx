@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Button, Card } from "@/components/ui";
+import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
+import { ImageLightbox } from "@/components/ImageLightbox";
 
 function getApiBaseUrl() {
   const url = process.env.NEXT_PUBLIC_API_URL;
@@ -15,6 +17,26 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const token = getAccessToken();
+      if (!token) return;
+      const res = await apiFetch<{ user: { profilePhotoUrl?: string } }>("/auth/me", { token }).catch(() => null);
+      if (!cancelled) setPhotoUrl(res?.user?.profilePhotoUrl ?? null);
+    }
+    void load();
+
+    const onMeChanged = () => void load();
+    window.addEventListener("goeducate:me-changed", onMeChanged);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("goeducate:me-changed", onMeChanged);
+    };
+  }, []);
 
   async function upload(file: File) {
     setStatus(null);
@@ -45,6 +67,7 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
       }
 
       setStatus("Profile photo updated.");
+      setPhotoUrl(body?.profilePhotoUrl ? String(body.profilePhotoUrl) : null);
       window.dispatchEvent(new Event("goeducate:me-changed"));
     } finally {
       setUploading(false);
@@ -61,6 +84,25 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
           {status ? <div className="mt-2 text-sm text-white/80">{status}</div> : null}
         </div>
         <div className="flex items-center gap-2">
+          {photoUrl ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setOpen(true)}
+                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                aria-label="View profile photo"
+                title="Click to enlarge"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- preview thumbnail; keep simple/reliable */}
+                <img
+                  src={`${getApiBaseUrl()}${photoUrl}`}
+                  alt="Profile photo"
+                  className="h-10 w-10 rounded-full border border-white/10 object-cover"
+                />
+              </button>
+              {open ? <ImageLightbox src={`${getApiBaseUrl()}${photoUrl}`} alt="Profile photo" onClose={() => setOpen(false)} /> : null}
+            </>
+          ) : null}
           <input
             ref={inputRef}
             type="file"

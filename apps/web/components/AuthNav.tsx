@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { apiFetch } from "@/lib/api";
 import { clearAccessToken, getAccessToken, getTokenRole } from "@/lib/auth";
+import { ImageLightbox } from "@/components/ImageLightbox";
 
 function roleToDashboard(role: string | null) {
   if (role === "player") return "/player";
@@ -21,6 +22,7 @@ export function AuthNav() {
   const [role, setRole] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
@@ -112,12 +114,29 @@ export function AuthNav() {
       {role ? (
         <>
           {profilePhotoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- served from API static uploads; keep simple/reliable
-            <img
-              src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "")}${profilePhotoUrl}`}
-              alt="Profile photo"
-              className="h-8 w-8 rounded-full border border-white/10 object-cover"
-            />
+            <>
+              <button
+                type="button"
+                onClick={() => setPhotoOpen(true)}
+                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                aria-label="View profile photo"
+                title="Click to enlarge"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- served from API static uploads; keep simple/reliable */}
+                <img
+                  src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "")}${profilePhotoUrl}`}
+                  alt="Profile photo"
+                  className="h-8 w-8 rounded-full border border-white/10 object-cover"
+                />
+              </button>
+              {photoOpen ? (
+                <ImageLightbox
+                  src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "")}${profilePhotoUrl}`}
+                  alt="Profile photo"
+                  onClose={() => setPhotoOpen(false)}
+                />
+              ) : null}
+            </>
           ) : null}
           <Link href={dashboardHref} className={navItem(dashboardHref)}>
             Dashboard
