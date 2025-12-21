@@ -21,6 +21,9 @@ type FilmSubmission = {
 type EvaluationReport = {
   _id: string;
   filmSubmissionId: string;
+  sport?: string;
+  position?: string;
+  positionOther?: string;
   overallGrade: number;
   strengths: string;
   improvements: string;
@@ -171,6 +174,16 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
 
         {report ? (
           <div className="mt-5 grid gap-5 text-sm text-white/90">
+            {report.sport || report.position || report.positionOther ? (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs uppercase tracking-wide text-white/70">Sport / Position</div>
+                <div className="mt-1 text-sm text-white/90">
+                  {report.sport ? report.sport : "—"}
+                  {" · "}
+                  {report.position === "Other" ? report.positionOther ?? "Other" : report.position ?? "—"}
+                </div>
+              </div>
+            ) : null}
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="text-xs uppercase tracking-wide text-white/70">Overall grade</div>
               <div className="mt-1 text-2xl font-semibold">{report.overallGrade}/10</div>

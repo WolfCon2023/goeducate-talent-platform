@@ -6,6 +6,169 @@ import { Button, Card, Input, Label } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 
+type Sport = "football" | "basketball" | "volleyball" | "soccer" | "track" | "other";
+
+const POSITIONS_BY_SPORT: Record<Exclude<Sport, "other">, string[]> = {
+  football: [
+    "Quarterback (QB)",
+    "Running Back (RB)",
+    "Fullback (FB)",
+    "Wide Receiver (WR)",
+    "Tight End (TE)",
+    "Center (C)",
+    "Guard (G)",
+    "Tackle (T)",
+    "Defensive Tackle (DT)",
+    "Defensive End (DE)",
+    "Linebacker (LB)",
+    "Inside Linebacker (ILB)",
+    "Outside Linebacker (OLB)",
+    "Cornerback (CB)",
+    "Free Safety (FS)",
+    "Strong Safety (SS)",
+    "Kicker (K)",
+    "Punter (P)",
+    "Long Snapper (LS)",
+    "Return Specialist (KR/PR)"
+  ],
+  basketball: ["Point Guard (PG)", "Shooting Guard (SG)", "Small Forward (SF)", "Power Forward (PF)", "Center (C)", "Combo Guard", "Wing", "Forward"],
+  volleyball: ["Outside Hitter", "Opposite Hitter", "Middle Blocker", "Setter", "Libero", "Defensive Specialist"],
+  soccer: [
+    "Goalkeeper",
+    "Center Back",
+    "Left Back",
+    "Right Back",
+    "Wing Back",
+    "Defensive Midfielder",
+    "Central Midfielder",
+    "Attacking Midfielder",
+    "Winger",
+    "Forward",
+    "Striker"
+  ],
+  track: [
+    "100m",
+    "200m",
+    "400m",
+    "800m",
+    "1500m",
+    "Mile",
+    "3000m",
+    "5000m",
+    "10000m",
+    "110m Hurdles",
+    "100m Hurdles",
+    "400m Hurdles",
+    "4x100m Relay",
+    "4x400m Relay",
+    "Long Jump",
+    "Triple Jump",
+    "High Jump",
+    "Pole Vault",
+    "Shot Put",
+    "Discus",
+    "Javelin",
+    "Hammer Throw",
+    "Decathlon",
+    "Heptathlon"
+  ]
+};
+
+function sportLabel(s: Sport) {
+  if (s === "football") return "Football";
+  if (s === "basketball") return "Basketball";
+  if (s === "volleyball") return "Volleyball";
+  if (s === "soccer") return "Soccer";
+  if (s === "track") return "Track";
+  return "Other";
+}
+
+function templateFor(sport: Sport, position: string, positionOther: string) {
+  const pos = position === "Other" || sport === "other" ? positionOther || "Other" : position;
+
+  const strengthsBase = [
+    `- Athleticism / movement quality:`,
+    `- Competitiveness / motor:`,
+    `- Coachability indicators (effort, response to adversity):`,
+    `- Play recognition / decision-making (where applicable):`
+  ].join("\n");
+
+  const improvementsBase = [
+    `- Technique fundamentals to improve:`,
+    `- Consistency (rep-to-rep execution):`,
+    `- Physical development (strength, speed, mobility) goals:`,
+    `- Film study focus / situational awareness:`
+  ].join("\n");
+
+  // Sport-specific guidance (kept concise but high-signal).
+  const sportNotes: Record<Sport, { s: string; i: string }> = {
+    football: {
+      s: `- Football-specific: pad level, leverage, hand placement, contact balance, play speed.`,
+      i: `- Football-specific: footwork, block/strike timing, route/coverage discipline, tackling/ball skills.`
+    },
+    basketball: {
+      s: `- Basketball-specific: handle under pressure, spacing, off-ball movement, finishing/shot profile.`,
+      i: `- Basketball-specific: shot mechanics consistency, defensive stance/closeouts, decision speed.`
+    },
+    volleyball: {
+      s: `- Volleyball-specific: approach timing, verticality, arm swing, serve/receive fundamentals.`,
+      i: `- Volleyball-specific: footwork patterns, reading hitters/blocks, serve pressure, transition speed.`
+    },
+    soccer: {
+      s: `- Soccer-specific: first touch, scanning, passing weight, defensive positioning, transition speed.`,
+      i: `- Soccer-specific: weak-foot development, decision speed, pressing angles, endurance/pace management.`
+    },
+    track: {
+      s: `- Track-specific: mechanics (posture, knee drive), rhythm, acceleration, competitive execution.`,
+      i: `- Track-specific: technical cues, starts/turns/hurdles (as applicable), strength & mobility plan.`
+    },
+    other: { s: `- Sport-specific strengths:`, i: `- Sport-specific improvements:` }
+  };
+
+  const posHints: Record<string, { s: string; i: string }> = {
+    "Quarterback (QB)": {
+      s: `- QB: pocket movement, progression speed, accuracy layers, decision-making under pressure.`,
+      i: `- QB: footwork timing, release consistency, pre/post-snap reads, anticipation throws.`
+    },
+    "Wide Receiver (WR)": {
+      s: `- WR: releases, separation, hands, body control, yards-after-catch.`,
+      i: `- WR: route tempo, leverage, finishing through contact, blocking effort.`
+    },
+    "Running Back (RB)": {
+      s: `- RB: vision, burst, contact balance, pass pro willingness, receiving.`,
+      i: `- RB: pad level, cut efficiency, blitz pickup technique, ball security.`
+    },
+    "Linebacker (LB)": {
+      s: `- LB: keys/read, downhill trigger, tackling, pursuit angles, communication.`,
+      i: `- LB: coverage drops, block shedding, leverage in run fits, play-action discipline.`
+    },
+    "Point Guard (PG)": {
+      s: `- PG: pace control, passing vision, handle, POA defense, leadership.`,
+      i: `- PG: decision speed vs pressure, finishing package, pull-up consistency.`
+    },
+    "Center (C)": {
+      s: `- C: rim protection/rebounding, screens, paint presence, interior finishing.`,
+      i: `- C: footwork on defense, hands, free throws, conditioning/mobility.`
+    },
+    Goalkeeper: {
+      s: `- GK: positioning, shot-stopping, command of box, distribution.`,
+      i: `- GK: footwork, decision speed on crosses, communication, angles.`
+    },
+    "100m": {
+      s: `- Sprint: start reaction, acceleration posture, top-end mechanics.`,
+      i: `- Sprint: block setup, shin angles, relaxation at speed, strength plan.`
+    }
+  };
+
+  const hint = posHints[pos] ?? { s: "", i: "" };
+
+  return {
+    strengths: [strengthsBase, sportNotes[sport].s, hint.s].filter(Boolean).join("\n"),
+    improvements: [improvementsBase, sportNotes[sport].i, hint.i].filter(Boolean).join("\n"),
+    notes: `Sport: ${sportLabel(sport)}\nPosition/Event: ${pos}`.trim()
+  };
+}
+
 type FilmSubmission = {
   _id: string;
   userId: string;
@@ -29,6 +192,9 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
   const [strengths, setStrengths] = useState("");
   const [improvements, setImprovements] = useState("");
   const [notes, setNotes] = useState("");
+  const [sport, setSport] = useState<Sport>("football");
+  const [position, setPosition] = useState<string>("Other");
+  const [positionOther, setPositionOther] = useState<string>("");
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -37,6 +203,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
   const [loadingMeta, setLoadingMeta] = useState(false);
 
   const canSubmit = useMemo(() => !!film?.userId && strengths.trim() && improvements.trim(), [film, strengths, improvements]);
+  const positions = useMemo(() => (sport === "other" ? [] : POSITIONS_BY_SPORT[sport]), [sport]);
 
   async function loadMeta() {
     setStatus(null);
@@ -74,6 +241,9 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
         token,
         body: JSON.stringify({
           filmSubmissionId: props.filmSubmissionId,
+          sport,
+          position: sport === "other" ? "Other" : position,
+          positionOther: sport === "other" || position === "Other" ? (positionOther || undefined) : undefined,
           overallGrade,
           strengths,
           improvements,
@@ -115,6 +285,84 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
       </div>
 
       <div className="mt-6 grid gap-4">
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="sport">Sport</Label>
+            <select
+              id="sport"
+              className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+              value={sport}
+              onChange={(e) => {
+                const next = e.target.value as Sport;
+                setSport(next);
+                setPosition("Other");
+                setPositionOther("");
+              }}
+            >
+              <option value="football">Football</option>
+              <option value="basketball">Basketball</option>
+              <option value="volleyball">Volleyball</option>
+              <option value="soccer">Soccer</option>
+              <option value="track">Track</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="position">Position / Event</Label>
+            {sport === "other" ? (
+              <Input
+                id="position"
+                value={positionOther}
+                onChange={(e) => setPositionOther(e.target.value)}
+                placeholder="Enter position/event..."
+              />
+            ) : (
+              <select
+                id="position"
+                className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                value={position}
+                onChange={(e) => {
+                  setPosition(e.target.value);
+                  if (e.target.value !== "Other") setPositionOther("");
+                }}
+              >
+                {positions.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+                <option value="Other">Other</option>
+              </select>
+            )}
+            {sport !== "other" && position === "Other" ? (
+              <Input
+                id="positionOther"
+                value={positionOther}
+                onChange={(e) => setPositionOther(e.target.value)}
+                placeholder="Enter position/event..."
+              />
+            ) : null}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+            onClick={() => {
+              const t = templateFor(sport, position, positionOther);
+              // Only auto-fill if empty to avoid nuking manual work.
+              if (!strengths.trim()) setStrengths(t.strengths);
+              if (!improvements.trim()) setImprovements(t.improvements);
+              if (!notes.trim()) setNotes((p) => (p.trim() ? p : t.notes));
+              setStatus("Template applied.");
+            }}
+          >
+            Apply template
+          </Button>
+          <span className="text-xs text-white/60">Applies a rubric starter for the selected sport/position.</span>
+        </div>
+
         <div className="grid gap-2">
           <Label htmlFor="grade">Overall grade (1-10)</Label>
           <Input

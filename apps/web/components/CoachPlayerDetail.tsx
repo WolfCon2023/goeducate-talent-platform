@@ -33,6 +33,9 @@ type FilmSubmission = {
 type EvaluationReport = {
   _id: string;
   filmSubmissionId: string;
+  sport?: string;
+  position?: string;
+  positionOther?: string;
   overallGrade: number;
   strengths: string;
   improvements: string;
@@ -183,6 +186,13 @@ export function CoachPlayerDetail(props: { userId: string }) {
                 <div className="font-semibold">Grade: {r.overallGrade}/10</div>
                 <div className="text-xs text-white/60">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</div>
               </div>
+              {r.sport || r.position || r.positionOther ? (
+                <div className="mt-2 text-sm text-white/80">
+                  {r.sport ? `Sport: ${r.sport}` : "Sport: —"}
+                  {" · "}
+                  {r.position === "Other" ? `Position: ${r.positionOther ?? "Other"}` : r.position ? `Position: ${r.position}` : "Position: —"}
+                </div>
+              ) : null}
               <div className="mt-3 grid gap-3 text-sm text-white/90">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-white/70">Strengths</div>

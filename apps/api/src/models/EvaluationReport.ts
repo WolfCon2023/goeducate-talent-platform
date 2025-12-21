@@ -4,6 +4,9 @@ export type EvaluationReportDoc = {
   filmSubmissionId: mongoose.Types.ObjectId;
   playerUserId: mongoose.Types.ObjectId;
   evaluatorUserId: mongoose.Types.ObjectId;
+  sport?: string;
+  position?: string;
+  positionOther?: string;
   overallGrade: number;
   strengths: string;
   improvements: string;
@@ -17,6 +20,9 @@ const EvaluationReportSchema = new Schema<EvaluationReportDoc>(
     filmSubmissionId: { type: Schema.Types.ObjectId, ref: "FilmSubmission", required: true, unique: true, index: true },
     playerUserId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     evaluatorUserId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    sport: { type: String, trim: true },
+    position: { type: String, trim: true },
+    positionOther: { type: String, trim: true },
     overallGrade: { type: Number, required: true, min: 1, max: 10 },
     strengths: { type: String, required: true },
     improvements: { type: String, required: true },
