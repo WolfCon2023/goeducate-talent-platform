@@ -648,7 +648,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                           </div>
                           {isProjectionTraitKey(t.key) ? (
                             <div className="text-xs text-white/70">
-                              Auto: {suggestedProjectionFromAverage(overallAvg).label} · {Math.round(overallAvg)}/10
+                              {suggestedProjectionFromAverage(overallAvg).label} · {Math.round(overallAvg)}/10
                             </div>
                           ) : t.type === "slider" ? (
                             <div className="text-xs text-white/70">
@@ -663,7 +663,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                         </div>
                         {isProjectionTraitKey(t.key) ? (
                           <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90">
-                            Auto: <span className="font-semibold">{suggestedProjectionFromAverage(overallAvg).label}</span>{" "}
+                            <span className="font-semibold">{suggestedProjectionFromAverage(overallAvg).label}</span>{" "}
                             <span className="text-white/70">({Math.round(overallAvg)}/10)</span>
                           </div>
                         ) : t.type === "slider" ? (
