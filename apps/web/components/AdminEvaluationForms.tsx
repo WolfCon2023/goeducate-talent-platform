@@ -74,6 +74,7 @@ function defaultBuilderForm(sport: Sport): Omit<FormDef, "_id"> {
         key: "projection",
         label: "Projection",
         type: "slider",
+        required: false,
         min: 1,
         max: 10,
         step: 1

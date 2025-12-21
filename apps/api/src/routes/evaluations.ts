@@ -41,6 +41,8 @@ function computeGradeFromRubric(opts: {
     const scores: number[] = [];
     for (const tDef of traitsDef) {
       const tKey = String(tDef.key);
+      // Projection is derived from the overall average and should not influence scoring.
+      if (tKey.toLowerCase().includes("projection")) continue;
       const tResp = traitsByKey.get(tKey);
       if (!tResp) continue;
 

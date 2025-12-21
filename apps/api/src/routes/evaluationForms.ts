@@ -137,7 +137,7 @@ function defaultFormForSport(sport: string) {
             key: "intangibles_projection",
             label: "Projection",
             type: "slider",
-            required: true,
+            required: false,
             min: 1,
             max: 10,
             step: 1,

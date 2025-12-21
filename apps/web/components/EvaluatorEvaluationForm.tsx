@@ -215,6 +215,10 @@ function suggestedProjectionFromAverage(avg: number) {
   return { label: "Developmental", blurb: "Needs growth. Focus on 2–3 priority traits to raise the ceiling." };
 }
 
+function isProjectionTraitKey(key: string) {
+  return key.toLowerCase().includes("projection");
+}
+
 type EvaluationFormDef = {
   _id: string;
   title: string;
@@ -275,6 +279,8 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
     if (!formDef) return false;
     for (const c of formDef.categories) {
       for (const t of c.traits) {
+        // Projection is auto-derived from the average score; evaluators should not manually set it.
+        if (isProjectionTraitKey(t.key)) continue;
         const req = t.required !== false;
         if (!req) continue;
         const v = rubric[t.key];
@@ -305,6 +311,8 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
     for (const c of categories) {
       const scores: number[] = [];
       for (const t of c.traits) {
+        // Projection is derived; it should not influence the average score.
+        if (isProjectionTraitKey(t.key)) continue;
         const v = values[t.key];
         if (!v) continue;
         if (t.type === "select") {
@@ -327,6 +335,18 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
     return { avg: bounded, grade: rounded };
   }
 
+  function withAutoProjection(def: EvaluationFormDef, draft: Record<string, { n?: number; o?: string }>, avg: number) {
+    const n = Math.max(1, Math.min(10, Math.round(avg)));
+    const next = { ...draft };
+    for (const c of def.categories) {
+      for (const t of c.traits) {
+        if (!isProjectionTraitKey(t.key)) continue;
+        next[t.key] = { ...(next[t.key] ?? {}), n };
+      }
+    }
+    return next;
+  }
+
   const loadForm = useCallback(async (nextSport: Sport) => {
     setLoadingForm(true);
     try {
@@ -347,8 +367,9 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           }
         }
       }
-      setRubric(init);
       const sc = computeScoreLocal(res, init);
+      const initWithProj = withAutoProjection(res, init, sc.avg);
+      setRubric(initWithProj);
       setOverallAvg(sc.avg);
       setOverallGrade(sc.grade);
     } catch (err) {
@@ -637,26 +658,34 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                           )}
                         </div>
                         {t.type === "slider" ? (
-                          <select
-                            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                            value={String(rubric[t.key]?.n ?? 5)}
-                            onChange={(e) => {
-                              const n = Number(e.target.value);
-                              setRubric((prev) => {
-                                const next = { ...prev, [t.key]: { ...(prev[t.key] ?? {}), n } };
-                                const sc = computeScoreLocal(formDef, next);
-                                setOverallAvg(sc.avg);
-                                setOverallGrade(sc.grade);
-                                return next;
-                              });
-                            }}
-                          >
-                            {Array.from({ length: (t.max ?? 10) - (t.min ?? 1) + 1 }, (_, i) => (t.min ?? 1) + i).map((n) => (
-                              <option key={n} value={String(n)}>
-                                {n}
-                              </option>
-                            ))}
-                          </select>
+                          isProjectionTraitKey(t.key) ? (
+                            <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90">
+                              Auto: <span className="font-semibold">{projectionLabelFromNumber(Math.round(overallAvg))}</span>{" "}
+                              <span className="text-white/70">({Math.round(overallAvg)}/10)</span>
+                            </div>
+                          ) : (
+                            <select
+                              className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                              value={String(rubric[t.key]?.n ?? 5)}
+                              onChange={(e) => {
+                                const n = Number(e.target.value);
+                                setRubric((prev) => {
+                                  const draft = { ...prev, [t.key]: { ...(prev[t.key] ?? {}), n } };
+                                  const sc = computeScoreLocal(formDef, draft);
+                                  const next = withAutoProjection(formDef, draft, sc.avg);
+                                  setOverallAvg(sc.avg);
+                                  setOverallGrade(sc.grade);
+                                  return next;
+                                });
+                              }}
+                            >
+                              {Array.from({ length: (t.max ?? 10) - (t.min ?? 1) + 1 }, (_, i) => (t.min ?? 1) + i).map((n) => (
+                                <option key={n} value={String(n)}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
+                          )
                         ) : (
                           <select
                             className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
@@ -664,8 +693,9 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                             onChange={(e) => {
                               const o = e.target.value;
                               setRubric((prev) => {
-                                const next = { ...prev, [t.key]: { ...(prev[t.key] ?? {}), o } };
-                                const sc = computeScoreLocal(formDef, next);
+                                const draft = { ...prev, [t.key]: { ...(prev[t.key] ?? {}), o } };
+                                const sc = computeScoreLocal(formDef, draft);
+                                const next = withAutoProjection(formDef, draft, sc.avg);
                                 setOverallAvg(sc.avg);
                                 setOverallGrade(sc.grade);
                                 return next;
