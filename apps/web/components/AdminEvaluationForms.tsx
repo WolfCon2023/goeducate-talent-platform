@@ -73,13 +73,10 @@ function defaultBuilderForm(sport: Sport): Omit<FormDef, "_id"> {
       {
         key: "projection",
         label: "Projection",
-        type: "select",
-        options: [
-          { value: "developmental", label: "Developmental", score: 4 },
-          { value: "solid", label: "Solid", score: 6 },
-          { value: "high", label: "High upside", score: 8 },
-          { value: "elite", label: "Elite upside", score: 10 }
-        ]
+        type: "slider",
+        min: 1,
+        max: 10,
+        step: 1
       }
     ]
   };

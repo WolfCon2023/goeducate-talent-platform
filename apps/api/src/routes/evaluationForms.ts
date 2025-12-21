@@ -136,14 +136,12 @@ function defaultFormForSport(sport: string) {
           {
             key: "intangibles_projection",
             label: "Projection",
-            type: "select",
+            type: "slider",
             required: true,
-            options: [
-              { value: "developmental", label: "Developmental", score: 4 },
-              { value: "solid", label: "Solid", score: 6 },
-              { value: "high", label: "High upside", score: 8 },
-              { value: "elite", label: "Elite upside", score: 10 }
-            ]
+            min: 1,
+            max: 10,
+            step: 1,
+            description: "1–4 Developmental · 5–6 Solid · 7–8 High Upside · 9–10 Elite Upside"
           }
         ]
       }

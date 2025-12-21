@@ -201,6 +201,13 @@ type RecommendedTemplateResponse = {
   };
 };
 
+function projectionLabelFromNumber(n: number) {
+  if (n >= 9) return "Elite Upside";
+  if (n >= 7) return "High Upside";
+  if (n >= 5) return "Solid";
+  return "Developmental";
+}
+
 type EvaluationFormDef = {
   _id: string;
   title: string;
@@ -565,18 +572,20 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                             {t.label} {t.required === false ? <span className="text-white/60">(optional)</span> : null}
                           </div>
                           {t.type === "slider" ? (
-                            <div className="text-xs text-white/70">Score: {rubric[t.key]?.n ?? "—"}</div>
+                            <div className="text-xs text-white/70">
+                              Score: {rubric[t.key]?.n ?? "—"}
+                              {typeof rubric[t.key]?.n === "number" && t.key.toLowerCase().includes("projection")
+                                ? ` · ${projectionLabelFromNumber(rubric[t.key]!.n!)}`
+                                : ""}
+                            </div>
                           ) : (
                             <div className="text-xs text-white/70">Selected: {rubric[t.key]?.o ?? "—"}</div>
                           )}
                         </div>
                         {t.type === "slider" ? (
-                          <input
-                            type="range"
-                            min={t.min ?? 1}
-                            max={t.max ?? 10}
-                            step={t.step ?? 1}
-                            value={rubric[t.key]?.n ?? 5}
+                          <select
+                            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                            value={String(rubric[t.key]?.n ?? 5)}
                             onChange={(e) => {
                               const n = Number(e.target.value);
                               setRubric((prev) => {
@@ -585,7 +594,13 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                                 return next;
                               });
                             }}
-                          />
+                          >
+                            {Array.from({ length: (t.max ?? 10) - (t.min ?? 1) + 1 }, (_, i) => (t.min ?? 1) + i).map((n) => (
+                              <option key={n} value={String(n)}>
+                                {n}
+                              </option>
+                            ))}
+                          </select>
                         ) : (
                           <select
                             className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
@@ -636,8 +651,9 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
             min={1}
             max={10}
             value={overallGrade}
-            onChange={(e) => setOverallGrade(Number(e.target.value))}
+            disabled
           />
+          <div className="text-xs text-white/60">Auto-calculated from rubric scores above.</div>
         </div>
         <div className="grid gap-2">
           <Label htmlFor="strengths">Strengths</Label>
