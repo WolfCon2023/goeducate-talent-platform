@@ -82,13 +82,54 @@ playerProfilesRouter.get(
   requireRole([ROLE.COACH, ROLE.ADMIN, ROLE.EVALUATOR]),
   async (req, res, next) => {
     try {
-      const { position, gradYear, state, city, q } = req.query as Record<string, string | undefined>;
+      const {
+        sport,
+        position,
+        state,
+        city,
+        q,
+        gradYearMin,
+        gradYearMax,
+        heightInMin,
+        heightInMax,
+        weightLbMin,
+        weightLbMax,
+        sort
+      } = req.query as Record<string, string | undefined>;
+
       const filter: Record<string, unknown> = {};
 
+      if (sport) filter.sport = sport;
       if (position) filter.position = position;
       if (state) filter.state = state;
       if (city) filter.city = city;
-      if (gradYear) filter.gradYear = Number(gradYear);
+
+      const gyMin = gradYearMin ? Number(gradYearMin) : undefined;
+      const gyMax = gradYearMax ? Number(gradYearMax) : undefined;
+      if (Number.isFinite(gyMin) || Number.isFinite(gyMax)) {
+        filter.gradYear = {
+          ...(Number.isFinite(gyMin) ? { $gte: gyMin } : {}),
+          ...(Number.isFinite(gyMax) ? { $lte: gyMax } : {})
+        };
+      }
+
+      const hMin = heightInMin ? Number(heightInMin) : undefined;
+      const hMax = heightInMax ? Number(heightInMax) : undefined;
+      if (Number.isFinite(hMin) || Number.isFinite(hMax)) {
+        filter.heightIn = {
+          ...(Number.isFinite(hMin) ? { $gte: hMin } : {}),
+          ...(Number.isFinite(hMax) ? { $lte: hMax } : {})
+        };
+      }
+
+      const wMin = weightLbMin ? Number(weightLbMin) : undefined;
+      const wMax = weightLbMax ? Number(weightLbMax) : undefined;
+      if (Number.isFinite(wMin) || Number.isFinite(wMax)) {
+        filter.weightLb = {
+          ...(Number.isFinite(wMin) ? { $gte: wMin } : {}),
+          ...(Number.isFinite(wMax) ? { $lte: wMax } : {})
+        };
+      }
 
       if (q) {
         filter.$or = [
@@ -97,7 +138,19 @@ playerProfilesRouter.get(
         ];
       }
 
-      const results = await PlayerProfileModel.find(filter).limit(50).lean();
+      const sortKey = String(sort ?? "").trim();
+      const sortSpec: Record<string, 1 | -1> =
+        sortKey === "gradYear_asc"
+          ? { gradYear: 1, lastName: 1, firstName: 1 }
+          : sortKey === "gradYear_desc"
+            ? { gradYear: -1, lastName: 1, firstName: 1 }
+            : sortKey === "lastName_asc"
+              ? { lastName: 1, firstName: 1 }
+              : sortKey === "updated_desc"
+                ? { updatedAt: -1 }
+                : { updatedAt: -1 };
+
+      const results = await PlayerProfileModel.find(filter).sort(sortSpec).limit(50).lean();
       return res.json({ results });
     } catch (err) {
       return next(err);
