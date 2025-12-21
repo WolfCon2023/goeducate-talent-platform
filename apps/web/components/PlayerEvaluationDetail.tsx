@@ -25,6 +25,7 @@ type EvaluationReport = {
   position?: string;
   positionOther?: string;
   overallGrade: number;
+  overallGradeRaw?: number;
   rubric?: {
     categories: Array<{
       key: string;
@@ -36,6 +37,13 @@ type EvaluationReport = {
   notes?: string;
   createdAt?: string;
 };
+
+function suggestedProjectionFromAverage(avg: number) {
+  if (avg >= 9) return "Elite Upside";
+  if (avg >= 7.5) return "High Upside";
+  if (avg >= 6) return "Solid";
+  return "Developmental";
+}
 
 export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
   const filmSubmissionId = props.filmSubmissionId;
@@ -194,6 +202,30 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
               <div className="text-xs uppercase tracking-wide text-white/70">Overall grade</div>
               <div className="mt-1 text-2xl font-semibold">{report.overallGrade}/10</div>
             </div>
+
+            {typeof report.overallGradeRaw === "number" ? (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs uppercase tracking-wide text-white/70">Average score</div>
+                <div className="mt-1 flex flex-wrap items-baseline justify-between gap-3">
+                  <div className="text-2xl font-semibold">{report.overallGradeRaw.toFixed(1)}/10</div>
+                  <div className="text-sm text-white/80">Suggested projection: {suggestedProjectionFromAverage(report.overallGradeRaw)}</div>
+                </div>
+                <div className="mt-3 relative h-3 w-full overflow-hidden rounded-full border border-white/10 bg-white/5">
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, rgba(239,68,68,.85) 0%, rgba(245,158,11,.85) 35%, rgba(99,102,241,.9) 70%, rgba(16,185,129,.9) 100%)"
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 h-full w-1 rounded-full bg-white"
+                    style={{ left: `${Math.max(0, Math.min(100, ((report.overallGradeRaw - 1) / 9) * 100))}%` }}
+                    aria-hidden
+                  />
+                </div>
+              </div>
+            ) : null}
 
             {report.rubric?.categories?.length ? (
               <div className="rounded-2xl border border-white/10 bg-white/5 p-4">

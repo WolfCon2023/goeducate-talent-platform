@@ -208,6 +208,13 @@ function projectionLabelFromNumber(n: number) {
   return "Developmental";
 }
 
+function suggestedProjectionFromAverage(avg: number) {
+  if (avg >= 9) return { label: "Elite Upside", blurb: "Rare ceiling. Impact potential with strong translatable traits." };
+  if (avg >= 7.5) return { label: "High Upside", blurb: "Strong ceiling. Multiple high-end traits; development unlocks next level." };
+  if (avg >= 6) return { label: "Solid", blurb: "Reliable projection. Clear role with room for targeted growth." };
+  return { label: "Developmental", blurb: "Needs growth. Focus on 2–3 priority traits to raise the ceiling." };
+}
+
 type EvaluationFormDef = {
   _id: string;
   title: string;
@@ -236,6 +243,7 @@ type EvaluationFormDef = {
 export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
   const confirm = useConfirm();
   const [overallGrade, setOverallGrade] = useState(7);
+  const [overallAvg, setOverallAvg] = useState<number>(7);
   const [strengths, setStrengths] = useState("");
   const [improvements, setImprovements] = useState("");
   const [notes, setNotes] = useState("");
@@ -287,7 +295,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
   );
   const positions = useMemo(() => (sport === "other" ? [] : POSITIONS_BY_SPORT[sport]), [sport]);
 
-  function computeGradeLocal(def: EvaluationFormDef, values: Record<string, { n?: number; o?: string }>) {
+  function computeScoreLocal(def: EvaluationFormDef, values: Record<string, { n?: number; o?: string }>) {
     const categories = def.categories;
     const weightSum = categories.reduce((a, c) => a + (Number(c.weight) || 0), 0) || 100;
 
@@ -315,7 +323,8 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
 
     const raw = totalWeight > 0 ? total / totalWeight : 7;
     const bounded = Math.max(1, Math.min(10, raw));
-    return Math.max(1, Math.min(10, Math.round(bounded)));
+    const rounded = Math.max(1, Math.min(10, Math.round(bounded)));
+    return { avg: bounded, grade: rounded };
   }
 
   const loadForm = useCallback(async (nextSport: Sport) => {
@@ -339,7 +348,9 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
         }
       }
       setRubric(init);
-      setOverallGrade(computeGradeLocal(res, init));
+      const sc = computeScoreLocal(res, init);
+      setOverallAvg(sc.avg);
+      setOverallGrade(sc.grade);
     } catch (err) {
       setFormDef(null);
       setStatus(err instanceof Error ? err.message : "Failed to load evaluation form");
@@ -436,7 +447,6 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           sport,
           position: sport === "other" ? "Other" : position,
           positionOther: sport === "other" || position === "Other" ? (positionOther || undefined) : undefined,
-          overallGrade,
           rubric: {
             formId: formDef._id,
             categories: formDef.categories.map((c) => ({
@@ -557,6 +567,50 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                 Overall grade (auto): <span className="font-semibold text-white">{overallGrade}/10</span>
               </div>
             </div>
+
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="text-sm font-semibold text-white">Average score</div>
+                <div className="text-sm text-white/80">
+                  <span className="font-semibold text-white">{overallAvg.toFixed(1)}</span>/10
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="relative h-3 w-full overflow-hidden rounded-full border border-white/10 bg-white/5">
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        "linear-gradient(90deg, rgba(239,68,68,.85) 0%, rgba(245,158,11,.85) 35%, rgba(99,102,241,.9) 70%, rgba(16,185,129,.9) 100%)"
+                    }}
+                  />
+                  <div
+                    className="absolute top-0 h-full w-1 rounded-full bg-white"
+                    style={{ left: `${Math.max(0, Math.min(100, ((overallAvg - 1) / 9) * 100))}%` }}
+                    aria-hidden
+                  />
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-white/60">
+                  <span>1</span>
+                  <span>4</span>
+                  <span>6</span>
+                  <span>8</span>
+                  <span>10</span>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3">
+                {(() => {
+                  const s = suggestedProjectionFromAverage(overallAvg);
+                  return (
+                    <div className="text-sm text-white/90">
+                      <div className="font-semibold text-white">Suggested projection: {s.label}</div>
+                      <div className="mt-1 text-xs text-white/70">{s.blurb}</div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
             <div className="mt-4 grid gap-4">
               {formDef.categories.map((c) => (
                 <div key={c.key} className="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -590,7 +644,9 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                               const n = Number(e.target.value);
                               setRubric((prev) => {
                                 const next = { ...prev, [t.key]: { ...(prev[t.key] ?? {}), n } };
-                                setOverallGrade(computeGradeLocal(formDef, next));
+                                const sc = computeScoreLocal(formDef, next);
+                                setOverallAvg(sc.avg);
+                                setOverallGrade(sc.grade);
                                 return next;
                               });
                             }}
@@ -609,7 +665,9 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                               const o = e.target.value;
                               setRubric((prev) => {
                                 const next = { ...prev, [t.key]: { ...(prev[t.key] ?? {}), o } };
-                                setOverallGrade(computeGradeLocal(formDef, next));
+                                const sc = computeScoreLocal(formDef, next);
+                                setOverallAvg(sc.avg);
+                                setOverallGrade(sc.grade);
                                 return next;
                               });
                             }}
