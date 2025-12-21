@@ -4,6 +4,7 @@ export type PlayerProfileDoc = {
   userId: mongoose.Types.ObjectId;
   firstName: string;
   lastName: string;
+  sport?: string;
   position: string;
   gradYear: number;
   state: string;
@@ -22,6 +23,7 @@ const PlayerProfileSchema = new Schema<PlayerProfileDoc>(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true, index: true },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },
+    sport: { type: String, trim: true },
     position: { type: String, required: true, trim: true },
     gradYear: { type: Number, required: true },
     state: { type: String, required: true, trim: true },

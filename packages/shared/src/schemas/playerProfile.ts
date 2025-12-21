@@ -5,6 +5,7 @@ export const PlayerProfileSchema = z.object({
   userId: z.string().min(1),
   firstName: z.string().min(1).max(60),
   lastName: z.string().min(1).max(60),
+  sport: z.enum(["football", "basketball", "volleyball", "soccer", "track", "other"]).optional(),
   position: z.string().min(1).max(30),
   gradYear: z.number().int().min(2020).max(2040),
   state: z.string().min(2).max(30),

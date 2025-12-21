@@ -6,9 +6,87 @@ import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 
+type Sport = "football" | "basketball" | "volleyball" | "soccer" | "track" | "other";
+
+const POSITIONS_BY_SPORT: Record<Exclude<Sport, "other">, string[]> = {
+  football: [
+    "Quarterback (QB)",
+    "Running Back (RB)",
+    "Fullback (FB)",
+    "Wide Receiver (WR)",
+    "Tight End (TE)",
+    "Center (C)",
+    "Guard (G)",
+    "Tackle (T)",
+    "Defensive Tackle (DT)",
+    "Defensive End (DE)",
+    "Linebacker (LB)",
+    "Inside Linebacker (ILB)",
+    "Outside Linebacker (OLB)",
+    "Cornerback (CB)",
+    "Free Safety (FS)",
+    "Strong Safety (SS)",
+    "Kicker (K)",
+    "Punter (P)",
+    "Long Snapper (LS)",
+    "Return Specialist (KR/PR)"
+  ],
+  basketball: ["Point Guard (PG)", "Shooting Guard (SG)", "Small Forward (SF)", "Power Forward (PF)", "Center (C)", "Combo Guard", "Wing", "Forward"],
+  volleyball: ["Outside Hitter", "Opposite Hitter", "Middle Blocker", "Setter", "Libero", "Defensive Specialist"],
+  soccer: [
+    "Goalkeeper",
+    "Center Back",
+    "Left Back",
+    "Right Back",
+    "Wing Back",
+    "Defensive Midfielder",
+    "Central Midfielder",
+    "Attacking Midfielder",
+    "Winger",
+    "Forward",
+    "Striker"
+  ],
+  track: [
+    "100m",
+    "200m",
+    "400m",
+    "800m",
+    "1500m",
+    "Mile",
+    "3000m",
+    "5000m",
+    "10000m",
+    "110m Hurdles",
+    "100m Hurdles",
+    "400m Hurdles",
+    "4x100m Relay",
+    "4x400m Relay",
+    "Long Jump",
+    "Triple Jump",
+    "High Jump",
+    "Pole Vault",
+    "Shot Put",
+    "Discus",
+    "Javelin",
+    "Hammer Throw",
+    "Decathlon",
+    "Heptathlon"
+  ]
+};
+
+function inferSportFromPosition(pos: string): Sport | null {
+  const trimmed = (pos ?? "").trim();
+  if (!trimmed) return null;
+  for (const sport of Object.keys(POSITIONS_BY_SPORT) as Array<Exclude<Sport, "other">>) {
+    if (POSITIONS_BY_SPORT[sport].includes(trimmed)) return sport;
+  }
+  return null;
+}
+
 type Profile = {
   firstName: string;
   lastName: string;
+  sport?: Sport;
   position: string;
   gradYear: number;
   state: string;
@@ -25,6 +103,7 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
   const [form, setForm] = useState<Profile>({
     firstName: props.initial?.firstName ?? "",
     lastName: props.initial?.lastName ?? "",
+    sport: props.initial?.sport,
     position: props.initial?.position ?? "",
     gradYear: props.initial?.gradYear ?? new Date().getFullYear(),
     state: props.initial?.state ?? "",
@@ -34,6 +113,17 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
     contactEmail: props.initial?.contactEmail,
     contactPhone: props.initial?.contactPhone,
     hudlLink: props.initial?.hudlLink
+  });
+  const [positionChoice, setPositionChoice] = useState<string>(() => {
+    const pos = props.initial?.position ?? "";
+    const inferred = inferSportFromPosition(pos);
+    if (inferred) return pos;
+    return "Other";
+  });
+  const [positionOther, setPositionOther] = useState<string>(() => {
+    const pos = props.initial?.position ?? "";
+    const inferred = inferSportFromPosition(pos);
+    return inferred ? "" : pos;
   });
   const [heightFt, setHeightFt] = useState<number | undefined>(() =>
     typeof props.initial?.heightIn === "number" ? Math.floor(props.initial.heightIn / 12) : undefined
@@ -62,6 +152,7 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
           ...p,
           firstName: res.firstName ?? "",
           lastName: res.lastName ?? "",
+          sport: (res as any).sport,
           position: res.position ?? "",
           gradYear: res.gradYear ?? p.gradYear,
           state: res.state ?? "",
@@ -72,6 +163,22 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
           contactPhone: res.contactPhone,
           hudlLink: res.hudlLink
         }));
+        const inferred = inferSportFromPosition(res.position ?? "");
+        const nextSport = ((res as any).sport as Sport | undefined) ?? inferred ?? undefined;
+        setForm((p) => ({ ...p, sport: nextSport }));
+        if (nextSport && nextSport !== "other") {
+          const list = POSITIONS_BY_SPORT[nextSport];
+          if (list.includes(res.position ?? "")) {
+            setPositionChoice(res.position ?? "");
+            setPositionOther("");
+          } else {
+            setPositionChoice("Other");
+            setPositionOther(res.position ?? "");
+          }
+        } else {
+          setPositionChoice("Other");
+          setPositionOther(res.position ?? "");
+        }
         setHeightFt(typeof res.heightIn === "number" ? Math.floor(res.heightIn / 12) : undefined);
         setHeightInPart(typeof res.heightIn === "number" ? res.heightIn % 12 : undefined);
       } catch (err) {
@@ -110,11 +217,14 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
       const role = getTokenRole(token);
       if (role && role !== "player") throw new Error("This page is only available to player accounts.");
       const heightIn = computeHeightIn(heightFt, heightInPart);
+      const finalPosition = positionChoice === "Other" ? positionOther.trim() : positionChoice;
+      if (!finalPosition) throw new Error("Position/Event is required.");
       await apiFetch("/player-profiles/me", {
         method: "PUT",
         token,
         body: JSON.stringify({
           ...form,
+          position: finalPosition,
           gradYear: Number(form.gradYear),
           heightIn,
           weightLb: form.weightLb ? Number(form.weightLb) : undefined
@@ -152,8 +262,61 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
           <Input id="lastName" value={form.lastName} onChange={(e) => set("lastName", e.target.value)} />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="position">Position</Label>
-          <Input id="position" value={form.position} onChange={(e) => set("position", e.target.value)} />
+          <Label htmlFor="sport">Sport</Label>
+          <select
+            id="sport"
+            className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+            value={form.sport ?? "football"}
+            onChange={(e) => {
+              const next = e.target.value as Sport;
+              set("sport", next);
+              setPositionChoice("Other");
+              setPositionOther("");
+            }}
+          >
+            <option value="football">Football</option>
+            <option value="basketball">Basketball</option>
+            <option value="volleyball">Volleyball</option>
+            <option value="soccer">Soccer</option>
+            <option value="track">Track</option>
+            <option value="other">Other (enter manually)</option>
+          </select>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="position">Position / Event</Label>
+          {form.sport === "other" ? (
+            <Input
+              id="position"
+              value={positionOther}
+              onChange={(e) => setPositionOther(e.target.value)}
+              placeholder="Other (enter manually)"
+            />
+          ) : (
+            <select
+              id="position"
+              className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+              value={positionChoice}
+              onChange={(e) => {
+                setPositionChoice(e.target.value);
+                if (e.target.value !== "Other") setPositionOther("");
+              }}
+            >
+              {(POSITIONS_BY_SPORT[(form.sport ?? "football") as Exclude<Sport, "other">] ?? []).map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+              <option value="Other">Other (enter manually)</option>
+            </select>
+          )}
+          {form.sport !== "other" && positionChoice === "Other" ? (
+            <Input
+              id="positionOther"
+              value={positionOther}
+              onChange={(e) => setPositionOther(e.target.value)}
+              placeholder="Other (enter manually)"
+            />
+          ) : null}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="gradYear">Graduation year</Label>
