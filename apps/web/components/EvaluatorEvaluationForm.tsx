@@ -646,7 +646,11 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                           <div className="text-sm text-white/90">
                             {t.label} {t.required === false ? <span className="text-white/60">(optional)</span> : null}
                           </div>
-                          {t.type === "slider" ? (
+                          {isProjectionTraitKey(t.key) ? (
+                            <div className="text-xs text-white/70">
+                              Auto: {suggestedProjectionFromAverage(overallAvg).label} · {Math.round(overallAvg)}/10
+                            </div>
+                          ) : t.type === "slider" ? (
                             <div className="text-xs text-white/70">
                               Score: {rubric[t.key]?.n ?? "—"}
                               {typeof rubric[t.key]?.n === "number" && t.key.toLowerCase().includes("projection")
@@ -657,13 +661,12 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                             <div className="text-xs text-white/70">Selected: {rubric[t.key]?.o ?? "—"}</div>
                           )}
                         </div>
-                        {t.type === "slider" ? (
-                          isProjectionTraitKey(t.key) ? (
-                            <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90">
-                              Auto: <span className="font-semibold">{projectionLabelFromNumber(Math.round(overallAvg))}</span>{" "}
-                              <span className="text-white/70">({Math.round(overallAvg)}/10)</span>
-                            </div>
-                          ) : (
+                        {isProjectionTraitKey(t.key) ? (
+                          <div className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90">
+                            Auto: <span className="font-semibold">{suggestedProjectionFromAverage(overallAvg).label}</span>{" "}
+                            <span className="text-white/70">({Math.round(overallAvg)}/10)</span>
+                          </div>
+                        ) : t.type === "slider" ? (
                             <select
                               className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                               value={String(rubric[t.key]?.n ?? 5)}
@@ -685,7 +688,6 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                                 </option>
                               ))}
                             </select>
-                          )
                         ) : (
                           <select
                             className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"

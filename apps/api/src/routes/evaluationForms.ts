@@ -156,6 +156,31 @@ function defaultFormForSport(sport: string) {
   return parsed.data;
 }
 
+function normalizeProjectionTraits(categories: any[]) {
+  let changed = false;
+  const next = categories.map((c) => {
+    const traits = Array.isArray(c?.traits) ? c.traits : [];
+    const nextTraits = traits.map((t: any) => {
+      const key = String(t?.key ?? "");
+      if (!key.toLowerCase().includes("projection")) return t;
+      // Convert any projection trait to a non-required numeric score field.
+      changed = changed || t.type !== "slider" || t.required !== false;
+      return {
+        ...t,
+        type: "slider",
+        required: false,
+        min: 1,
+        max: 10,
+        step: 1,
+        options: undefined,
+        description: t.description ?? "1–4 Developmental · 5–6 Solid · 7–8 High Upside · 9–10 Elite Upside"
+      };
+    });
+    return { ...c, traits: nextTraits };
+  });
+  return { next, changed };
+}
+
 // Evaluator/Admin: fetch the active form for a sport. If none exists, create a default.
 evaluationFormsRouter.get("/evaluation-forms/active", requireAuth, requireRole([ROLE.EVALUATOR, ROLE.ADMIN]), async (req, res, next) => {
   try {
@@ -163,7 +188,20 @@ evaluationFormsRouter.get("/evaluation-forms/active", requireAuth, requireRole([
     if (!sport) return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "sport is required" }));
 
     const existing = await EvaluationFormModel.findOne({ sport, isActive: true }).sort({ updatedAt: -1 }).lean();
-    if (existing) return res.json(existing);
+    if (existing) {
+      const cats = Array.isArray((existing as any).categories) ? ((existing as any).categories as any[]) : [];
+      const norm = normalizeProjectionTraits(cats);
+      if (norm.changed) {
+        // Best-effort: persist normalization so all clients see the updated definition.
+        const updated = await EvaluationFormModel.findByIdAndUpdate(
+          (existing as any)._id,
+          { $set: { categories: norm.next } },
+          { new: true }
+        ).lean();
+        return res.json(updated ?? { ...(existing as any), categories: norm.next });
+      }
+      return res.json(existing);
+    }
 
     const def = defaultFormForSport(sport);
     const created = await EvaluationFormModel.create({
