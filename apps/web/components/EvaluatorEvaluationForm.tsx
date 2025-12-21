@@ -304,7 +304,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
               <option value="volleyball">Volleyball</option>
               <option value="soccer">Soccer</option>
               <option value="track">Track</option>
-              <option value="other">Other</option>
+              <option value="other">Other (enter manually)</option>
             </select>
           </div>
           <div className="grid gap-2">
@@ -331,7 +331,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                     {p}
                   </option>
                 ))}
-                <option value="Other">Other</option>
+                <option value="Other">Other (enter manually)</option>
               </select>
             )}
             {sport !== "other" && position === "Other" ? (
