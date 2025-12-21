@@ -6,6 +6,7 @@ import { Button, Card } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { ImageLightbox } from "@/components/ImageLightbox";
+import { ImageCropDialog } from "@/components/ImageCropDialog";
 
 function getApiBaseUrl() {
   const url = process.env.NEXT_PUBLIC_API_URL;
@@ -19,6 +20,7 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
   const [uploading, setUploading] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,7 +112,7 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) void upload(f);
+              if (f) setPendingFile(f);
             }}
           />
           <Button
@@ -122,6 +124,19 @@ export function ProfilePhotoUploader(props: { title?: string; help?: string }) {
           </Button>
         </div>
       </div>
+      {pendingFile ? (
+        <ImageCropDialog
+          file={pendingFile}
+          onCancel={() => {
+            setPendingFile(null);
+            if (inputRef.current) inputRef.current.value = "";
+          }}
+          onConfirm={(cropped) => {
+            setPendingFile(null);
+            void upload(cropped);
+          }}
+        />
+      ) : null}
     </Card>
   );
 }

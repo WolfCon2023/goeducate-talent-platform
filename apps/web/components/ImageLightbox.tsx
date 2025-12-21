@@ -20,7 +20,7 @@ export function ImageLightbox(props: { src: string; alt?: string; onClose: () =>
         if (e.currentTarget === e.target) props.onClose();
       }}
     >
-      <div className="w-full max-w-3xl">
+      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col">
         <div className="mb-3 flex items-center justify-end">
           <button
             type="button"
@@ -30,9 +30,9 @@ export function ImageLightbox(props: { src: string; alt?: string; onClose: () =>
             Close
           </button>
         </div>
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+        <div className="min-h-0 overflow-auto rounded-2xl border border-white/10 bg-white/5 p-2">
           {/* eslint-disable-next-line @next/next/no-img-element -- modal display; keep simple/reliable */}
-          <img src={props.src} alt={props.alt ?? "Image"} className="h-auto w-full object-contain" />
+          <img src={props.src} alt={props.alt ?? "Image"} className="mx-auto max-h-[82vh] w-auto max-w-full object-contain" />
         </div>
       </div>
     </div>
