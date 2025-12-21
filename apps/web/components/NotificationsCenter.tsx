@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { useConfirm } from "@/components/ConfirmDialog";
 import { Button, Card } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
@@ -17,6 +18,7 @@ type Notification = {
 };
 
 export function NotificationsCenter() {
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Notification[]>([]);
@@ -45,6 +47,27 @@ export function NotificationsCenter() {
       window.dispatchEvent(new Event("goeducate:notifications-changed"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to mark read");
+    }
+  }
+
+  async function remove(id: string) {
+    const ok = await confirm({
+      title: "Delete notification?",
+      message: "Delete this notification? This cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      destructive: true
+    });
+    if (!ok) return;
+
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login first.");
+      await apiFetch(`/notifications/${id}`, { method: "DELETE", token });
+      await load();
+      window.dispatchEvent(new Event("goeducate:notifications-changed"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete");
     }
   }
 
@@ -107,6 +130,9 @@ export function NotificationsCenter() {
                       Mark read
                     </Button>
                   ) : null}
+                  <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => remove(n._id)}>
+                    Delete
+                  </Button>
                 </div>
               </div>
             </div>

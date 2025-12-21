@@ -75,4 +75,28 @@ notificationsRouter.patch(
   }
 );
 
+// Authenticated: delete one of your notifications
+notificationsRouter.delete(
+  "/notifications/:id",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.id)) {
+        return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Notification not found" }));
+      }
+      const _id = new mongoose.Types.ObjectId(req.params.id);
+      const userId = new mongoose.Types.ObjectId(req.user!.id);
+
+      const deleted = await NotificationModel.deleteOne({ _id, userId });
+      if (!deleted.deletedCount) {
+        return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Notification not found" }));
+      }
+      return res.status(204).send();
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 
