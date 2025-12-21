@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { Button, Card, Input, Label } from "@/components/ui";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 
@@ -187,7 +188,21 @@ type PlayerProfile = {
   state: string;
 };
 
+type RecommendedTemplateResponse = {
+  match: string;
+  template: {
+    _id: string;
+    title: string;
+    sport: string;
+    position: string;
+    strengthsTemplate: string;
+    improvementsTemplate: string;
+    notesTemplate?: string;
+  };
+};
+
 export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
+  const confirm = useConfirm();
   const [overallGrade, setOverallGrade] = useState(7);
   const [strengths, setStrengths] = useState("");
   const [improvements, setImprovements] = useState("");
@@ -204,6 +219,49 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
 
   const canSubmit = useMemo(() => !!film?.userId && strengths.trim() && improvements.trim(), [film, strengths, improvements]);
   const positions = useMemo(() => (sport === "other" ? [] : POSITIONS_BY_SPORT[sport]), [sport]);
+
+  async function applyTemplate() {
+    setStatus(null);
+    let allowReplace = true;
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
+
+      const hasExisting = Boolean(strengths.trim() || improvements.trim() || notes.trim());
+      allowReplace = !hasExisting;
+      if (hasExisting) {
+        const ok = await confirm({
+          title: "Apply template?",
+          message: "This will replace your current text in Strengths, Improvements, and Notes.",
+          confirmText: "Apply",
+          destructive: true
+        });
+        if (!ok) return;
+        allowReplace = true;
+      }
+
+      const params = new URLSearchParams();
+      params.set("sport", sport);
+      params.set("position", sport === "other" ? "Other" : position);
+      if (positionOther.trim()) params.set("positionOther", positionOther.trim());
+
+      const rec = await apiFetch<RecommendedTemplateResponse>(`/evaluation-templates/recommend?${params.toString()}`, { token });
+
+      if (allowReplace || !strengths.trim()) setStrengths(rec.template.strengthsTemplate);
+      if (allowReplace || !improvements.trim()) setImprovements(rec.template.improvementsTemplate);
+      if (allowReplace || !notes.trim()) setNotes(rec.template.notesTemplate ?? `Template: ${rec.template.title}`);
+      setStatus(`Template applied (${rec.match}).`);
+    } catch (err) {
+      // Fallback to the built-in starter if the API has no templates yet.
+      const t = templateFor(sport, position, positionOther);
+      if (allowReplace || !strengths.trim()) setStrengths(t.strengths);
+      if (allowReplace || !improvements.trim()) setImprovements(t.improvements);
+      if (allowReplace || !notes.trim()) setNotes((p) => (p.trim() ? p : t.notes));
+      setStatus("Template applied (built-in).");
+    }
+  }
 
   async function loadMeta() {
     setStatus(null);
@@ -349,18 +407,11 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           <Button
             type="button"
             className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
-            onClick={() => {
-              const t = templateFor(sport, position, positionOther);
-              // Only auto-fill if empty to avoid nuking manual work.
-              if (!strengths.trim()) setStrengths(t.strengths);
-              if (!improvements.trim()) setImprovements(t.improvements);
-              if (!notes.trim()) setNotes((p) => (p.trim() ? p : t.notes));
-              setStatus("Template applied.");
-            }}
+            onClick={applyTemplate}
           >
             Apply template
           </Button>
-          <span className="text-xs text-white/60">Applies a rubric starter for the selected sport/position.</span>
+          <span className="text-xs text-white/60">Pulls the best admin template for the selected sport/position (fallback included).</span>
         </div>
 
         <div className="grid gap-2">
