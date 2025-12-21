@@ -7,6 +7,7 @@ import { AdminUserManager } from "@/components/AdminUserManager";
 import { AdminStats } from "@/components/AdminStats";
 import { AdminNotificationQueue } from "@/components/AdminNotificationQueue";
 import { AdminEvaluationTemplates } from "@/components/AdminEvaluationTemplates";
+import { AdminEvaluationForms } from "@/components/AdminEvaluationForms";
 import { AdminGuard } from "./Guard";
 
 export default function AdminPage() {
@@ -42,6 +43,9 @@ export default function AdminPage() {
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-templates">
                 Templates
               </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-forms">
+                Forms
+              </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-create-user">
                 Create user
               </a>
@@ -74,6 +78,10 @@ export default function AdminPage() {
 
         <section id="admin-templates" className="scroll-mt-28">
           <AdminEvaluationTemplates />
+        </section>
+
+        <section id="admin-forms" className="scroll-mt-28">
+          <AdminEvaluationForms />
         </section>
 
         <section id="admin-create-user" className="scroll-mt-28">

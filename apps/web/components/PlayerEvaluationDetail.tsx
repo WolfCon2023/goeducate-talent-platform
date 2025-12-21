@@ -25,6 +25,12 @@ type EvaluationReport = {
   position?: string;
   positionOther?: string;
   overallGrade: number;
+  rubric?: {
+    categories: Array<{
+      key: string;
+      traits: Array<{ key: string; valueNumber?: number; valueOption?: string }>;
+    }>;
+  };
   strengths: string;
   improvements: string;
   notes?: string;
@@ -188,6 +194,29 @@ export function PlayerEvaluationDetail(props: { filmSubmissionId: string }) {
               <div className="text-xs uppercase tracking-wide text-white/70">Overall grade</div>
               <div className="mt-1 text-2xl font-semibold">{report.overallGrade}/10</div>
             </div>
+
+            {report.rubric?.categories?.length ? (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-xs uppercase tracking-wide text-white/70">Rubric</div>
+                <div className="mt-3 grid gap-4">
+                  {report.rubric.categories.map((c) => (
+                    <div key={c.key} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                      <div className="font-semibold text-white">{c.key}</div>
+                      <div className="mt-2 grid gap-1 text-sm text-white/80">
+                        {c.traits.map((t) => (
+                          <div key={t.key} className="flex flex-wrap items-center justify-between gap-2">
+                            <div className="text-white/90">{t.key}</div>
+                            <div className="text-white/70">
+                              {typeof t.valueNumber === "number" ? t.valueNumber : t.valueOption ?? "—"}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div>
               <div className="text-xs uppercase tracking-wide text-white/70">Strengths</div>

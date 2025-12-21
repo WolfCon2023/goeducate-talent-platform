@@ -13,6 +13,60 @@ import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { WatchlistModel } from "../models/Watchlist.js";
 import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
+import { EvaluationFormModel } from "../models/EvaluationForm.js";
+
+function computeGradeFromRubric(opts: {
+  rubric: any;
+  form: any;
+}): { overallGradeRaw: number; overallGrade: number } {
+  const rubric = opts.rubric;
+  const form = opts.form;
+  const categoriesDef: any[] = Array.isArray(form?.categories) ? form.categories : [];
+  const categoriesResp: any[] = Array.isArray(rubric?.categories) ? rubric.categories : [];
+
+  const byKey = new Map(categoriesResp.map((c) => [String(c.key), c]));
+  const weightSum = categoriesDef.reduce((a, c) => a + (Number(c.weight) || 0), 0) || 100;
+
+  let total = 0;
+  let totalWeight = 0;
+
+  for (const cDef of categoriesDef) {
+    const cKey = String(cDef.key);
+    const w = Number(cDef.weight) || 0;
+    const cResp = byKey.get(cKey);
+    const traitsDef: any[] = Array.isArray(cDef.traits) ? cDef.traits : [];
+    const traitsResp: any[] = Array.isArray(cResp?.traits) ? cResp.traits : [];
+    const traitsByKey = new Map(traitsResp.map((t) => [String(t.key), t]));
+
+    const scores: number[] = [];
+    for (const tDef of traitsDef) {
+      const tKey = String(tDef.key);
+      const tResp = traitsByKey.get(tKey);
+      if (!tResp) continue;
+
+      if (tDef.type === "select") {
+        const optVal = String(tResp.valueOption ?? "");
+        const options: any[] = Array.isArray(tDef.options) ? tDef.options : [];
+        const opt = options.find((o) => String(o.value) === optVal);
+        const s = Number(opt?.score);
+        if (Number.isFinite(s)) scores.push(s);
+      } else {
+        const n = Number(tResp.valueNumber);
+        if (Number.isFinite(n)) scores.push(n);
+      }
+    }
+
+    if (scores.length === 0) continue;
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    total += avg * (w / weightSum);
+    totalWeight += w / weightSum;
+  }
+
+  const raw = totalWeight > 0 ? total / totalWeight : 7;
+  const bounded = Math.max(1, Math.min(10, raw));
+  const rounded = Math.max(1, Math.min(10, Math.round(bounded)));
+  return { overallGradeRaw: bounded, overallGrade: rounded };
+}
 
 export const evaluationsRouter = Router();
 
@@ -49,6 +103,29 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
     const existing = await EvaluationReportModel.findOne({ filmSubmissionId }).lean();
     if (existing) return next(new ApiError({ status: 409, code: "ALREADY_EXISTS", message: "Evaluation already exists" }));
 
+    let overallGrade = parsed.data.overallGrade;
+    let overallGradeRaw: number | undefined = undefined;
+    let formId: mongoose.Types.ObjectId | undefined = undefined;
+
+    if (!overallGrade && parsed.data.rubric) {
+      // Compute grade from rubric + active form (sport-specific)
+      const sport = String(parsed.data.sport ?? "").trim().toLowerCase();
+      const form = sport ? await EvaluationFormModel.findOne({ sport, isActive: true }).sort({ updatedAt: -1 }).lean() : null;
+      if (form) {
+        const g = computeGradeFromRubric({ rubric: parsed.data.rubric, form });
+        overallGrade = g.overallGrade;
+        overallGradeRaw = g.overallGradeRaw;
+        formId = new mongoose.Types.ObjectId(String((form as any)._id));
+      } else {
+        // If no form exists, still allow submission but require an explicit grade.
+        overallGrade = 7;
+      }
+    }
+
+    if (!overallGrade) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "overallGrade is required when rubric is not provided" }));
+    }
+
     const created = await EvaluationReportModel.create({
       filmSubmissionId,
       playerUserId,
@@ -56,7 +133,10 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
       sport: parsed.data.sport,
       position: parsed.data.position,
       positionOther: parsed.data.positionOther,
-      overallGrade: parsed.data.overallGrade,
+      overallGrade,
+      ...(typeof overallGradeRaw === "number" ? { overallGradeRaw } : {}),
+      ...(parsed.data.rubric ? { rubric: parsed.data.rubric } : {}),
+      ...(formId ? { formId } : {}),
       strengths: parsed.data.strengths,
       improvements: parsed.data.improvements,
       notes: parsed.data.notes

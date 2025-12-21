@@ -201,6 +201,31 @@ type RecommendedTemplateResponse = {
   };
 };
 
+type EvaluationFormDef = {
+  _id: string;
+  title: string;
+  sport: Sport;
+  strengthsPrompt: string;
+  improvementsPrompt: string;
+  notesHelp?: string;
+  categories: Array<{
+    key: "physical" | "athletic" | "technical" | "mental" | "intangibles";
+    label: string;
+    weight: number;
+    traits: Array<{
+      key: string;
+      label: string;
+      description?: string;
+      type: "slider" | "select";
+      required?: boolean;
+      min?: number;
+      max?: number;
+      step?: number;
+      options?: Array<{ value: string; label: string; score?: number }>;
+    }>;
+  }>;
+};
+
 export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
   const confirm = useConfirm();
   const [overallGrade, setOverallGrade] = useState(7);
@@ -217,8 +242,104 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
   const [player, setPlayer] = useState<PlayerProfile | null>(null);
   const [loadingMeta, setLoadingMeta] = useState(false);
 
-  const canSubmit = useMemo(() => !!film?.userId && strengths.trim() && improvements.trim(), [film, strengths, improvements]);
+  const [formDef, setFormDef] = useState<EvaluationFormDef | null>(null);
+  const [loadingForm, setLoadingForm] = useState(false);
+  const [rubric, setRubric] = useState<Record<string, { n?: number; o?: string }>>({});
+
+  function countBullets(text: string) {
+    return text
+      .split("\n")
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith("-") || l.startsWith("•")).length;
+  }
+
+  const strengthsOk = useMemo(() => strengths.trim().length >= 50 && countBullets(strengths) >= 2, [strengths]);
+  const improvementsOk = useMemo(() => improvements.trim().length >= 50 && countBullets(improvements) >= 2, [improvements]);
+
+  const rubricOk = useMemo(() => {
+    if (!formDef) return false;
+    for (const c of formDef.categories) {
+      for (const t of c.traits) {
+        const req = t.required !== false;
+        if (!req) continue;
+        const v = rubric[t.key];
+        if (!v) return false;
+        if (t.type === "select") {
+          if (!v.o) return false;
+        } else {
+          if (typeof v.n !== "number" || !Number.isFinite(v.n)) return false;
+        }
+      }
+    }
+    return true;
+  }, [formDef, rubric]);
+
+  const canSubmit = useMemo(
+    () => !!film?.userId && Boolean(formDef) && rubricOk && strengthsOk && improvementsOk,
+    [film, formDef, rubricOk, strengthsOk, improvementsOk]
+  );
   const positions = useMemo(() => (sport === "other" ? [] : POSITIONS_BY_SPORT[sport]), [sport]);
+
+  function computeGradeLocal(def: EvaluationFormDef, values: Record<string, { n?: number; o?: string }>) {
+    const categories = def.categories;
+    const weightSum = categories.reduce((a, c) => a + (Number(c.weight) || 0), 0) || 100;
+
+    let total = 0;
+    let totalWeight = 0;
+
+    for (const c of categories) {
+      const scores: number[] = [];
+      for (const t of c.traits) {
+        const v = values[t.key];
+        if (!v) continue;
+        if (t.type === "select") {
+          const optVal = v.o;
+          const opt = (t.options ?? []).find((o) => o.value === optVal);
+          if (typeof opt?.score === "number") scores.push(opt.score);
+        } else if (typeof v.n === "number") {
+          scores.push(v.n);
+        }
+      }
+      if (scores.length === 0) continue;
+      const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+      total += avg * ((Number(c.weight) || 0) / weightSum);
+      totalWeight += (Number(c.weight) || 0) / weightSum;
+    }
+
+    const raw = totalWeight > 0 ? total / totalWeight : 7;
+    const bounded = Math.max(1, Math.min(10, raw));
+    return Math.max(1, Math.min(10, Math.round(bounded)));
+  }
+
+  async function loadForm(nextSport: Sport) {
+    setLoadingForm(true);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
+
+      const res = await apiFetch<EvaluationFormDef>(`/evaluation-forms/active?sport=${encodeURIComponent(nextSport)}`, { token });
+      setFormDef(res);
+
+      // Initialize defaults for sliders only (selects remain empty until chosen).
+      const init: Record<string, { n?: number; o?: string }> = {};
+      for (const c of res.categories) {
+        for (const t of c.traits) {
+          if (t.type === "slider") {
+            init[t.key] = { n: 5 };
+          }
+        }
+      }
+      setRubric(init);
+      setOverallGrade(computeGradeLocal(res, init));
+    } catch (err) {
+      setFormDef(null);
+      setStatus(err instanceof Error ? err.message : "Failed to load evaluation form");
+    } finally {
+      setLoadingForm(false);
+    }
+  }
 
   async function applyTemplate() {
     setStatus(null);
@@ -293,6 +414,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
       if (!token) throw new Error("Please login first.");
       if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
       if (!film?.userId) throw new Error("Missing film metadata. Click 'Load details' first.");
+      if (!formDef) throw new Error("Missing evaluation form. Select sport to load.");
 
       await apiFetch("/evaluations", {
         method: "POST",
@@ -303,6 +425,16 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           position: sport === "other" ? "Other" : position,
           positionOther: sport === "other" || position === "Other" ? (positionOther || undefined) : undefined,
           overallGrade,
+          rubric: {
+            formId: formDef._id,
+            categories: formDef.categories.map((c) => ({
+              key: c.key,
+              traits: c.traits.map((t) => ({
+                key: t.key,
+                ...(t.type === "select" ? { valueOption: rubric[t.key]?.o } : { valueNumber: rubric[t.key]?.n })
+              }))
+            }))
+          },
           strengths,
           improvements,
           notes: notes || undefined
@@ -355,6 +487,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
                 setSport(next);
                 setPosition("Other");
                 setPositionOther("");
+                void loadForm(next);
               }}
             >
               <option value="football">Football</option>
@@ -364,6 +497,7 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
               <option value="track">Track</option>
               <option value="other">Other (enter manually)</option>
             </select>
+            <div className="text-xs text-white/60">{loadingForm ? "Loading form..." : formDef ? `Form: ${formDef.title}` : "Form not loaded yet."}</div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="position">Position / Event</Label>
@@ -403,6 +537,81 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           </div>
         </div>
 
+        {formDef ? (
+          <div className="mt-2 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <div className="text-sm font-semibold text-white">Rubric (required)</div>
+              <div className="text-sm text-white/80">
+                Overall grade (auto): <span className="font-semibold text-white">{overallGrade}/10</span>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4">
+              {formDef.categories.map((c) => (
+                <div key={c.key} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="font-semibold text-white">{c.label}</div>
+                    <div className="text-xs text-white/60">Weight: {c.weight}%</div>
+                  </div>
+                  <div className="mt-3 grid gap-3">
+                    {c.traits.map((t) => (
+                      <div key={t.key} className="grid gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="text-sm text-white/90">
+                            {t.label} {t.required === false ? <span className="text-white/60">(optional)</span> : null}
+                          </div>
+                          {t.type === "slider" ? (
+                            <div className="text-xs text-white/70">Score: {rubric[t.key]?.n ?? "—"}</div>
+                          ) : (
+                            <div className="text-xs text-white/70">Selected: {rubric[t.key]?.o ?? "—"}</div>
+                          )}
+                        </div>
+                        {t.type === "slider" ? (
+                          <input
+                            type="range"
+                            min={t.min ?? 1}
+                            max={t.max ?? 10}
+                            step={t.step ?? 1}
+                            value={rubric[t.key]?.n ?? 5}
+                            onChange={(e) => {
+                              const n = Number(e.target.value);
+                              setRubric((prev) => {
+                                const next = { ...prev, [t.key]: { ...(prev[t.key] ?? {}), n } };
+                                setOverallGrade(computeGradeLocal(formDef, next));
+                                return next;
+                              });
+                            }}
+                          />
+                        ) : (
+                          <select
+                            className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                            value={rubric[t.key]?.o ?? ""}
+                            onChange={(e) => {
+                              const o = e.target.value;
+                              setRubric((prev) => {
+                                const next = { ...prev, [t.key]: { ...(prev[t.key] ?? {}), o } };
+                                setOverallGrade(computeGradeLocal(formDef, next));
+                                return next;
+                              });
+                            }}
+                          >
+                            <option value="">Select…</option>
+                            {(t.options ?? []).map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                        {t.description ? <div className="text-xs text-white/60">{t.description}</div> : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"
@@ -427,26 +636,31 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
         </div>
         <div className="grid gap-2">
           <Label htmlFor="strengths">Strengths</Label>
+          {formDef ? <div className="text-xs text-white/60 whitespace-pre-wrap">{formDef.strengthsPrompt}</div> : null}
           <textarea
             id="strengths"
             className="min-h-28 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             value={strengths}
             onChange={(e) => setStrengths(e.target.value)}
-            placeholder="What stood out positively..."
+            placeholder="- Strength 1 (evidence)\n- Strength 2 (evidence)\n- Strength 3 (optional)"
           />
+          {!strengthsOk ? <div className="text-xs text-amber-300">Required: at least 2 bullet points and 50+ characters.</div> : null}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="improvements">Improvements</Label>
+          {formDef ? <div className="text-xs text-white/60 whitespace-pre-wrap">{formDef.improvementsPrompt}</div> : null}
           <textarea
             id="improvements"
             className="min-h-28 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             value={improvements}
             onChange={(e) => setImprovements(e.target.value)}
-            placeholder="What to improve next..."
+            placeholder="- Improvement 1 (how to improve)\n- Improvement 2 (how to improve)\n- Improvement 3 (optional)"
           />
+          {!improvementsOk ? <div className="text-xs text-amber-300">Required: at least 2 bullet points and 50+ characters.</div> : null}
         </div>
         <div className="grid gap-2">
           <Label htmlFor="notes">Notes (optional)</Label>
+          {formDef?.notesHelp ? <div className="text-xs text-white/60 whitespace-pre-wrap">{formDef.notesHelp}</div> : null}
           <textarea
             id="notes"
             className="min-h-28 w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/90 placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"

@@ -37,6 +37,12 @@ type EvaluationReport = {
   position?: string;
   positionOther?: string;
   overallGrade: number;
+  rubric?: {
+    categories: Array<{
+      key: string;
+      traits: Array<{ key: string; valueNumber?: number; valueOption?: string }>;
+    }>;
+  };
   strengths: string;
   improvements: string;
   notes?: string;
@@ -194,6 +200,26 @@ export function CoachPlayerDetail(props: { userId: string }) {
                 </div>
               ) : null}
               <div className="mt-3 grid gap-3 text-sm text-white/90">
+                {r.rubric?.categories?.length ? (
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <div className="text-xs uppercase tracking-wide text-white/70">Rubric</div>
+                    <div className="mt-2 grid gap-3">
+                      {r.rubric.categories.map((c) => (
+                        <div key={c.key}>
+                          <div className="text-xs font-semibold text-white/80">{c.key}</div>
+                          <div className="mt-1 grid gap-1">
+                            {c.traits.slice(0, 5).map((t) => (
+                              <div key={t.key} className="flex items-center justify-between gap-2 text-xs text-white/70">
+                                <div className="text-white/80">{t.key}</div>
+                                <div>{typeof t.valueNumber === "number" ? t.valueNumber : t.valueOption ?? "—"}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 <div>
                   <div className="text-xs uppercase tracking-wide text-white/70">Strengths</div>
                   <div className="mt-1 whitespace-pre-wrap">{r.strengths}</div>
