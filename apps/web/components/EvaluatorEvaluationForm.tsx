@@ -84,6 +84,12 @@ function sportLabel(s: Sport) {
   return "Other";
 }
 
+function coerceSport(input: unknown): Sport | null {
+  const s = String(input ?? "").trim().toLowerCase();
+  if (s === "football" || s === "basketball" || s === "volleyball" || s === "soccer" || s === "track" || s === "other") return s;
+  return null;
+}
+
 function templateFor(sport: Sport, position: string, positionOther: string) {
   const pos = position === "Other" || sport === "other" ? positionOther || "Other" : position;
 
@@ -442,6 +448,30 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
 
       const profileRes = await apiFetch<PlayerProfile>(`/player-profiles/player/${filmRes.userId}`, { token });
       setPlayer(profileRes);
+
+      // Auto-default sport/position from the player's profile once per page load.
+      // This avoids always starting on Football when evaluating non-football athletes.
+      const w = window as any;
+      if (!w.__goed_eval_autoset__) {
+        const nextSport = coerceSport((profileRes as any).sport) ?? "other";
+        setSport(nextSport);
+
+        const profPos = String((profileRes as any).position ?? "").trim();
+        const profPosOther = String((profileRes as any).positionOther ?? "").trim();
+
+        if (nextSport === "other") {
+          setPosition("Other");
+          setPositionOther(profPosOther || profPos);
+        } else if (profPos && POSITIONS_BY_SPORT[nextSport].includes(profPos)) {
+          setPosition(profPos);
+          setPositionOther("");
+        } else {
+          setPosition("Other");
+          setPositionOther(profPosOther || profPos);
+        }
+
+        w.__goed_eval_autoset__ = true;
+      }
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Failed to load film metadata");
     } finally {
@@ -540,7 +570,10 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
               <option value="track">Track</option>
               <option value="other">Other (enter manually)</option>
             </select>
-            <div className="text-xs text-white/60">{loadingForm ? "Loading form..." : formDef ? `Form: ${formDef.title}` : "Form not loaded yet."}</div>
+            <div className="text-xs text-white/60">
+              {loadingForm ? "Loading form..." : formDef ? `Form: ${formDef.title}` : "Form not loaded yet."}
+              {formDef ? ` · Selected: ${sportLabel(sport)} · Loaded: ${sportLabel(coerceSport((formDef as any).sport) ?? sport)}` : ""}
+            </div>
           </div>
           <div className="grid gap-2">
             <Label htmlFor="position">Position / Event</Label>

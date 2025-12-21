@@ -17,6 +17,62 @@ function defaultFormForSport(sport: string) {
       ? s
       : "other";
 
+  const LABELS: Record<
+    typeof normalized,
+    {
+      physical: [string, string, string, string];
+      athletic: [string, string, string, string];
+      technical: [string, string, string, string];
+      mental: [string, string, string, string];
+      intangibles: [string, string, string, string];
+    }
+  > = {
+    football: {
+      physical: ["Size / frame", "Functional strength", "Contact balance / play strength", "Body control"],
+      athletic: ["Play speed", "Acceleration", "Change of direction", "Explosiveness"],
+      technical: ["Position technique fundamentals", "Footwork", "Hand usage / skill execution", "Consistency (rep-to-rep)"],
+      mental: ["Processing (speed of play)", "Decision-making", "Situational awareness", "Adaptability / learning"],
+      intangibles: ["Motor / effort", "Competitiveness", "Coachability indicators", "Leadership / communication"]
+    },
+    basketball: {
+      physical: ["Size / frame", "Functional strength", "Contact balance / physicality", "Body control"],
+      athletic: ["Speed / pace", "First step / acceleration", "Lateral agility", "Explosiveness / vertical pop"],
+      technical: ["Handle / ball security", "Shooting mechanics", "Finishing / shot creation", "Defensive technique"],
+      mental: ["Court awareness / IQ", "Decision speed", "Spacing / off-ball instincts", "Adaptability / learning"],
+      intangibles: ["Motor / effort", "Competitiveness", "Coachability indicators", "Leadership / communication"]
+    },
+    volleyball: {
+      physical: ["Size / frame", "Functional strength", "Durability / resiliency", "Body control"],
+      athletic: ["Quickness", "Approach acceleration", "Lateral agility", "Explosiveness / jump"],
+      technical: ["Serve / serve pressure", "Serve receive / passing", "Attack mechanics (arm swing)", "Block timing / positioning"],
+      mental: ["Reading / anticipation", "Decision-making", "Court awareness", "Adaptability / learning"],
+      intangibles: ["Motor / effort", "Competitiveness", "Coachability indicators", "Leadership / communication"]
+    },
+    soccer: {
+      physical: ["Size / frame", "Functional strength", "Balance under contact", "Body control"],
+      athletic: ["Speed", "Acceleration", "Agility / change of direction", "Explosiveness"],
+      technical: ["First touch", "Passing / receiving", "1v1 defending / technique", "Finishing / end product"],
+      mental: ["Scanning / awareness", "Decision-making", "Positioning / tactics", "Adaptability / learning"],
+      intangibles: ["Motor / work rate", "Competitiveness", "Coachability indicators", "Leadership / communication"]
+    },
+    track: {
+      physical: ["Frame / leverages", "Strength (general)", "Durability / injury risk", "Body control / mechanics"],
+      athletic: ["Speed", "Acceleration / start", "Elasticity / reactivity", "Explosiveness"],
+      technical: ["Event mechanics", "Form efficiency", "Rhythm / cadence", "Execution / consistency"],
+      mental: ["Race strategy", "Focus / composure", "Competitiveness", "Adaptability / learning"],
+      intangibles: ["Work ethic", "Coachability", "Resilience", "Leadership / communication"]
+    },
+    other: {
+      physical: ["Size / frame", "Functional strength", "Durability / resiliency", "Body control"],
+      athletic: ["Speed", "Acceleration", "Agility / change of direction", "Explosiveness"],
+      technical: ["Technique fundamentals", "Footwork", "Execution / skill application", "Consistency (rep-to-rep)"],
+      mental: ["Processing / speed of play", "Decision-making", "Situational awareness", "Adaptability / learning"],
+      intangibles: ["Motor / effort", "Competitiveness", "Coachability indicators", "Leadership / communication"]
+    }
+  };
+
+  const L = LABELS[normalized];
+
   const base = {
     title: `Default ${normalized} evaluation form`,
     sport: normalized as any,
@@ -33,12 +89,12 @@ function defaultFormForSport(sport: string) {
         label: "Physical",
         weight: 20,
         traits: [
-          { key: "size_frame", label: "Size / frame", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "strength", label: "Functional strength", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "durability", label: "Durability / play through contact", type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "size_frame", label: L.physical[0], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "strength", label: L.physical[1], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "durability", label: L.physical[2], type: "slider", required: true, min: 1, max: 10, step: 1 },
           {
             key: "body_control",
-            label: "Body control",
+            label: L.physical[3],
             type: "slider",
             required: true,
             min: 1,
@@ -63,10 +119,10 @@ function defaultFormForSport(sport: string) {
         label: "Athletic",
         weight: 20,
         traits: [
-          { key: "speed", label: "Speed", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "acceleration", label: "Acceleration", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "agility", label: "Agility / change of direction", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "explosiveness", label: "Explosiveness", type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "speed", label: L.athletic[0], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "acceleration", label: L.athletic[1], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "agility", label: L.athletic[2], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "explosiveness", label: L.athletic[3], type: "slider", required: true, min: 1, max: 10, step: 1 },
           {
             key: "athletic_confidence",
             label: "Confidence (athletic assessment)",
@@ -85,10 +141,10 @@ function defaultFormForSport(sport: string) {
         label: "Technical",
         weight: 25,
         traits: [
-          { key: "technique", label: "Technique fundamentals", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "footwork", label: "Footwork", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "execution", label: "Execution / skill application", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "consistency", label: "Consistency (rep-to-rep)", type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "technique", label: L.technical[0], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "footwork", label: L.technical[1], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "execution", label: L.technical[2], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "consistency", label: L.technical[3], type: "slider", required: true, min: 1, max: 10, step: 1 },
           {
             key: "technical_confidence",
             label: "Confidence (technical assessment)",
@@ -107,10 +163,10 @@ function defaultFormForSport(sport: string) {
         label: "Mental",
         weight: 20,
         traits: [
-          { key: "processing", label: "Processing / speed of play", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "decision_making", label: "Decision-making", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "awareness", label: "Situational awareness", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "adaptability", label: "Learning / adaptability", type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "processing", label: L.mental[0], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "decision_making", label: L.mental[1], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "awareness", label: L.mental[2], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "adaptability", label: L.mental[3], type: "slider", required: true, min: 1, max: 10, step: 1 },
           {
             key: "mental_confidence",
             label: "Confidence (mental assessment)",
@@ -129,10 +185,10 @@ function defaultFormForSport(sport: string) {
         label: "Intangibles",
         weight: 15,
         traits: [
-          { key: "motor", label: "Motor / effort", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "competitiveness", label: "Competitiveness", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "coachability", label: "Coachability indicators", type: "slider", required: true, min: 1, max: 10, step: 1 },
-          { key: "leadership", label: "Leadership / communication", type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "motor", label: L.intangibles[0], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "competitiveness", label: L.intangibles[1], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "coachability", label: L.intangibles[2], type: "slider", required: true, min: 1, max: 10, step: 1 },
+          { key: "leadership", label: L.intangibles[3], type: "slider", required: true, min: 1, max: 10, step: 1 },
           {
             key: "intangibles_projection",
             label: "Projection",
