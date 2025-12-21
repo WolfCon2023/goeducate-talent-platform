@@ -99,4 +99,24 @@ notificationsRouter.delete(
   }
 );
 
+// Authenticated: bulk delete your notifications (all or unread-only)
+notificationsRouter.delete(
+  "/notifications/me",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      const userId = new mongoose.Types.ObjectId(req.user!.id);
+      const unreadOnly = String(req.query.unreadOnly ?? "").trim() === "1";
+      const query: any = { userId };
+      if (unreadOnly) query.readAt = { $exists: false };
+
+      const result = await NotificationModel.deleteMany(query);
+      return res.json({ deletedCount: result.deletedCount ?? 0 });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
 

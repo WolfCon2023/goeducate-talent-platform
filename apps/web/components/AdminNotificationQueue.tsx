@@ -72,6 +72,32 @@ export function AdminNotificationQueue() {
     }
   }
 
+  async function deleteAll() {
+    const ok = await confirm({
+      title: unreadOnly ? "Delete all unread notifications?" : "Delete all notifications?",
+      message: unreadOnly
+        ? "Delete all unread notifications from the queue? This cannot be undone."
+        : "Delete all notifications from the queue? This cannot be undone.",
+      confirmText: "Delete all",
+      cancelText: "Cancel",
+      destructive: true
+    });
+    if (!ok) return;
+
+    setError(null);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+      const qs = unreadOnly ? "?unreadOnly=1" : "";
+      await apiFetch<{ deletedCount: number }>(`/admin/notifications${qs}`, { method: "DELETE", token });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete all");
+    }
+  }
+
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,6 +118,14 @@ export function AdminNotificationQueue() {
           >
             {unreadOnly ? "Showing: Unread" : "Showing: All"}
           </button>
+            <Button
+              type="button"
+              className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+              onClick={deleteAll}
+              disabled={loading || results.length === 0}
+            >
+              Delete all
+            </Button>
           <Button type="button" onClick={load} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
           </Button>

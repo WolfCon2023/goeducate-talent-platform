@@ -271,6 +271,20 @@ adminRouter.delete("/admin/notifications/:id", requireAuth, requireRole([ROLE.AD
   }
 });
 
+// Admin-only: bulk delete notifications (all or unread-only)
+adminRouter.delete("/admin/notifications", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const unreadOnly = String(req.query.unreadOnly ?? "").trim() === "1";
+    const query: any = {};
+    if (unreadOnly) query.readAt = { $exists: false };
+
+    const result = await NotificationModel.deleteMany(query);
+    return res.json({ deletedCount: result.deletedCount ?? 0 });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // Admin-only: generate an invite code (one-time use, expires) for any role.
 adminRouter.post("/admin/invites", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
   try {

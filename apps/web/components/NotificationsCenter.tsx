@@ -71,6 +71,27 @@ export function NotificationsCenter() {
     }
   }
 
+  async function deleteAll() {
+    const ok = await confirm({
+      title: "Delete all notifications?",
+      message: "Delete all notifications in your queue? This cannot be undone.",
+      confirmText: "Delete all",
+      cancelText: "Cancel",
+      destructive: true
+    });
+    if (!ok) return;
+
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login first.");
+      await apiFetch<{ deletedCount: number }>(`/notifications/me`, { method: "DELETE", token });
+      await load();
+      window.dispatchEvent(new Event("goeducate:notifications-changed"));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete all");
+    }
+  }
+
   useEffect(() => {
     void load();
   }, []);
@@ -82,9 +103,14 @@ export function NotificationsCenter() {
           <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
           <p className="mt-1 text-sm text-[color:var(--muted)]">Film submissions, evaluations, and watchlist updates.</p>
         </div>
-        <Button type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={deleteAll} disabled={loading || results.length === 0}>
+            Delete all
+          </Button>
+          <Button type="button" onClick={load} disabled={loading}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </Button>
+        </div>
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
