@@ -46,7 +46,10 @@ const EnvSchema = z.object({
   STRIPE_SECRET_KEY: z.string().min(10).optional(),
   STRIPE_WEBHOOK_SECRET: z.string().min(10).optional(),
   STRIPE_PRICE_ID_MONTHLY: z.string().min(3).optional(),
-  STRIPE_PRICE_ID_ANNUAL: z.string().min(3).optional()
+  STRIPE_PRICE_ID_ANNUAL: z.string().min(3).optional(),
+
+  // Persistent uploads (optional). Use a Railway volume and set this to the mount path, e.g. "/data/uploads".
+  UPLOADS_DIR: z.string().min(1).optional()
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -20,6 +20,7 @@ export function AuthNav() {
   const pathname = usePathname();
   const [role, setRole] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function AuthNav() {
     const tokenRole = getTokenRole(token);
     setRole(tokenRole);
     setDisplayName(null);
+    setProfilePhotoUrl(null);
     setUnreadCount(0);
     let interval: number | null = null;
     let cancelled = false;
@@ -39,9 +41,10 @@ export function AuthNav() {
     async function loadMe() {
       if (!token) return;
       try {
-        const res = await apiFetch<{ user: { role: string; displayName: string } }>("/auth/me", { token });
+        const res = await apiFetch<{ user: { role: string; displayName: string; profilePhotoUrl?: string } }>("/auth/me", { token });
         setRole(res.user.role);
         setDisplayName(res.user.displayName);
+        setProfilePhotoUrl(res.user.profilePhotoUrl ?? null);
 
         // Notification badge (best-effort)
         await refreshUnread(token);
@@ -68,11 +71,16 @@ export function AuthNav() {
       if (token) void refreshUnread(token);
     };
     window.addEventListener("goeducate:notifications-changed", onChanged);
+    const onMeChanged = () => {
+      void loadMe();
+    };
+    window.addEventListener("goeducate:me-changed", onMeChanged);
 
     return () => {
       cancelled = true;
       if (interval) window.clearInterval(interval);
       window.removeEventListener("goeducate:notifications-changed", onChanged);
+      window.removeEventListener("goeducate:me-changed", onMeChanged);
     };
   }, [pathname]);
 
@@ -103,6 +111,14 @@ export function AuthNav() {
 
       {role ? (
         <>
+          {profilePhotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- served from API static uploads; keep simple/reliable
+            <img
+              src={`${(process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "")}${profilePhotoUrl}`}
+              alt="Profile photo"
+              className="h-8 w-8 rounded-full border border-white/10 object-cover"
+            />
+          ) : null}
           <Link href={dashboardHref} className={navItem(dashboardHref)}>
             Dashboard
           </Link>

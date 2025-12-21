@@ -20,6 +20,9 @@ import { stripeWebhookHandler } from "./routes/stripeWebhooks.js";
 import { notificationsRouter } from "./routes/notifications.js";
 import { evaluationTemplatesRouter } from "./routes/evaluationTemplates.js";
 import { evaluationFormsRouter } from "./routes/evaluationForms.js";
+import { profilePhotosRouter } from "./routes/profilePhotos.js";
+import path from "node:path";
+import fs from "node:fs";
 
 async function main() {
   const env = getEnv();
@@ -45,6 +48,11 @@ async function main() {
 
   app.use(express.json({ limit: "2mb" }));
 
+  // Static uploads (profile photos, etc.). Use a persistent volume in production.
+  const uploadsRoot = env.UPLOADS_DIR ? path.resolve(env.UPLOADS_DIR) : path.resolve(process.cwd(), "uploads");
+  fs.mkdirSync(uploadsRoot, { recursive: true });
+  app.use("/uploads", express.static(uploadsRoot, { maxAge: env.NODE_ENV === "production" ? "7d" : 0 }));
+
   app.use(healthRouter);
   app.use(authRouter);
   app.use(adminRouter);
@@ -55,6 +63,7 @@ async function main() {
   app.use(watchlistsRouter);
   app.use(contactRouter);
   app.use(uploadsRouter);
+  app.use(profilePhotosRouter);
   app.use(notificationsRouter);
   app.use(evaluationTemplatesRouter);
   app.use(evaluationFormsRouter);

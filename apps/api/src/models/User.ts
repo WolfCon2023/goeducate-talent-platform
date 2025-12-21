@@ -16,6 +16,7 @@ export type UserDoc = {
   role: Role;
   firstName?: string;
   lastName?: string;
+  profilePhotoPath?: string; // relative to /uploads static root, e.g. "profile-photos/<file>"
   // Scaffold for Stripe later. For now, admin can toggle this manually.
   subscriptionStatus?: CoachSubscriptionStatus;
   stripeCustomerId?: string;
@@ -31,6 +32,7 @@ const UserSchema = new Schema<UserDoc>(
     role: { type: String, required: true, enum: ALL_ROLES },
     firstName: { type: String, trim: true },
     lastName: { type: String, trim: true },
+    profilePhotoPath: { type: String, trim: true },
     subscriptionStatus: { type: String, enum: Object.values(COACH_SUBSCRIPTION_STATUS) },
     stripeCustomerId: { type: String, trim: true, index: true },
     stripeSubscriptionId: { type: String, trim: true, index: true }

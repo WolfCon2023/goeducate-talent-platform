@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
+import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
 
 type Sport = "football" | "basketball" | "volleyball" | "soccer" | "track" | "other";
 
@@ -239,7 +240,9 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
   }
 
   return (
-    <Card>
+    <div className="grid gap-4">
+      <ProfilePhotoUploader title="Player profile photo" />
+      <Card>
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-lg font-semibold">Athlete profile</h2>
@@ -403,7 +406,8 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
       </div>
 
       {status ? <p className="mt-4 text-sm text-white/80">{status}</p> : null}
-    </Card>
+      </Card>
+    </div>
   );
 }
 

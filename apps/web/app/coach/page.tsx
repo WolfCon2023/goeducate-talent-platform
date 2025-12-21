@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { CoachSearch } from "@/components/CoachSearch";
 import { CoachWatchlist } from "@/components/CoachWatchlist";
+import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
 import { Card } from "@/components/ui";
 import { CoachGuard } from "./Guard";
 
@@ -35,6 +36,8 @@ export default function CoachDashboardPage() {
             </Link>
           </div>
         </Card>
+
+        <ProfilePhotoUploader title="Coach profile photo" />
 
         <CoachSearch />
 

@@ -99,6 +99,7 @@ authRouter.get("/auth/me", requireAuth, async (req, res, next) => {
         email: user.email,
         role: user.role,
         displayName,
+        profilePhotoUrl: user.profilePhotoPath ? `/uploads/${user.profilePhotoPath}` : undefined,
         subscriptionStatus: user.role === ROLE.COACH ? (user.subscriptionStatus ?? "inactive") : undefined
       }
     });
