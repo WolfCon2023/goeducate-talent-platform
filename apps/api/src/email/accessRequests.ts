@@ -74,7 +74,7 @@ export async function sendAccessRequestApprovedEmail(input: {
           Create your account
         </a>
       </p>
-      <p style="margin:0 0 6px 0;">Or paste this invite code:</p>
+      <p style="margin:0 0 6px 0;">Invite code (paste if needed):</p>
       <pre style="background:#111318;color:#ededed;padding:12px;border-radius:10px;overflow:auto;">${escapeHtml(input.inviteCode)}</pre>
       <p style="color:#51607F;margin:12px 0 0 0;">Expires: ${escapeHtml(input.expiresAtIso)}</p>
       <p style="color:#51607F;margin:12px 0 0 0;">GoEducate Talent</p>

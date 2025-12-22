@@ -31,13 +31,13 @@ export async function sendInviteEmail(input: InviteEmail) {
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5;">
       <h2 style="margin:0 0 12px 0;">You’re invited to GoEducate Talent</h2>
       <p style="margin:0 0 12px 0;">Role: <b>${escapeHtml(input.role)}</b></p>
-      <p style="margin:0 0 12px 0;">Click to create your account:</p>
+      <p style="margin:0 0 12px 0;">Accept the invite by clicking the button below, and paste the code below if prompted:</p>
       <p style="margin:0 0 12px 0;">
         <a href="${escapeHtml(input.inviteUrl)}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 14px;border-radius:10px;text-decoration:none;">
           Accept invite
         </a>
       </p>
-      <p style="margin:0 0 6px 0;">Or paste this code:</p>
+      <p style="margin:0 0 6px 0;">Invite code (paste if needed):</p>
       <pre style="background:#111318;color:#ededed;padding:12px;border-radius:10px;overflow:auto;">${escapeHtml(input.code)}</pre>
       <p style="color:#51607F;margin:12px 0 0 0;">Expires: ${escapeHtml(input.expiresAtIso)}</p>
     </div>
