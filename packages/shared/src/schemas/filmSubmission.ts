@@ -3,6 +3,7 @@ import { z } from "zod";
 export const FILM_SUBMISSION_STATUS = {
   SUBMITTED: "submitted",
   IN_REVIEW: "in_review",
+  NEEDS_CHANGES: "needs_changes",
   COMPLETED: "completed"
 } as const;
 
@@ -21,6 +22,7 @@ export const FilmSubmissionSchema = z.object({
   status: z.enum([
     FILM_SUBMISSION_STATUS.SUBMITTED,
     FILM_SUBMISSION_STATUS.IN_REVIEW,
+    FILM_SUBMISSION_STATUS.NEEDS_CHANGES,
     FILM_SUBMISSION_STATUS.COMPLETED
   ]),
   createdAt: z.string().optional(),

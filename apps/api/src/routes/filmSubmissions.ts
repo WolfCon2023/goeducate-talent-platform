@@ -36,7 +36,8 @@ filmSubmissionsRouter.post(
         notes: parsed.data.notes,
         videoUrl: parsed.data.videoUrl,
         cloudinaryPublicId: parsed.data.cloudinaryPublicId,
-        status: FILM_SUBMISSION_STATUS.SUBMITTED
+        status: FILM_SUBMISSION_STATUS.SUBMITTED,
+        history: [{ at: new Date(), byUserId: userId, action: "created", toStatus: FILM_SUBMISSION_STATUS.SUBMITTED }]
       });
 
       // In-app notification for the player (best-effort).
@@ -170,7 +171,7 @@ filmSubmissionsRouter.get(
       const results = await FilmSubmissionModel.aggregate([
         {
           $match: {
-            status: { $in: [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW] },
+            status: { $in: [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.NEEDS_CHANGES, FILM_SUBMISSION_STATUS.IN_REVIEW] },
             ...(mine ? { assignedEvaluatorUserId: evaluatorUserId } : {})
           }
         },
@@ -266,6 +267,7 @@ filmSubmissionsRouter.patch(
       }
 
       if (action === "assign_to_me") {
+        const prevStatus = film.status;
         if (film.assignedEvaluatorUserId && String(film.assignedEvaluatorUserId) !== String(evaluatorUserId)) {
           if (!isAdmin || !force) {
             return next(
@@ -282,6 +284,17 @@ filmSubmissionsRouter.patch(
         if (film.status === FILM_SUBMISSION_STATUS.SUBMITTED) {
           film.status = FILM_SUBMISSION_STATUS.IN_REVIEW;
         }
+        film.history = film.history ?? [];
+        film.history.push({ at: new Date(), byUserId: evaluatorUserId, action: "assigned" });
+        if (prevStatus !== film.status) {
+          film.history.push({
+            at: new Date(),
+            byUserId: evaluatorUserId,
+            action: "status_changed",
+            fromStatus: prevStatus,
+            toStatus: film.status
+          });
+        }
         await film.save();
         return res.json(film);
       }
@@ -292,8 +305,20 @@ filmSubmissionsRouter.patch(
       }
       film.assignedEvaluatorUserId = undefined;
       film.assignedAt = undefined;
+      const prevStatus = film.status;
       if (film.status === FILM_SUBMISSION_STATUS.IN_REVIEW) {
         film.status = FILM_SUBMISSION_STATUS.SUBMITTED;
+      }
+      film.history = film.history ?? [];
+      film.history.push({ at: new Date(), byUserId: evaluatorUserId, action: "unassigned" });
+      if (prevStatus !== film.status) {
+        film.history.push({
+          at: new Date(),
+          byUserId: evaluatorUserId,
+          action: "status_changed",
+          fromStatus: prevStatus,
+          toStatus: film.status
+        });
       }
       await film.save();
       return res.json(film);
@@ -309,17 +334,56 @@ filmSubmissionsRouter.patch(
   requireAuth,
   requireRole([ROLE.EVALUATOR, ROLE.ADMIN]),
   async (req, res, next) => {
-    const status = (req.body as { status?: string }).status;
-    const allowed = [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW, FILM_SUBMISSION_STATUS.COMPLETED];
+    const status = String((req.body as { status?: string }).status ?? "").trim();
+    const note = String((req.body as { note?: string }).note ?? "").trim();
+    const allowed = [
+      FILM_SUBMISSION_STATUS.SUBMITTED,
+      FILM_SUBMISSION_STATUS.IN_REVIEW,
+      FILM_SUBMISSION_STATUS.NEEDS_CHANGES,
+      FILM_SUBMISSION_STATUS.COMPLETED
+    ];
     if (!status || !allowed.includes(status as any)) {
       return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid status" }));
     }
 
     try {
       const _id = new mongoose.Types.ObjectId(req.params.id);
-      const updated = await FilmSubmissionModel.findByIdAndUpdate(_id, { $set: { status } }, { new: true });
-      if (!updated) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
-      return res.json(updated);
+      const film = await FilmSubmissionModel.findById(_id);
+      if (!film) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
+
+      const prev = film.status;
+      film.status = status as any;
+      film.history = film.history ?? [];
+      film.history.push({
+        at: new Date(),
+        byUserId: new mongoose.Types.ObjectId(req.user!.id),
+        action: "status_changed",
+        fromStatus: prev,
+        toStatus: film.status,
+        ...(note ? { note: note.slice(0, 2000) } : {})
+      });
+
+      // If we return for edits, unassign so it doesn't stay stuck in a queue.
+      if (film.status === FILM_SUBMISSION_STATUS.NEEDS_CHANGES) {
+        film.assignedEvaluatorUserId = undefined;
+        film.assignedAt = undefined;
+      }
+
+      await film.save();
+
+      // Notify player when returned for edits (best-effort).
+      if (film.status === FILM_SUBMISSION_STATUS.NEEDS_CHANGES) {
+        await NotificationModel.create({
+          userId: film.userId,
+          type: NOTIFICATION_TYPE.FILM_SUBMITTED,
+          title: "Film needs changes",
+          message: note ? `Update requested: ${note}` : "An evaluator requested changes to your submission. Please review and resubmit film if needed.",
+          href: "/player/film"
+        });
+        publishNotificationsChanged(String(film.userId));
+      }
+
+      return res.json(film);
     } catch (err) {
       return next(err);
     }
@@ -371,12 +435,12 @@ filmSubmissionsRouter.delete(
       if (String(film.userId) !== String(req.user!.id)) {
         return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Insufficient permissions" }));
       }
-      if (film.status !== FILM_SUBMISSION_STATUS.SUBMITTED) {
+      if (film.status !== FILM_SUBMISSION_STATUS.SUBMITTED && film.status !== FILM_SUBMISSION_STATUS.NEEDS_CHANGES) {
         return next(
           new ApiError({
             status: 409,
             code: "CANNOT_DELETE",
-            message: "Can only delete submissions that are still in submitted status"
+            message: "Can only delete submissions that are still in submitted/needs_changes status"
           })
         );
       }

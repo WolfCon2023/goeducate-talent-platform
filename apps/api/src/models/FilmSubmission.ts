@@ -13,6 +13,14 @@ export type FilmSubmissionDoc = {
   status: FilmSubmissionStatus;
   assignedEvaluatorUserId?: mongoose.Types.ObjectId;
   assignedAt?: Date;
+  history?: Array<{
+    at: Date;
+    byUserId?: mongoose.Types.ObjectId;
+    action: "created" | "status_changed" | "assigned" | "unassigned";
+    fromStatus?: FilmSubmissionStatus;
+    toStatus?: FilmSubmissionStatus;
+    note?: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -33,7 +41,17 @@ const FilmSubmissionSchema = new Schema<FilmSubmissionDoc>(
       required: true,
       enum: Object.values(FILM_SUBMISSION_STATUS),
       default: FILM_SUBMISSION_STATUS.SUBMITTED
-    }
+    },
+    history: [
+      {
+        at: { type: Date, required: true, default: () => new Date() },
+        byUserId: { type: Schema.Types.ObjectId, ref: "User" },
+        action: { type: String, required: true },
+        fromStatus: { type: String },
+        toStatus: { type: String },
+        note: { type: String }
+      }
+    ]
   },
   { timestamps: true }
 );

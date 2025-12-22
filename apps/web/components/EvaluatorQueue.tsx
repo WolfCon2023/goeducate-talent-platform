@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole, getTokenSub } from "@/lib/auth";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 type FilmSubmission = {
   _id: string;
@@ -28,10 +29,14 @@ type FilmSubmission = {
 };
 
 export function EvaluatorQueue() {
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<FilmSubmission[]>([]);
-  const [view, setView] = useState<"all" | "mine">("all");
+  const [view, setView] = useState<"all" | "mine">(() => {
+    const role = getTokenRole(getAccessToken());
+    return role === "evaluator" ? "mine" : "all";
+  });
 
   const load = useCallback(async () => {
     setError(null);
@@ -90,6 +95,29 @@ export function EvaluatorQueue() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update status");
+    }
+  }
+
+  async function returnForEdits(id: string) {
+    const ok = await confirm({
+      title: "Return submission for edits?",
+      message: "This will move the submission to Needs changes and notify the player.",
+      confirmText: "Return",
+      cancelText: "Cancel",
+      destructive: true
+    });
+    if (!ok) return;
+
+    setError(null);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "evaluator" && role !== "admin") throw new Error("Insufficient permissions.");
+      await apiFetch(`/film-submissions/${id}/status`, { method: "PATCH", token, body: JSON.stringify({ status: "needs_changes" }) });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to return for edits");
     }
   }
 
@@ -172,8 +200,20 @@ export function EvaluatorQueue() {
                   Unassign
                 </Button>
               ) : null}
-              <Button type="button" onClick={() => markInReview(s._id)} disabled={loading || s.status !== "submitted"}>
+              <Button
+                type="button"
+                onClick={() => markInReview(s._id)}
+                disabled={loading || (s.status !== "submitted" && s.status !== "needs_changes")}
+              >
                 Mark in review
+              </Button>
+              <Button
+                type="button"
+                className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                onClick={() => returnForEdits(s._id)}
+                disabled={loading || s.status !== "in_review"}
+              >
+                Return for edits
               </Button>
               <a
                 className="rounded-md border border-white/15 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10"

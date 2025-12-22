@@ -155,7 +155,16 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
       notes: parsed.data.notes
     });
 
+    const prevStatus = film.status;
     film.status = FILM_SUBMISSION_STATUS.COMPLETED;
+    (film as any).history = Array.isArray((film as any).history) ? (film as any).history : [];
+    (film as any).history.push({
+      at: new Date(),
+      byUserId: evaluatorUserId,
+      action: "status_changed",
+      fromStatus: prevStatus,
+      toStatus: film.status
+    });
     await film.save();
 
     // Player notification (in-app + email best-effort)

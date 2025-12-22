@@ -323,6 +323,8 @@ export function FilmSubmissions() {
                       ? "text-emerald-300"
                       : s.status === "in_review"
                         ? "text-amber-300"
+                        : s.status === "needs_changes"
+                          ? "text-red-300"
                         : "text-[color:var(--muted-2)]"
                   }`}
                 >
@@ -386,6 +388,13 @@ export function FilmSubmissions() {
                 </div>
               ) : s.status === "in_review" ? (
                 <p className="mt-4 text-sm text-[color:var(--muted)]">In review. An evaluator is working on your film.</p>
+              ) : s.status === "needs_changes" ? (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-sm text-red-200">Needs changes. Please review feedback and resubmit if needed.</p>
+                  <Button type="button" onClick={() => removeSubmission(s._id)}>
+                    Delete
+                  </Button>
+                </div>
               ) : (
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm text-[color:var(--muted-2)]">Submitted. Waiting for evaluator review.</p>
