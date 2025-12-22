@@ -7,6 +7,7 @@ import { ROLE } from "@goeducate/shared";
 import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 import { AccessRequestModel, ACCESS_REQUEST_STATUS } from "../models/AccessRequest.js";
 import { EmailAuditLogModel, EMAIL_AUDIT_STATUS, EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 import { UserModel } from "../models/User.js";
@@ -20,6 +21,8 @@ import {
 } from "../email/accessRequests.js";
 
 export const accessRequestsRouter = Router();
+
+const accessRequestLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 8, keyPrefix: "access_requests" });
 
 const CreateAccessRequestSchema = z.object({
   fullName: z.string().min(2).max(100),
@@ -69,7 +72,7 @@ async function createInviteForEmail(opts: { email: string; role: string; created
 }
 
 // Public: create access request (invite-only workflow)
-accessRequestsRouter.post("/api/access-requests", async (req, res, next) => {
+accessRequestsRouter.post("/api/access-requests", accessRequestLimiter, async (req, res, next) => {
   const parsed = CreateAccessRequestSchema.safeParse(req.body);
   if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 

@@ -19,6 +19,7 @@ import { NotificationModel } from "../models/Notification.js";
 import { isInviteEmailConfigured, sendInviteEmail } from "../email/invites.js";
 import nodemailer from "nodemailer";
 import { normalizeUsStateToCode, US_STATES } from "../util/usStates.js";
+import { logAdminAction } from "../audit/adminAudit.js";
 
 export const adminRouter = Router();
 
@@ -123,6 +124,14 @@ adminRouter.post("/admin/users", requireAuth, requireRole([ROLE.ADMIN]), async (
       ...(firstName ? { firstName } : {}),
       ...(lastName ? { lastName } : {}),
       ...(role === ROLE.COACH ? { subscriptionStatus: COACH_SUBSCRIPTION_STATUS.INACTIVE } : {})
+    });
+    void logAdminAction({
+      req,
+      actorUserId: String(req.user!.id),
+      action: "admin.users.create",
+      targetType: "User",
+      targetId: String(user._id),
+      meta: { email: user.email, role: user.role }
     });
     return res.status(201).json({ user: { id: String(user._id), email: user.email, role: user.role } });
   } catch (err) {
@@ -588,6 +597,14 @@ adminRouter.post("/admin/invites", requireAuth, requireRole([ROLE.ADMIN]), async
     const email = String((req.body as { email?: unknown }).email ?? "");
     const role = String((req.body as { role?: unknown }).role ?? "");
     const invite = await createInvite({ email, role, createdByUserId: req.user!.id as any });
+    void logAdminAction({
+      req,
+      actorUserId: String(req.user!.id),
+      action: "admin.invites.create",
+      targetType: "EvaluatorInvite",
+      targetId: invite.email,
+      meta: { email: invite.email, role: invite.role, expiresAt: invite.expiresAt }
+    });
 
     // If email is configured, send the invite email.
     const emailConfigured = isInviteEmailConfigured();
@@ -707,6 +724,10 @@ adminRouter.delete("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), a
       }
     }
 
+    // Capture fields for audit before deletion
+    const auditEmail = user.email;
+    const auditRole = user.role;
+
     // Cascade cleanup (best-effort)
     if (user.role === ROLE.PLAYER) {
       await PlayerProfileModel.deleteMany({ userId: _id });
@@ -722,6 +743,14 @@ adminRouter.delete("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), a
     }
 
     await user.deleteOne();
+    void logAdminAction({
+      req,
+      actorUserId: String(req.user!.id),
+      action: "admin.users.delete",
+      targetType: "User",
+      targetId: String(_id),
+      meta: { email: auditEmail, role: auditRole }
+    });
     return res.status(204).send();
   } catch (err) {
     return next(err);

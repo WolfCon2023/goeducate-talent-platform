@@ -8,13 +8,17 @@ import { getEnv } from "../env.js";
 import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth } from "../middleware/auth.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 import { EvaluatorInviteModel, hashInviteToken } from "../models/EvaluatorInvite.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { UserModel } from "../models/User.js";
 
 export const authRouter = Router();
 
-authRouter.post("/auth/register", async (req, res, next) => {
+const authLoginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 25, keyPrefix: "auth_login" });
+const authRegisterLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, keyPrefix: "auth_register" });
+
+authRouter.post("/auth/register", authRegisterLimiter, async (req, res, next) => {
   const parsed = RegisterSchema.safeParse(req.body);
   if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 
@@ -52,7 +56,7 @@ authRouter.post("/auth/register", async (req, res, next) => {
   }
 });
 
-authRouter.post("/auth/login", async (req, res, next) => {
+authRouter.post("/auth/login", authLoginLimiter, async (req, res, next) => {
   const parsed = LoginSchema.safeParse(req.body);
   if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 

@@ -6,6 +6,7 @@ import { zodToBadRequest } from "../http/zod.js";
 import { getEnv } from "../env.js";
 import { EmailAuditLogModel, EMAIL_AUDIT_STATUS, EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 import { isContactEmailConfigured, sendContactFormEmail } from "../email/contactForm.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 
 export const publicContactRouter = Router();
 
@@ -18,25 +19,9 @@ const ContactSchema = z.object({
   company: z.string().max(0).optional()
 });
 
-// Very small in-memory rate limit (good enough for MVP)
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const RATE_LIMIT_MAX = 5; // per IP per window
-const rl = new Map<string, { count: number; resetAt: number }>();
+const contactLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, keyPrefix: "public_contact" });
 
-function checkRateLimit(key: string) {
-  const now = Date.now();
-  const cur = rl.get(key);
-  if (!cur || cur.resetAt < now) {
-    rl.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return;
-  }
-  if (cur.count >= RATE_LIMIT_MAX) {
-    throw new ApiError({ status: 429, code: "RATE_LIMITED", message: "Too many requests. Please try again later." });
-  }
-  cur.count += 1;
-}
-
-publicContactRouter.post("/contact", async (req, res, next) => {
+publicContactRouter.post("/contact", contactLimiter, async (req, res, next) => {
   const parsed = ContactSchema.safeParse(req.body);
   if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 
@@ -49,7 +34,6 @@ publicContactRouter.post("/contact", async (req, res, next) => {
     const xfwd = ((req as any)?.headers?.["x-forwarded-for"] ?? "") as string | string[];
     const xfwdVal = Array.isArray(xfwd) ? xfwd[0] : xfwd;
     const ip = (String(xfwdVal || req.socket?.remoteAddress || "").split(",").map((s) => s.trim()).filter(Boolean)[0] ?? "").trim();
-    checkRateLimit(ip || "unknown");
 
     const data = parsed.data;
     if (data.company && data.company.trim()) {

@@ -49,7 +49,16 @@ const upload = multer({
   },
   fileFilter: (_req, file, cb) => {
     const mime = String(file.mimetype ?? "");
-    if (!mime.startsWith("image/")) return cb(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Only image uploads are allowed" }));
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(mime)) {
+      return cb(
+        new ApiError({
+          status: 400,
+          code: "BAD_REQUEST",
+          message: "Only JPG, PNG, or WebP images are allowed"
+        })
+      );
+    }
     cb(null, true);
   }
 });

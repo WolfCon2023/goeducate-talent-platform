@@ -11,6 +11,7 @@ import { ShowcaseModel, SHOWCASE_STATUS } from "../models/Showcase.js";
 import { getStripe } from "../stripe.js";
 import { UserModel } from "../models/User.js";
 import { ShowcaseRegistrationModel } from "../models/ShowcaseRegistration.js";
+import { logAdminAction } from "../audit/adminAudit.js";
 
 export const showcasesRouter = Router();
 
@@ -458,6 +459,14 @@ showcasesRouter.post("/admin/showcases", requireAuth, requireRole([ROLE.ADMIN]),
       createdBy: new mongoose.Types.ObjectId(req.user!.id as any),
       ...(data.capacity !== undefined && data.spotsRemaining === undefined ? { spotsRemaining: data.capacity } : {})
     });
+    void logAdminAction({
+      req,
+      actorUserId: String(req.user!.id),
+      action: "admin.showcases.create",
+      targetType: "Showcase",
+      targetId: String(doc._id),
+      meta: { slug: doc.slug, title: doc.title, status: doc.status }
+    });
     return res.status(201).json({ showcase: toPublicShowcase(doc.toObject()) });
   } catch (err) {
     return next(err);
@@ -485,6 +494,14 @@ showcasesRouter.put("/admin/showcases/:id", requireAuth, requireRole([ROLE.ADMIN
 
     const updated = await ShowcaseModel.findByIdAndUpdate(new mongoose.Types.ObjectId(id), update, { new: true }).lean();
     if (!updated) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Showcase not found" }));
+    void logAdminAction({
+      req,
+      actorUserId: String(req.user!.id),
+      action: "admin.showcases.update",
+      targetType: "Showcase",
+      targetId: String(id),
+      meta: { slug: updated.slug, title: updated.title, status: updated.status }
+    });
     return res.json({ showcase: { ...toPublicShowcase(updated), status: updated.status, stripePriceId: updated.stripePriceId } });
   } catch (err) {
     return next(err);
@@ -502,6 +519,14 @@ showcasesRouter.delete("/admin/showcases/:id", requireAuth, requireRole([ROLE.AD
       { new: true }
     ).lean();
     if (!updated) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Showcase not found" }));
+    void logAdminAction({
+      req,
+      actorUserId: String(req.user!.id),
+      action: "admin.showcases.archive",
+      targetType: "Showcase",
+      targetId: String(id),
+      meta: { slug: updated.slug, title: updated.title, status: updated.status }
+    });
     return res.status(204).send();
   } catch (err) {
     return next(err);
