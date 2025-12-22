@@ -106,15 +106,39 @@ async function main() {
   app.use(errorHandler);
 
   // Railway expects the process to bind to the injected PORT and listen on 0.0.0.0.
-  const port = Number(process.env.PORT ?? env.PORT);
+  const injectedPort = process.env.PORT;
+  const port = Number(injectedPort ?? env.PORT);
   const host = "0.0.0.0";
-  app.listen(port, host, () => {
+  console.log(`[api] env.PORT=${env.PORT} process.env.PORT=${injectedPort ?? "<unset>"} chosenPort=${port}`);
+  const server = app.listen(port, host, () => {
     console.log(`[api] listening on http://${host}:${port}`);
   });
 
   // Connect to MongoDB AFTER the server is listening so Railway health checks pass even if Mongo is slow.
   // We retry a few times and keep the process alive; requests that require DB will still fail until connected.
   void connectWithRetry(env.MONGODB_URI);
+
+  // Log and shutdown cleanly when the platform asks us to stop.
+  async function shutdown(signal: string) {
+    console.log(`[api] ${signal} received; shutting down...`);
+    try {
+      server.close();
+    } catch {}
+    try {
+      const mongoose = (await import("mongoose")).default as any;
+      await mongoose.connection?.close?.();
+    } catch {}
+    process.exit(0);
+  }
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+
+  process.on("unhandledRejection", (reason) => {
+    console.error("[api] unhandledRejection", reason);
+  });
+  process.on("uncaughtException", (err) => {
+    console.error("[api] uncaughtException", err);
+  });
 }
 
 main().catch((err) => {
