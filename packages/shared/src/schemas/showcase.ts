@@ -19,6 +19,26 @@ export const ShowcaseBaseSchema = z.object({
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be URL-friendly (lowercase letters, numbers, dashes)."),
   title: z.string().min(2).max(140),
   description: z.string().min(0).max(20_000).default(""),
+  waiverText: z
+    .string()
+    .min(0)
+    .max(20_000)
+    .default(
+      [
+        "By registering for and participating in this GoEducate showcase event, you acknowledge and agree to the following:",
+        "",
+        "Participation in athletic showcase events involves physical activity that may carry inherent risks, including but not limited to physical injury, illness, or other harm. You voluntarily choose to participate and assume full responsibility for any risks associated with attendance and participation.",
+        "",
+        "You agree to release, waive, and hold harmless GoEducate, Inc., its officers, employees, representatives, and agents from any and all claims, liabilities, damages, or losses arising from or related to participation in this showcase, except as required by law.",
+        "",
+        "You confirm that you are physically capable of participating and that you have not been advised otherwise by a medical professional. If the participant is a minor, you confirm that you are the parent or legal guardian and consent to the minor’s participation.",
+        "",
+        "You acknowledge that this is a waiver placeholder and that a more detailed legal waiver may be required prior to or at the event.",
+        "",
+        "By checking the box below, you confirm that you have read, understand, and agree to this waiver."
+      ].join("\n")
+    ),
+  waiverVersion: z.string().min(1).max(40).default("v1"),
   refundPolicy: z
     .string()
     .min(0)
@@ -77,6 +97,7 @@ export const ShowcaseBaseSchema = z.object({
         "By registering for a showcase, you acknowledge that you have read, understand, and agree to this Refund Policy."
       ].join("\n")
     ),
+  refundPolicyVersion: z.string().min(1).max(40).default("v1"),
   weatherClause: z
     .string()
     .min(0)
@@ -92,6 +113,7 @@ export const ShowcaseBaseSchema = z.object({
         "If weather conditions require cancellation, postponement, or modification of an event, GoEducate, Inc. will determine the appropriate remedy, which may include a refund or credit toward a future event, as outlined in the Refund Policy."
       ].join("\n")
     ),
+  weatherClauseVersion: z.string().min(1).max(40).default("v1"),
   sportCategories: z.array(ShowcaseSportCategorySchema).min(1).max(10),
   startDateTime: z.string().datetime(),
   endDateTime: z.string().datetime(),

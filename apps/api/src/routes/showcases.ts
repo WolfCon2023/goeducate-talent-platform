@@ -117,6 +117,7 @@ function computeRegistrationState(s: any, now = new Date()) {
 
 function toPublicShowcase(s: any) {
   const reg = computeRegistrationState(s);
+  const rawWaiver = String(s.waiverText ?? "").trim();
   const rawRefund = String(s.refundPolicy ?? "").trim();
   const rawWeather = String(s.weatherClause ?? "").trim();
   const isPlaceholderRefund =
@@ -131,8 +132,12 @@ function toPublicShowcase(s: any) {
     slug: s.slug,
     title: s.title,
     description: s.description ?? "",
+    waiverText: rawWaiver,
+    waiverVersion: String(s.waiverVersion ?? "v1"),
     refundPolicy: isPlaceholderRefund ? DEFAULT_REFUND_POLICY : rawRefund,
+    refundPolicyVersion: String(s.refundPolicyVersion ?? "v1"),
     weatherClause: isPlaceholderWeather ? DEFAULT_WEATHER_CLAUSE : rawWeather,
+    weatherClauseVersion: String(s.weatherClauseVersion ?? "v1"),
     sportCategories: s.sportCategories ?? [],
     startDateTime: s.startDateTime ? new Date(s.startDateTime).toISOString() : null,
     endDateTime: s.endDateTime ? new Date(s.endDateTime).toISOString() : null,

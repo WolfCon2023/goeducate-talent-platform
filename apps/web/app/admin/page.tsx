@@ -7,6 +7,7 @@ import { AdminUserManager } from "@/components/AdminUserManager";
 import { AdminStats } from "@/components/AdminStats";
 import { AdminPlayerMap } from "@/components/AdminPlayerMap";
 import { AdminShowcases } from "@/components/AdminShowcases";
+import { AdminShowcaseRegistrations } from "@/components/AdminShowcaseRegistrations";
 import { AdminNotificationQueue } from "@/components/AdminNotificationQueue";
 import { AdminEvaluationTemplates } from "@/components/AdminEvaluationTemplates";
 import { AdminEvaluationForms } from "@/components/AdminEvaluationForms";
@@ -39,6 +40,9 @@ export default function AdminPage() {
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-showcases">
                 Showcases
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-showcase-registrations">
+                Showcase registrations
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-notifications">
                 Notifications
@@ -82,6 +86,10 @@ export default function AdminPage() {
 
         <section id="admin-showcases" className="scroll-mt-28">
           <AdminShowcases />
+        </section>
+
+        <section id="admin-showcase-registrations" className="scroll-mt-28">
+          <AdminShowcaseRegistrations />
         </section>
 
         <section id="admin-notifications" className="scroll-mt-28">

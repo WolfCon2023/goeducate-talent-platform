@@ -90,8 +90,11 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
                   ...(sport ? { sport: String(sport) } : {}),
                   ...(waiverAcceptedAt ? { waiverAcceptedAt: new Date(String(waiverAcceptedAt)) } : {}),
                   ...(waiverVersion ? { waiverVersion: String(waiverVersion) } : {}),
+                  ...(showcase.waiverText ? { waiverTextSnapshot: String(showcase.waiverText) } : {}),
                   ...(refundPolicyAcceptedAt ? { refundPolicyAcceptedAt: new Date(String(refundPolicyAcceptedAt)) } : {}),
                   ...(refundPolicyVersion ? { refundPolicyVersion: String(refundPolicyVersion) } : {}),
+                  ...(showcase.refundPolicy ? { refundPolicyTextSnapshot: String(showcase.refundPolicy) } : {}),
+                  ...(showcase.weatherClause ? { weatherClauseTextSnapshot: String(showcase.weatherClause) } : {}),
                   paymentStatus: SHOWCASE_REGISTRATION_STATUS.PAID,
                   stripeCheckoutSessionId: session.id,
                   stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id

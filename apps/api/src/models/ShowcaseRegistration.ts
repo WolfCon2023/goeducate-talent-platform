@@ -19,8 +19,11 @@ export type ShowcaseRegistrationDoc = {
   sport?: string;
   waiverAcceptedAt?: Date;
   waiverVersion?: string;
+  waiverTextSnapshot?: string;
   refundPolicyAcceptedAt?: Date;
   refundPolicyVersion?: string;
+  refundPolicyTextSnapshot?: string;
+  weatherClauseTextSnapshot?: string;
   paymentStatus: ShowcaseRegistrationStatus;
   stripeCheckoutSessionId: string;
   stripePaymentIntentId?: string;
@@ -38,8 +41,11 @@ const ShowcaseRegistrationSchema = new Schema<ShowcaseRegistrationDoc>(
     sport: { type: String, trim: true },
     waiverAcceptedAt: { type: Date },
     waiverVersion: { type: String, trim: true },
+    waiverTextSnapshot: { type: String },
     refundPolicyAcceptedAt: { type: Date },
     refundPolicyVersion: { type: String, trim: true },
+    refundPolicyTextSnapshot: { type: String },
+    weatherClauseTextSnapshot: { type: String },
     paymentStatus: {
       type: String,
       required: true,

@@ -16,8 +16,12 @@ type Showcase = {
   slug: string;
   title: string;
   description: string;
+  waiverText?: string;
+  waiverVersion?: string;
   refundPolicy?: string;
+  refundPolicyVersion?: string;
   weatherClause?: string;
+  weatherClauseVersion?: string;
   sportCategories: string[];
   startDateTime: string | null;
   endDateTime: string | null;
@@ -243,9 +247,9 @@ export default function ShowcaseDetailPage() {
         fullName: fullName.trim(),
         email: email.trim().toLowerCase(),
         waiverAccepted: true as const,
-        waiverVersion: "v1",
+        waiverVersion: showcase.waiverVersion || "v1",
         refundPolicyAccepted: true as const,
-        refundPolicyVersion: "v1",
+        refundPolicyVersion: showcase.refundPolicyVersion || "v1",
         ...(role ? { role } : {})
       };
 
@@ -404,26 +408,9 @@ export default function ShowcaseDetailPage() {
 
             <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="text-sm font-semibold text-white">Waiver</div>
-              <p className="mt-2 text-sm text-white/80">
-                By registering for and participating in this GoEducate showcase event, you acknowledge and agree to the following:
-              </p>
-              <div className="mt-3 grid gap-2 text-sm text-white/80">
-                <p>
-                  Participation in athletic showcase events involves physical activity that may carry inherent risks, including but not limited to physical injury, illness, or other harm. You voluntarily choose to participate and assume full responsibility for any risks associated with attendance and participation.
-                </p>
-                <p>
-                  You agree to release, waive, and hold harmless GoEducate, Inc., its officers, employees, representatives, and agents from any and all claims, liabilities, damages, or losses arising from or related to participation in this showcase, except as required by law.
-                </p>
-                <p>
-                  You confirm that you are physically capable of participating and that you have not been advised otherwise by a medical professional. If the participant is a minor, you confirm that you are the parent or legal guardian and consent to the minor’s participation.
-                </p>
-                <p>
-                  You acknowledge that this is a waiver placeholder and that a more detailed legal waiver may be required prior to or at the event.
-                </p>
-                <p className="text-xs text-white/70">
-                  By checking the box below, you confirm that you have read, understand, and agree to this waiver.
-                </p>
-              </div>
+              <pre className="mt-3 whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white/80">
+                {String(showcase.waiverText ?? "").trim() || "Waiver text is not available."}
+              </pre>
               <label className="mt-3 inline-flex items-start gap-2 text-sm text-white/80">
                 <input type="checkbox" checked={waiverAccepted} onChange={(e) => setWaiverAccepted(e.target.checked)} />
                 <span>I have read and agree to the waiver.</span>
