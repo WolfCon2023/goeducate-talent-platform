@@ -25,9 +25,9 @@ export const ShowcaseBaseSchema = z.object({
     .max(20_000)
     .default(
       [
-        "Refund Policy (Attorney-Ready Version)",
+        "Refund Policy",
         "",
-        "Effective Date: [Insert Date]",
+        "Effective Date: 12/22/2025",
         "",
         "This Refund Policy governs all showcase registrations processed by GoEducate, Inc. (“GoEducate,” “we,” “us,” or “our”).",
         "",
@@ -83,7 +83,7 @@ export const ShowcaseBaseSchema = z.object({
     .max(10_000)
     .default(
       [
-        "Weather-Related Event Clause (Standalone)",
+        "Weather-Related Event Clause",
         "",
         "Showcase events are scheduled to take place rain or shine.",
         "",
