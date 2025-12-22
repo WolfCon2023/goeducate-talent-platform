@@ -18,6 +18,7 @@ import { WatchlistModel } from "../models/Watchlist.js";
 import { NotificationModel } from "../models/Notification.js";
 import { isInviteEmailConfigured, sendInviteEmail } from "../email/invites.js";
 import nodemailer from "nodemailer";
+import { normalizeUsStateToCode, US_STATES } from "../util/usStates.js";
 
 export const adminRouter = Router();
 
@@ -452,6 +453,42 @@ adminRouter.get("/admin/stats", requireAuth, requireRole([ROLE.ADMIN]), async (_
         evaluators: evaluatorPerformance
       }
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: player distribution map (counts by US state)
+adminRouter.get("/admin/players/by-state", requireAuth, requireRole([ROLE.ADMIN]), async (_req, res, next) => {
+  try {
+    const raw = await PlayerProfileModel.aggregate([
+      {
+        $project: {
+          state: {
+            $cond: [{ $or: [{ $eq: ["$state", null] }, { $eq: ["$state", ""] }] }, null, "$state"]
+          }
+        }
+      },
+      { $group: { _id: "$state", count: { $sum: 1 } } }
+    ]);
+
+    const counts = new Map<string, number>();
+    let unknown = 0;
+
+    for (const r of raw as Array<{ _id: any; count: number }>) {
+      const code = normalizeUsStateToCode(r._id);
+      if (!code) {
+        unknown += Number(r.count) || 0;
+        continue;
+      }
+      counts.set(code, (counts.get(code) ?? 0) + (Number(r.count) || 0));
+    }
+
+    const byState = Array.from(counts.entries())
+      .map(([code, count]) => ({ code, name: US_STATES.find((s) => s.code === code)?.name ?? code, count }))
+      .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+
+    return res.json({ byState, unknownCount: unknown });
   } catch (err) {
     return next(err);
   }
