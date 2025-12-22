@@ -40,6 +40,7 @@ function toPublicShowcase(s: any) {
     slug: s.slug,
     title: s.title,
     description: s.description ?? "",
+    refundPolicy: s.refundPolicy ?? "Refund policy: refunds are subject to GoEducate policies (MVP placeholder).",
     sportCategories: s.sportCategories ?? [],
     startDateTime: s.startDateTime ? new Date(s.startDateTime).toISOString() : null,
     endDateTime: s.endDateTime ? new Date(s.endDateTime).toISOString() : null,
@@ -129,6 +130,8 @@ showcasesRouter.post("/showcases/:idOrSlug/register", async (req, res, next) => 
     let fullName = parsed.data.fullName.trim();
     let role = parsed.data.role;
     let sport = parsed.data.sport;
+    const waiverVersion = parsed.data.waiverVersion ?? "v1";
+    const waiverAcceptedAtIso = new Date().toISOString();
 
     // If a valid userId is provided via X-User-Id header (internal use), we can attach.
     const userIdHeader = String(req.header("x-user-id") ?? "");
@@ -157,6 +160,8 @@ showcasesRouter.post("/showcases/:idOrSlug/register", async (req, res, next) => 
         showcaseSlug: String(showcase.slug),
         fullName,
         email: customerEmail,
+        waiverAcceptedAt: waiverAcceptedAtIso,
+        waiverVersion,
         ...(role ? { role: String(role) } : {}),
         ...(sport ? { sport: String(sport) } : {}),
         ...(userId ? { userId } : {})

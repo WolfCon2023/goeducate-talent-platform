@@ -12,6 +12,7 @@ export type ShowcaseDoc = {
   slug: string;
   title: string;
   description: string;
+  refundPolicy: string;
   sportCategories: string[];
   startDateTime: Date;
   endDateTime: Date;
@@ -42,6 +43,10 @@ const ShowcaseSchema = new Schema<ShowcaseDoc>(
     slug: { type: String, required: true, unique: true, index: true, lowercase: true, trim: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: "" },
+    refundPolicy: {
+      type: String,
+      default: "Refund policy: refunds are subject to GoEducate policies (MVP placeholder)."
+    },
     sportCategories: { type: [String], required: true, default: [] },
     startDateTime: { type: Date, required: true },
     endDateTime: { type: Date, required: true },

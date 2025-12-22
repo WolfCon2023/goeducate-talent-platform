@@ -12,9 +12,14 @@ export default function EvaluatorDashboardPage() {
             <h1 className="text-2xl font-semibold tracking-tight">Evaluator queue</h1>
             <p className="mt-2 text-sm text-white/80">Review submitted film. Tagging and reports are next.</p>
           </div>
-          <Link href="/" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
-            Home
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/showcases" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+              Showcases
+            </Link>
+            <Link href="/" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+              Home
+            </Link>
+          </div>
         </div>
 
         <EvaluatorQueue />

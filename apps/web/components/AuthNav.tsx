@@ -114,6 +114,9 @@ export function AuthNav() {
       <Link href="/coach" className={navItem("/coach")}>
         Coach
       </Link>
+      <Link href="/showcases" className={navItem("/showcases")}>
+        Showcases
+      </Link>
 
       {role ? (
         <>

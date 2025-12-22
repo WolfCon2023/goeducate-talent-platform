@@ -79,6 +79,7 @@ export function AdminShowcases() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [refundPolicy, setRefundPolicy] = useState("Refund policy: refunds are subject to GoEducate policies (MVP placeholder).");
   const [sports, setSports] = useState<string[]>(["football"]);
   const [startDateTime, setStartDateTime] = useState("");
   const [endDateTime, setEndDateTime] = useState("");
@@ -139,6 +140,7 @@ export function AdminShowcases() {
     setTitle("");
     setSlug("");
     setDescription("");
+    setRefundPolicy("Refund policy: refunds are subject to GoEducate policies (MVP placeholder).");
     setSports(["football"]);
     setStartDateTime("");
     setEndDateTime("");
@@ -167,6 +169,7 @@ export function AdminShowcases() {
     setTitle(row.title ?? "");
     setSlug(row.slug ?? "");
     setDescription((row as any).description ?? "");
+    setRefundPolicy((row as any).refundPolicy ?? "Refund policy: refunds are subject to GoEducate policies (MVP placeholder).");
     setSports(row.sportCategories?.length ? row.sportCategories : ["football"]);
     setStartDateTime(isoToLocalInput(row.startDateTime));
     setEndDateTime(isoToLocalInput(row.endDateTime));
@@ -219,6 +222,7 @@ export function AdminShowcases() {
         title: title.trim(),
         slug: slug.trim(),
         description,
+        refundPolicy,
         sportCategories: sports,
         startDateTime: localInputToIso(startDateTime),
         endDateTime: localInputToIso(endDateTime),
@@ -451,6 +455,18 @@ export function AdminShowcases() {
               rows={6}
               className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] placeholder:text-[color:var(--muted-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
               placeholder="Full description, who should attend, what to bring, refund policy..."
+            />
+          </div>
+
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="showcaseRefundPolicy">Refund policy</Label>
+            <textarea
+              id="showcaseRefundPolicy"
+              value={refundPolicy}
+              onChange={(e) => setRefundPolicy(e.target.value)}
+              rows={3}
+              className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] placeholder:text-[color:var(--muted-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+              placeholder="Refund policy: refunds are subject to GoEducate policies (MVP placeholder)."
             />
           </div>
 

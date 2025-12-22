@@ -19,6 +19,11 @@ export const ShowcaseBaseSchema = z.object({
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Slug must be URL-friendly (lowercase letters, numbers, dashes)."),
   title: z.string().min(2).max(140),
   description: z.string().min(0).max(20_000).default(""),
+  refundPolicy: z
+    .string()
+    .min(0)
+    .max(4000)
+    .default("Refund policy: refunds are subject to GoEducate policies (MVP placeholder)."),
   sportCategories: z.array(ShowcaseSportCategorySchema).min(1).max(10),
   startDateTime: z.string().datetime(),
   endDateTime: z.string().datetime(),

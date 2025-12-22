@@ -15,6 +15,7 @@ type Showcase = {
   slug: string;
   title: string;
   description: string;
+  refundPolicy?: string;
   sportCategories: string[];
   startDateTime: string | null;
   endDateTime: string | null;
@@ -60,6 +61,7 @@ export default function ShowcaseDetailPage() {
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
+  const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
@@ -134,12 +136,19 @@ export default function ShowcaseDetailPage() {
       const fe: FieldErrors = {};
       if (!fullName.trim()) fe.fullName = ["Full name is required."];
       if (!email.trim()) fe.email = ["Email is required."];
+      if (!waiverAccepted) fe.waiverAccepted = ["You must accept the waiver to continue."];
       if (Object.keys(fe).length > 0) {
         setFieldErrors(fe);
         return;
       }
 
-      const body = { fullName: fullName.trim(), email: email.trim().toLowerCase(), ...(role ? { role } : {}) };
+      const body = {
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        waiverAccepted: true as const,
+        waiverVersion: "v1",
+        ...(role ? { role } : {})
+      };
 
       const res = await apiFetch<{ url: string }>(`/showcases/${encodeURIComponent(showcase.slug || showcase.id)}/register`, {
         method: "POST",
@@ -227,9 +236,7 @@ export default function ShowcaseDetailPage() {
                   Open map directions
                 </a>
               ) : null}
-              <div className="text-xs text-white/70">
-                Refund policy: refunds are subject to GoEducate policies (MVP placeholder).
-              </div>
+              <div className="text-xs text-white/70">{showcase.refundPolicy ?? "Refund policy: refunds are subject to GoEducate policies (MVP placeholder)."}</div>
             </div>
           </Card>
 
@@ -263,12 +270,37 @@ export default function ShowcaseDetailPage() {
               </div>
             </div>
 
+            <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-sm font-semibold text-white">Waiver</div>
+              <p className="mt-2 text-sm text-white/80">
+                By registering, you acknowledge and agree that participation is voluntary and you assume all risks associated with attending and participating in the showcase.
+              </p>
+              <p className="mt-2 text-xs text-white/70">
+                This is an MVP waiver placeholder. We will replace this with a full legal waiver in the next iteration.
+              </p>
+              <label className="mt-3 inline-flex items-start gap-2 text-sm text-white/80">
+                <input type="checkbox" checked={waiverAccepted} onChange={(e) => setWaiverAccepted(e.target.checked)} />
+                <span>I have read and agree to the waiver.</span>
+              </label>
+              <div className="mt-1">
+                <FieldError name="waiverAccepted" fieldErrors={fieldErrors} />
+              </div>
+            </div>
+
             <div className="mt-5">
-              <Button type="button" disabled={submitting || showcase.registrationStatus !== "open"} onClick={register} className="w-full">
+              <Button
+                type="button"
+                disabled={submitting || showcase.registrationStatus !== "open" || !waiverAccepted}
+                onClick={register}
+                className="w-full"
+              >
                 {submitting ? "Redirecting..." : "Register"}
               </Button>
               {showcase.registrationStatus !== "open" ? (
                 <div className="mt-2 text-xs text-white/70">Registration is not open for this showcase.</div>
+              ) : null}
+              {showcase.registrationStatus === "open" && !waiverAccepted ? (
+                <div className="mt-2 text-xs text-white/70">Accept the waiver to enable registration.</div>
               ) : null}
             </div>
           </Card>

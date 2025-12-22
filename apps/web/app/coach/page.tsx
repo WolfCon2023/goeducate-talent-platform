@@ -17,9 +17,14 @@ export default function CoachDashboardPage() {
               Search players and view profiles. Upgrade your subscription to unlock contact info.
             </p>
           </div>
-          <Link href="/" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
-            Home
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/showcases" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+              Showcases
+            </Link>
+            <Link href="/" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+              Home
+            </Link>
+          </div>
         </div>
 
         <Card>

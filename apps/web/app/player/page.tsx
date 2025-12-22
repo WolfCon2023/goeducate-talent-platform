@@ -19,6 +19,9 @@ export default function PlayerDashboardPage() {
             <Link href="/player/film" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
               Film submissions
             </Link>
+            <Link href="/showcases" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+              Showcases
+            </Link>
           </div>
         </div>
 
