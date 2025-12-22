@@ -7,6 +7,9 @@ import { ROLE } from "@goeducate/shared";
 import { getEnv } from "../env.js";
 import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { getStripe } from "../stripe.js";
+import { ShowcaseModel } from "../models/Showcase.js";
+import { ShowcaseRegistrationModel, SHOWCASE_REGISTRATION_STATUS } from "../models/ShowcaseRegistration.js";
+import { isShowcaseEmailConfigured, sendShowcaseRegistrationEmail } from "../email/showcases.js";
 
 function isActiveStripeSubscription(status: Stripe.Subscription.Status) {
   return status === "active" || status === "trialing";
@@ -58,6 +61,67 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        const kind = session.metadata?.kind;
+        // New: showcase registrations (one-time payments)
+        if (kind === "showcase_registration") {
+          const showcaseId = session.metadata?.showcaseId ?? "";
+          const fullName = session.metadata?.fullName ?? "";
+          const email = session.metadata?.email ?? "";
+          const role = session.metadata?.role;
+          const sport = session.metadata?.sport;
+          const userId = session.metadata?.userId;
+
+          if (showcaseId && mongoose.isValidObjectId(showcaseId) && session.id) {
+            const showcase = await ShowcaseModel.findById(showcaseId).lean();
+            if (showcase) {
+              // Create registration record once (idempotent by unique session id).
+              const existing = await ShowcaseRegistrationModel.findOne({ stripeCheckoutSessionId: session.id }).lean();
+              if (!existing) {
+                await ShowcaseRegistrationModel.create({
+                  showcaseId: new mongoose.Types.ObjectId(showcaseId),
+                  ...(userId && mongoose.isValidObjectId(userId) ? { userId: new mongoose.Types.ObjectId(userId) } : {}),
+                  fullName: String(fullName).trim() || "Registrant",
+                  email: String(email).trim().toLowerCase(),
+                  ...(role ? { role: String(role) } : {}),
+                  ...(sport ? { sport: String(sport) } : {}),
+                  paymentStatus: SHOWCASE_REGISTRATION_STATUS.PAID,
+                  stripeCheckoutSessionId: session.id,
+                  stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id
+                });
+
+                // Decrement capacity if enforced.
+                if (typeof showcase.capacity === "number" && typeof showcase.spotsRemaining === "number") {
+                  await ShowcaseModel.updateOne(
+                    { _id: showcase._id, spotsRemaining: { $gt: 0 } },
+                    { $inc: { spotsRemaining: -1 } }
+                  );
+                }
+
+                // Send confirmation email (best effort)
+                if (isShowcaseEmailConfigured()) {
+                  try {
+                    const env = getEnv();
+                    const base = (env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+                    const detailsUrl = `${base}/showcases/${encodeURIComponent(String(showcase.slug ?? showcase._id))}`;
+                    await sendShowcaseRegistrationEmail({
+                      to: String(email).trim().toLowerCase(),
+                      fullName: String(fullName).trim() || "Registrant",
+                      showcaseTitle: String(showcase.title ?? "Showcase"),
+                      startDateTimeIso: showcase.startDateTime ? new Date(showcase.startDateTime).toISOString() : null,
+                      city: showcase.city,
+                      state: showcase.state,
+                      detailsUrl
+                    });
+                  } catch (err) {
+                    console.error("[stripe webhook] showcase email failed", err);
+                  }
+                }
+              }
+            }
+          }
+          break;
+        }
+
         const userId = session.metadata?.userId;
         const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id;
         const subscriptionId =
