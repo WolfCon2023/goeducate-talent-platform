@@ -301,10 +301,40 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
     return true;
   }, [formDef, rubric]);
 
-  const canSubmit = useMemo(
-    () => !!film?.userId && Boolean(formDef) && rubricOk && strengthsOk && improvementsOk,
-    [film, formDef, rubricOk, strengthsOk, improvementsOk]
-  );
+  const rubricMissing = useMemo(() => {
+    if (!formDef) return [];
+    const missing: string[] = [];
+    for (const c of formDef.categories) {
+      for (const t of c.traits) {
+        if (isProjectionTraitKey(t.key)) continue;
+        const req = t.required !== false;
+        if (!req) continue;
+        const v = rubric[t.key];
+        const ok = t.type === "select" ? Boolean(v?.o) : typeof v?.n === "number" && Number.isFinite(v?.n);
+        if (!ok) missing.push(t.label);
+      }
+    }
+    return missing;
+  }, [formDef, rubric]);
+
+  const submitBlockers = useMemo(() => {
+    const blockers: string[] = [];
+    if (!film?.userId) blockers.push("Load film details.");
+    if (!formDef) blockers.push("Wait for the evaluation form to load.");
+    if (formDef && !rubricOk) {
+      const sample = rubricMissing.slice(0, 3);
+      blockers.push(
+        rubricMissing.length > 0
+          ? `Complete required rubric fields${sample.length ? ` (e.g. ${sample.join(", ")})` : ""}.`
+          : "Complete required rubric fields."
+      );
+    }
+    if (!strengthsOk) blockers.push("Strengths must include 2+ bullet points and 50+ characters.");
+    if (!improvementsOk) blockers.push("Improvements must include 2+ bullet points and 50+ characters.");
+    return blockers;
+  }, [film, formDef, rubricOk, rubricMissing, strengthsOk, improvementsOk]);
+
+  const canSubmit = submitBlockers.length === 0;
   const positions = useMemo(() => (sport === "other" ? [] : POSITIONS_BY_SPORT[sport]), [sport]);
 
   function computeScoreLocal(def: EvaluationFormDef, values: Record<string, { n?: number; o?: string }>) {
@@ -390,6 +420,12 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
     // Ensure the active sport form is available immediately (no need to toggle sport first).
     void loadForm(sport);
   }, [loadForm, sport]);
+
+  useEffect(() => {
+    // Auto-load film/player metadata so the evaluator doesn't have to click "Load details" first.
+    void loadMeta();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function applyTemplate() {
     setStatus(null);
@@ -481,8 +517,13 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
 
   async function submit() {
     setStatus(null);
-    setSaving(true);
     try {
+      if (!canSubmit) {
+        setStatus(submitBlockers.join(" "));
+        return;
+      }
+
+      setSaving(true);
       const token = getAccessToken();
       const role = getTokenRole(token);
       if (!token) throw new Error("Please login first.");
@@ -815,9 +856,14 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
       </div>
 
       <div className="mt-6 flex items-center gap-3">
-        <Button type="button" onClick={submit} disabled={saving || !canSubmit}>
+        <Button type="button" onClick={submit} disabled={saving}>
           {saving ? "Submitting..." : "Submit evaluation"}
         </Button>
+        {!canSubmit ? (
+          <p className="text-sm text-amber-200">
+            To submit: {submitBlockers.join(" ")}
+          </p>
+        ) : null}
         {status ? <p className="text-sm text-white/80">{status}</p> : null}
       </div>
     </Card>
