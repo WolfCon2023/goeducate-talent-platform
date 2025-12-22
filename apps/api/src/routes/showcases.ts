@@ -62,17 +62,26 @@ function toPublicShowcase(s: any) {
 }
 
 // Public: list published showcases
-showcasesRouter.get("/showcases", async (_req, res, next) => {
+showcasesRouter.get(
+  "/showcases",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (_req, res, next) => {
   try {
     const rows = await ShowcaseModel.find({ status: SHOWCASE_STATUS.PUBLISHED }).sort({ startDateTime: 1 }).lean();
     return res.json({ results: rows.map(toPublicShowcase) });
   } catch (err) {
     return next(err);
   }
-});
+  }
+);
 
 // Public: get showcase by id or slug
-showcasesRouter.get("/showcases/:idOrSlug", async (req, res, next) => {
+showcasesRouter.get(
+  "/showcases/:idOrSlug",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
   try {
     const idOrSlug = String(req.params.idOrSlug ?? "").trim();
     const q = mongoose.isValidObjectId(idOrSlug) ? { _id: new mongoose.Types.ObjectId(idOrSlug) } : { slug: idOrSlug.toLowerCase() };
@@ -84,10 +93,15 @@ showcasesRouter.get("/showcases/:idOrSlug", async (req, res, next) => {
   } catch (err) {
     return next(err);
   }
-});
+  }
+);
 
 // Public (or authed): start registration checkout session
-showcasesRouter.post("/showcases/:idOrSlug/register", async (req, res, next) => {
+showcasesRouter.post(
+  "/showcases/:idOrSlug/register",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
   try {
     const env = getEnv();
     if (!env.STRIPE_SECRET_KEY || !env.WEB_APP_URL) {
@@ -110,18 +124,6 @@ showcasesRouter.post("/showcases/:idOrSlug/register", async (req, res, next) => 
       return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Showcase Stripe price is not configured" }));
     }
 
-    // Optional auth: if bearer token is present, enrich from user.
-    const authHeader = String(req.header("authorization") ?? "");
-    const token = authHeader.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : null;
-
-    let user: any = null;
-    if (token) {
-      // We rely on existing JWT auth middleware elsewhere; for this endpoint keep it optional.
-      // Best-effort: decode via DB lookup if token was already set in req.user by middleware (not here).
-      // If you want strict auth-only, wrap this route with requireAuth.
-      // For now: allow public registration placeholder.
-    }
-
     const parsed = ShowcaseRegistrationCreateSchema.safeParse(req.body ?? {});
     if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 
@@ -133,12 +135,9 @@ showcasesRouter.post("/showcases/:idOrSlug/register", async (req, res, next) => 
     const waiverVersion = parsed.data.waiverVersion ?? "v1";
     const waiverAcceptedAtIso = new Date().toISOString();
 
-    // If a valid userId is provided via X-User-Id header (internal use), we can attach.
-    const userIdHeader = String(req.header("x-user-id") ?? "");
-    let userId: string | undefined;
-    if (userIdHeader && mongoose.isValidObjectId(userIdHeader)) {
-      userId = userIdHeader;
-      const u = await UserModel.findById(userIdHeader).lean();
+    const userId = req.user?.id;
+    if (userId && mongoose.isValidObjectId(userId)) {
+      const u = await UserModel.findById(userId).lean();
       if (u?.email) customerEmail = String(u.email).toLowerCase();
       if (u?.role) role = u.role;
     }
@@ -177,7 +176,8 @@ showcasesRouter.post("/showcases/:idOrSlug/register", async (req, res, next) => 
   } catch (err) {
     return next(err);
   }
-});
+  }
+);
 
 // Admin: list all showcases (draft/published/archived)
 showcasesRouter.get("/admin/showcases", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {

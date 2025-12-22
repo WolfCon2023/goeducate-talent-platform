@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { FormErrorSummary, FieldError } from "@/components/FormErrors";
 import { parseApiError, type FieldErrors } from "@/lib/formErrors";
+import { ShowcasesGuard } from "../Guard";
 
 type Showcase = {
   id: string;
@@ -96,7 +97,9 @@ export default function ShowcaseDetailPage() {
       setError(null);
       setLoading(true);
       try {
-        const res = await apiFetch<Showcase>(`/showcases/${encodeURIComponent(idOrSlug)}`);
+        const token = getAccessToken();
+        if (!token) throw new Error("Please login first.");
+        const res = await apiFetch<Showcase>(`/showcases/${encodeURIComponent(idOrSlug)}`, { token });
         if (cancelled) return;
         setShowcase(res);
       } catch (err) {
@@ -166,7 +169,8 @@ export default function ShowcaseDetailPage() {
   }
 
   return (
-    <div className="grid gap-6">
+    <ShowcasesGuard>
+      <div className="grid gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href="/showcases" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
           ← Back to showcases
@@ -306,7 +310,8 @@ export default function ShowcaseDetailPage() {
           </Card>
         </div>
       )}
-    </div>
+      </div>
+    </ShowcasesGuard>
   );
 }
 

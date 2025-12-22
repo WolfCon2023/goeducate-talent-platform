@@ -108,18 +108,17 @@ export function AuthNav() {
 
   return (
     <nav className="flex items-center gap-2 text-sm">
-      <Link href="/player" className={navItem("/player")}>
-        Player
-      </Link>
-      <Link href="/coach" className={navItem("/coach")}>
-        Coach
-      </Link>
-      <Link href="/showcases" className={navItem("/showcases")}>
-        Showcases
-      </Link>
-
       {role ? (
         <>
+          <Link href="/player" className={navItem("/player")}>
+            Player
+          </Link>
+          <Link href="/coach" className={navItem("/coach")}>
+            Coach
+          </Link>
+          <Link href="/showcases" className={navItem("/showcases")}>
+            Showcases
+          </Link>
           {profilePhotoUrl ? (
             <>
               <button

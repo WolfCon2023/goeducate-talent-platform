@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Card, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
+import { getAccessToken } from "@/lib/auth";
+import { ShowcasesGuard } from "./Guard";
 
 type Showcase = {
   id: string;
@@ -54,7 +56,9 @@ export default function ShowcasesPage() {
       setError(null);
       setLoading(true);
       try {
-        const res = await apiFetch<{ results: Showcase[] }>("/showcases");
+        const token = getAccessToken();
+        if (!token) throw new Error("Please login first.");
+        const res = await apiFetch<{ results: Showcase[] }>("/showcases", { token });
         if (!cancelled) setResults(res.results ?? []);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load showcases");
@@ -71,7 +75,8 @@ export default function ShowcasesPage() {
   const empty = useMemo(() => !loading && results.length === 0 && !error, [loading, results.length, error]);
 
   return (
-    <div className="grid gap-8">
+    <ShowcasesGuard>
+      <div className="grid gap-8">
       <section className="rounded-2xl border border-white/10 bg-[var(--surface)] p-10">
         <div className="max-w-3xl">
           <h1 className="text-balance text-4xl font-semibold tracking-tight">Showcases</h1>
@@ -156,7 +161,8 @@ export default function ShowcasesPage() {
           })}
         </div>
       ) : null}
-    </div>
+      </div>
+    </ShowcasesGuard>
   );
 }
 
