@@ -26,10 +26,33 @@ import { publicContactRouter } from "./routes/publicContact.js";
 import path from "node:path";
 import fs from "node:fs";
 
+async function connectWithRetry(mongoUri: string, opts?: { maxAttempts?: number; initialDelayMs?: number }) {
+  const maxAttempts = opts?.maxAttempts ?? 12;
+  const initialDelayMs = opts?.initialDelayMs ?? 750;
+  let attempt = 0;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    attempt += 1;
+    try {
+      console.log(`[api] connecting to MongoDB (attempt ${attempt}/${maxAttempts})...`);
+      await connectDb(mongoUri);
+      console.log("[api] MongoDB connected");
+      return;
+    } catch (err) {
+      console.error("[api] MongoDB connect failed", err);
+      if (attempt >= maxAttempts) {
+        console.error("[api] MongoDB connection failed too many times; continuing without DB");
+        return;
+      }
+      const delay = Math.min(10_000, initialDelayMs * Math.pow(2, attempt - 1));
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+}
+
 async function main() {
   const env = getEnv();
-  await connectDb(env.MONGODB_URI);
-
   const app = express();
 
   app.use(
@@ -80,6 +103,10 @@ async function main() {
   app.listen(port, host, () => {
     console.log(`[api] listening on http://${host}:${port}`);
   });
+
+  // Connect to MongoDB AFTER the server is listening so Railway health checks pass even if Mongo is slow.
+  // We retry a few times and keep the process alive; requests that require DB will still fail until connected.
+  void connectWithRetry(env.MONGODB_URI);
 }
 
 main().catch((err) => {
