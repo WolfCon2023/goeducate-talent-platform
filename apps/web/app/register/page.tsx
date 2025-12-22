@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
@@ -11,6 +12,12 @@ type Role = "player" | "coach";
 
 export default function RegisterPage() {
   const router = useRouter();
+  // Invite-only: redirect to request-access flow.
+  // /register is kept for backward compatibility but is no longer the primary CTA.
+  useEffect(() => {
+    router.replace("/request-access");
+  }, [router]);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("player");
@@ -49,7 +56,13 @@ export default function RegisterPage() {
     <div className="mx-auto max-w-md">
       <Card>
         <h1 className="text-xl font-semibold">Create account</h1>
-        <p className="mt-1 text-sm text-white/80">Start as a player or coach.</p>
+        <p className="mt-1 text-sm text-white/80">
+          Registration is invite-only. You’ll be redirected to{" "}
+          <Link href="/request-access" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+            Request access
+          </Link>
+          .
+        </p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
           {role === "coach" ? (

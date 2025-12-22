@@ -11,7 +11,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "GoEducate Talent",
-  description: "High School Football Talent Evaluation Platform"
+  description: "GoEducate Athletics Talent Evaluation Platform"
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -5,7 +5,7 @@ export default function HomePage() {
     <div className="grid gap-10">
       <section className="rounded-2xl border border-white/10 bg-[var(--surface)] p-10">
         <div className="max-w-3xl">
-          <span className="eyebrow">GoEducate High School Football</span>
+          <span className="eyebrow">GoEducate Athletics</span>
           <h1 className="mt-3 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">
             Film to feedback, faster.
           </h1>
