@@ -72,8 +72,11 @@ async function main() {
 
   app.use(errorHandler);
 
-  app.listen(env.PORT, () => {
-    console.log(`[api] listening on http://localhost:${env.PORT}`);
+  // Railway expects the process to bind to the injected PORT and listen on 0.0.0.0.
+  const port = Number(process.env.PORT ?? env.PORT);
+  const host = "0.0.0.0";
+  app.listen(port, host, () => {
+    console.log(`[api] listening on http://${host}:${port}`);
   });
 }
 
