@@ -35,12 +35,13 @@ function computeRegistrationState(s: any, now = new Date()) {
 
 function toPublicShowcase(s: any) {
   const reg = computeRegistrationState(s);
-  return {
+    return {
     id: String(s._id),
     slug: s.slug,
     title: s.title,
     description: s.description ?? "",
-    refundPolicy: s.refundPolicy ?? "Refund policy: refunds are subject to GoEducate policies (MVP placeholder).",
+    refundPolicy: s.refundPolicy ?? "",
+    weatherClause: s.weatherClause ?? "",
     sportCategories: s.sportCategories ?? [],
     startDateTime: s.startDateTime ? new Date(s.startDateTime).toISOString() : null,
     endDateTime: s.endDateTime ? new Date(s.endDateTime).toISOString() : null,
@@ -134,6 +135,8 @@ showcasesRouter.post(
     let sport = parsed.data.sport;
     const waiverVersion = parsed.data.waiverVersion ?? "v1";
     const waiverAcceptedAtIso = new Date().toISOString();
+    const refundPolicyVersion = parsed.data.refundPolicyVersion ?? "v1";
+    const refundPolicyAcceptedAtIso = new Date().toISOString();
 
     const userId = req.user?.id;
     if (userId && mongoose.isValidObjectId(userId)) {
@@ -161,6 +164,8 @@ showcasesRouter.post(
         email: customerEmail,
         waiverAcceptedAt: waiverAcceptedAtIso,
         waiverVersion,
+        refundPolicyAcceptedAt: refundPolicyAcceptedAtIso,
+        refundPolicyVersion,
         ...(role ? { role: String(role) } : {}),
         ...(sport ? { sport: String(sport) } : {}),
         ...(userId ? { userId } : {})

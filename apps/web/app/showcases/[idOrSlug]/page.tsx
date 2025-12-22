@@ -17,6 +17,7 @@ type Showcase = {
   title: string;
   description: string;
   refundPolicy?: string;
+  weatherClause?: string;
   sportCategories: string[];
   startDateTime: string | null;
   endDateTime: string | null;
@@ -63,6 +64,9 @@ export default function ShowcaseDetailPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [waiverAccepted, setWaiverAccepted] = useState(false);
+  const [refundAccepted, setRefundAccepted] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
+  const [weatherOpen, setWeatherOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
@@ -140,6 +144,7 @@ export default function ShowcaseDetailPage() {
       if (!fullName.trim()) fe.fullName = ["Full name is required."];
       if (!email.trim()) fe.email = ["Email is required."];
       if (!waiverAccepted) fe.waiverAccepted = ["You must accept the waiver to continue."];
+      if (!refundAccepted) fe.refundPolicyAccepted = ["You must accept the Refund Policy and Weather Policy to continue."];
       if (Object.keys(fe).length > 0) {
         setFieldErrors(fe);
         return;
@@ -150,6 +155,8 @@ export default function ShowcaseDetailPage() {
         email: email.trim().toLowerCase(),
         waiverAccepted: true as const,
         waiverVersion: "v1",
+        refundPolicyAccepted: true as const,
+        refundPolicyVersion: "v1",
         ...(role ? { role } : {})
       };
 
@@ -240,7 +247,39 @@ export default function ShowcaseDetailPage() {
                   Open map directions
                 </a>
               ) : null}
-              <div className="text-xs text-white/70">{showcase.refundPolicy ?? "Refund policy: refunds are subject to GoEducate policies (MVP placeholder)."}</div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="text-sm font-semibold text-white">Refund policy</div>
+                <p className="mt-2 text-sm text-white/80">
+                  All showcase registration fees are <span className="font-semibold text-white">non-refundable</span> unless expressly stated otherwise in writing by GoEducate, Inc.
+                </p>
+                <div className="mt-3 grid gap-2">
+                  <button
+                    type="button"
+                    className="text-left text-sm text-indigo-300 hover:text-indigo-200 hover:underline"
+                    onClick={() => setPolicyOpen((v) => !v)}
+                  >
+                    {policyOpen ? "Hide full Refund Policy" : "View full Refund Policy"}
+                  </button>
+                  {policyOpen ? (
+                    <pre className="whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white/80">
+                      {showcase.refundPolicy || "Refund Policy is not set yet."}
+                    </pre>
+                  ) : null}
+
+                  <button
+                    type="button"
+                    className="text-left text-sm text-indigo-300 hover:text-indigo-200 hover:underline"
+                    onClick={() => setWeatherOpen((v) => !v)}
+                  >
+                    {weatherOpen ? "Hide Weather Clause" : "View Weather Clause"}
+                  </button>
+                  {weatherOpen ? (
+                    <pre className="whitespace-pre-wrap rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white/80">
+                      {showcase.weatherClause || "Weather Clause is not set yet."}
+                    </pre>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </Card>
 
@@ -277,11 +316,25 @@ export default function ShowcaseDetailPage() {
             <div className="mt-5 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="text-sm font-semibold text-white">Waiver</div>
               <p className="mt-2 text-sm text-white/80">
-                By registering, you acknowledge and agree that participation is voluntary and you assume all risks associated with attending and participating in the showcase.
+                By registering for and participating in this GoEducate showcase event, you acknowledge and agree to the following:
               </p>
-              <p className="mt-2 text-xs text-white/70">
-                This is an MVP waiver placeholder. We will replace this with a full legal waiver in the next iteration.
-              </p>
+              <div className="mt-3 grid gap-2 text-sm text-white/80">
+                <p>
+                  Participation in athletic showcase events involves physical activity that may carry inherent risks, including but not limited to physical injury, illness, or other harm. You voluntarily choose to participate and assume full responsibility for any risks associated with attendance and participation.
+                </p>
+                <p>
+                  You agree to release, waive, and hold harmless GoEducate, Inc., its officers, employees, representatives, and agents from any and all claims, liabilities, damages, or losses arising from or related to participation in this showcase, except as required by law.
+                </p>
+                <p>
+                  You confirm that you are physically capable of participating and that you have not been advised otherwise by a medical professional. If the participant is a minor, you confirm that you are the parent or legal guardian and consent to the minor’s participation.
+                </p>
+                <p>
+                  You acknowledge that this is a waiver placeholder and that a more detailed legal waiver may be required prior to or at the event.
+                </p>
+                <p className="text-xs text-white/70">
+                  By checking the box below, you confirm that you have read, understand, and agree to this waiver.
+                </p>
+              </div>
               <label className="mt-3 inline-flex items-start gap-2 text-sm text-white/80">
                 <input type="checkbox" checked={waiverAccepted} onChange={(e) => setWaiverAccepted(e.target.checked)} />
                 <span>I have read and agree to the waiver.</span>
@@ -291,10 +344,24 @@ export default function ShowcaseDetailPage() {
               </div>
             </div>
 
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-sm font-semibold text-white">Refund & Weather policy</div>
+              <p className="mt-2 text-sm text-white/80">
+                I have read and agree to the Refund Policy and Weather Policy.
+              </p>
+              <label className="mt-3 inline-flex items-start gap-2 text-sm text-white/80">
+                <input type="checkbox" checked={refundAccepted} onChange={(e) => setRefundAccepted(e.target.checked)} />
+                <span>I agree to the Refund Policy and Weather Policy.</span>
+              </label>
+              <div className="mt-1">
+                <FieldError name="refundPolicyAccepted" fieldErrors={fieldErrors} />
+              </div>
+            </div>
+
             <div className="mt-5">
               <Button
                 type="button"
-                disabled={submitting || showcase.registrationStatus !== "open" || !waiverAccepted}
+                disabled={submitting || showcase.registrationStatus !== "open" || !waiverAccepted || !refundAccepted}
                 onClick={register}
                 className="w-full"
               >
@@ -305,6 +372,9 @@ export default function ShowcaseDetailPage() {
               ) : null}
               {showcase.registrationStatus === "open" && !waiverAccepted ? (
                 <div className="mt-2 text-xs text-white/70">Accept the waiver to enable registration.</div>
+              ) : null}
+              {showcase.registrationStatus === "open" && waiverAccepted && !refundAccepted ? (
+                <div className="mt-2 text-xs text-white/70">Accept the Refund & Weather policy to enable registration.</div>
               ) : null}
             </div>
           </Card>

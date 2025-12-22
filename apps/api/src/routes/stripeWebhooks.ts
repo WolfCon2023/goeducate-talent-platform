@@ -72,6 +72,8 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
           const userId = session.metadata?.userId;
           const waiverAcceptedAt = session.metadata?.waiverAcceptedAt;
           const waiverVersion = session.metadata?.waiverVersion;
+          const refundPolicyAcceptedAt = session.metadata?.refundPolicyAcceptedAt;
+          const refundPolicyVersion = session.metadata?.refundPolicyVersion;
 
           if (showcaseId && mongoose.isValidObjectId(showcaseId) && session.id) {
             const showcase = await ShowcaseModel.findById(showcaseId).lean();
@@ -88,6 +90,8 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
                   ...(sport ? { sport: String(sport) } : {}),
                   ...(waiverAcceptedAt ? { waiverAcceptedAt: new Date(String(waiverAcceptedAt)) } : {}),
                   ...(waiverVersion ? { waiverVersion: String(waiverVersion) } : {}),
+                  ...(refundPolicyAcceptedAt ? { refundPolicyAcceptedAt: new Date(String(refundPolicyAcceptedAt)) } : {}),
+                  ...(refundPolicyVersion ? { refundPolicyVersion: String(refundPolicyVersion) } : {}),
                   paymentStatus: SHOWCASE_REGISTRATION_STATUS.PAID,
                   stripeCheckoutSessionId: session.id,
                   stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id

@@ -79,7 +79,12 @@ export function AdminShowcases() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
-  const [refundPolicy, setRefundPolicy] = useState("Refund policy: refunds are subject to GoEducate policies (MVP placeholder).");
+  const [refundPolicy, setRefundPolicy] = useState(
+    "Refund Policy (Attorney-Ready Version)\n\nEffective Date: [Insert Date]\n\nThis Refund Policy governs all showcase registrations processed by GoEducate, Inc. (“GoEducate,” “we,” “us,” or “our”).\n\n1. General Policy\n\nAll showcase registration fees are non-refundable unless expressly stated otherwise in writing by GoEducate, Inc.\n\nBy completing registration and submitting payment, the registrant acknowledges and agrees that registration fees are earned upon receipt and are subject to the terms of this Refund Policy.\n\n2. Refund Requests\n\nRefund requests must be submitted in writing to GoEducate, Inc. no later than seven (7) calendar days prior to the scheduled start date of the showcase. Any approved refund may be subject to administrative and third-party payment processing fees.\n\nRefund approval is not guaranteed and is granted solely at the discretion of GoEducate, Inc.\n\n3. Non-Refundable Circumstances\n\nRefunds will not be issued for, including but not limited to:\n\n- Failure to attend the showcase for any reason\n- Late arrival, early departure, or partial participation\n- Personal scheduling conflicts or travel issues\n- Disqualification, ineligibility, or failure to meet participation requirements\n- Voluntary withdrawal from the event\n\n4. Medical Exception Requests\n\nRequests for refunds based on medical emergencies or injuries must be supported by verifiable documentation and will be reviewed on a case-by-case basis. Submission of documentation does not guarantee approval. All determinations are made at the sole discretion of GoEducate, Inc.\n\n5. Event Cancellation or Modification\n\nIf a showcase is canceled, postponed, or materially modified by GoEducate, Inc., registrants will be offered, at GoEducate’s discretion:\n\n- A full refund, or\n- A credit applicable to a future GoEducate showcase\n\nCredits are non-transferable and must be used within the timeframe specified at issuance.\n\n6. Transfers and Credits\n\nRegistration fees are non-transferable to another individual. Credits toward future events may be granted at GoEducate’s discretion and do not carry cash value.\n\n7. Chargebacks and Payment Disputes (Stripe-Aligned)\n\nBy registering, you agree to contact GoEducate, Inc. prior to initiating any payment dispute or chargeback.\n\nInitiating a chargeback without first contacting GoEducate may result in:\n\n- Immediate suspension or termination of your GoEducate account\n- Loss of access to GoEducate services\n\nGoEducate, Inc. reserves the right to submit evidence to payment processors, including but not limited to:\n\n- Proof of registration and payment confirmation\n- Acceptance of the waiver and refund policy\n- Event details, schedules, and communications\n- Attendance records or event availability\n\nChargebacks determined in GoEducate’s favor may result in permanent account restrictions.\n\n8. Policy Updates\n\nGoEducate, Inc. reserves the right to amend this Refund Policy at any time. Any updates will apply prospectively and will not affect registrations completed prior to the effective date of the revision.\n\nBy registering for a showcase, you acknowledge that you have read, understand, and agree to this Refund Policy."
+  );
+  const [weatherClause, setWeatherClause] = useState(
+    "Weather-Related Event Clause (Standalone)\n\nShowcase events are scheduled to take place rain or shine.\n\nWeather conditions, including but not limited to rain, heat, cold, or other natural conditions, do not constitute grounds for a refund unless the event is fully canceled by GoEducate, Inc.\n\nIf weather conditions require cancellation, postponement, or modification of an event, GoEducate, Inc. will determine the appropriate remedy, which may include a refund or credit toward a future event, as outlined in the Refund Policy."
+  );
   const [sports, setSports] = useState<string[]>(["football"]);
   const [startDateTime, setStartDateTime] = useState("");
   const [endDateTime, setEndDateTime] = useState("");
@@ -140,7 +145,12 @@ export function AdminShowcases() {
     setTitle("");
     setSlug("");
     setDescription("");
-    setRefundPolicy("Refund policy: refunds are subject to GoEducate policies (MVP placeholder).");
+    setRefundPolicy(
+      "Refund Policy (Attorney-Ready Version)\n\nEffective Date: [Insert Date]\n\nThis Refund Policy governs all showcase registrations processed by GoEducate, Inc. (“GoEducate,” “we,” “us,” or “our”).\n\n1. General Policy\n\nAll showcase registration fees are non-refundable unless expressly stated otherwise in writing by GoEducate, Inc.\n\nBy completing registration and submitting payment, the registrant acknowledges and agrees that registration fees are earned upon receipt and are subject to the terms of this Refund Policy.\n\n2. Refund Requests\n\nRefund requests must be submitted in writing to GoEducate, Inc. no later than seven (7) calendar days prior to the scheduled start date of the showcase. Any approved refund may be subject to administrative and third-party payment processing fees.\n\nRefund approval is not guaranteed and is granted solely at the discretion of GoEducate, Inc.\n\n3. Non-Refundable Circumstances\n\nRefunds will not be issued for, including but not limited to:\n\n- Failure to attend the showcase for any reason\n- Late arrival, early departure, or partial participation\n- Personal scheduling conflicts or travel issues\n- Disqualification, ineligibility, or failure to meet participation requirements\n- Voluntary withdrawal from the event\n\n4. Medical Exception Requests\n\nRequests for refunds based on medical emergencies or injuries must be supported by verifiable documentation and will be reviewed on a case-by-case basis. Submission of documentation does not guarantee approval. All determinations are made at the sole discretion of GoEducate, Inc.\n\n5. Event Cancellation or Modification\n\nIf a showcase is canceled, postponed, or materially modified by GoEducate, Inc., registrants will be offered, at GoEducate’s discretion:\n\n- A full refund, or\n- A credit applicable to a future GoEducate showcase\n\nCredits are non-transferable and must be used within the timeframe specified at issuance.\n\n6. Transfers and Credits\n\nRegistration fees are non-transferable to another individual. Credits toward future events may be granted at GoEducate’s discretion and do not carry cash value.\n\n7. Chargebacks and Payment Disputes (Stripe-Aligned)\n\nBy registering, you agree to contact GoEducate, Inc. prior to initiating any payment dispute or chargeback.\n\nInitiating a chargeback without first contacting GoEducate may result in:\n\n- Immediate suspension or termination of your GoEducate account\n- Loss of access to GoEducate services\n\nGoEducate, Inc. reserves the right to submit evidence to payment processors, including but not limited to:\n\n- Proof of registration and payment confirmation\n- Acceptance of the waiver and refund policy\n- Event details, schedules, and communications\n- Attendance records or event availability\n\nChargebacks determined in GoEducate’s favor may result in permanent account restrictions.\n\n8. Policy Updates\n\nGoEducate, Inc. reserves the right to amend this Refund Policy at any time. Any updates will apply prospectively and will not affect registrations completed prior to the effective date of the revision.\n\nBy registering for a showcase, you acknowledge that you have read, understand, and agree to this Refund Policy."
+    );
+    setWeatherClause(
+      "Weather-Related Event Clause (Standalone)\n\nShowcase events are scheduled to take place rain or shine.\n\nWeather conditions, including but not limited to rain, heat, cold, or other natural conditions, do not constitute grounds for a refund unless the event is fully canceled by GoEducate, Inc.\n\nIf weather conditions require cancellation, postponement, or modification of an event, GoEducate, Inc. will determine the appropriate remedy, which may include a refund or credit toward a future event, as outlined in the Refund Policy."
+    );
     setSports(["football"]);
     setStartDateTime("");
     setEndDateTime("");
@@ -169,7 +179,14 @@ export function AdminShowcases() {
     setTitle(row.title ?? "");
     setSlug(row.slug ?? "");
     setDescription((row as any).description ?? "");
-    setRefundPolicy((row as any).refundPolicy ?? "Refund policy: refunds are subject to GoEducate policies (MVP placeholder).");
+    setRefundPolicy(
+      (row as any).refundPolicy ??
+        "Refund Policy (Attorney-Ready Version)\n\nEffective Date: [Insert Date]\n\nThis Refund Policy governs all showcase registrations processed by GoEducate, Inc. (“GoEducate,” “we,” “us,” or “our”).\n\n1. General Policy\n\nAll showcase registration fees are non-refundable unless expressly stated otherwise in writing by GoEducate, Inc.\n\nBy completing registration and submitting payment, the registrant acknowledges and agrees that registration fees are earned upon receipt and are subject to the terms of this Refund Policy.\n\n2. Refund Requests\n\nRefund requests must be submitted in writing to GoEducate, Inc. no later than seven (7) calendar days prior to the scheduled start date of the showcase. Any approved refund may be subject to administrative and third-party payment processing fees.\n\nRefund approval is not guaranteed and is granted solely at the discretion of GoEducate, Inc.\n\n3. Non-Refundable Circumstances\n\nRefunds will not be issued for, including but not limited to:\n\n- Failure to attend the showcase for any reason\n- Late arrival, early departure, or partial participation\n- Personal scheduling conflicts or travel issues\n- Disqualification, ineligibility, or failure to meet participation requirements\n- Voluntary withdrawal from the event\n\n4. Medical Exception Requests\n\nRequests for refunds based on medical emergencies or injuries must be supported by verifiable documentation and will be reviewed on a case-by-case basis. Submission of documentation does not guarantee approval. All determinations are made at the sole discretion of GoEducate, Inc.\n\n5. Event Cancellation or Modification\n\nIf a showcase is canceled, postponed, or materially modified by GoEducate, Inc., registrants will be offered, at GoEducate’s discretion:\n\n- A full refund, or\n- A credit applicable to a future GoEducate showcase\n\nCredits are non-transferable and must be used within the timeframe specified at issuance.\n\n6. Transfers and Credits\n\nRegistration fees are non-transferable to another individual. Credits toward future events may be granted at GoEducate’s discretion and do not carry cash value.\n\n7. Chargebacks and Payment Disputes (Stripe-Aligned)\n\nBy registering, you agree to contact GoEducate, Inc. prior to initiating any payment dispute or chargeback.\n\nInitiating a chargeback without first contacting GoEducate may result in:\n\n- Immediate suspension or termination of your GoEducate account\n- Loss of access to GoEducate services\n\nGoEducate, Inc. reserves the right to submit evidence to payment processors, including but not limited to:\n\n- Proof of registration and payment confirmation\n- Acceptance of the waiver and refund policy\n- Event details, schedules, and communications\n- Attendance records or event availability\n\nChargebacks determined in GoEducate’s favor may result in permanent account restrictions.\n\n8. Policy Updates\n\nGoEducate, Inc. reserves the right to amend this Refund Policy at any time. Any updates will apply prospectively and will not affect registrations completed prior to the effective date of the revision.\n\nBy registering for a showcase, you acknowledge that you have read, understand, and agree to this Refund Policy."
+    );
+    setWeatherClause(
+      (row as any).weatherClause ??
+        "Weather-Related Event Clause (Standalone)\n\nShowcase events are scheduled to take place rain or shine.\n\nWeather conditions, including but not limited to rain, heat, cold, or other natural conditions, do not constitute grounds for a refund unless the event is fully canceled by GoEducate, Inc.\n\nIf weather conditions require cancellation, postponement, or modification of an event, GoEducate, Inc. will determine the appropriate remedy, which may include a refund or credit toward a future event, as outlined in the Refund Policy."
+    );
     setSports(row.sportCategories?.length ? row.sportCategories : ["football"]);
     setStartDateTime(isoToLocalInput(row.startDateTime));
     setEndDateTime(isoToLocalInput(row.endDateTime));
@@ -223,6 +240,7 @@ export function AdminShowcases() {
         slug: slug.trim(),
         description,
         refundPolicy,
+        weatherClause,
         sportCategories: sports,
         startDateTime: localInputToIso(startDateTime),
         endDateTime: localInputToIso(endDateTime),
@@ -464,9 +482,21 @@ export function AdminShowcases() {
               id="showcaseRefundPolicy"
               value={refundPolicy}
               onChange={(e) => setRefundPolicy(e.target.value)}
-              rows={3}
+              rows={10}
               className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] placeholder:text-[color:var(--muted-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
-              placeholder="Refund policy: refunds are subject to GoEducate policies (MVP placeholder)."
+              placeholder="Paste the full Refund Policy text here."
+            />
+          </div>
+
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="showcaseWeatherClause">Weather clause</Label>
+            <textarea
+              id="showcaseWeatherClause"
+              value={weatherClause}
+              onChange={(e) => setWeatherClause(e.target.value)}
+              rows={6}
+              className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] placeholder:text-[color:var(--muted-3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+              placeholder="Paste the Weather Clause text here."
             />
           </div>
 
