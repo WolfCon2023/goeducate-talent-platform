@@ -38,9 +38,23 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <div className="mx-auto grid max-w-7xl gap-3 px-6 sm:grid-cols-3 sm:items-center sm:px-8">
                 <div>© 2025 GoEducate, Inc. All rights reserved.</div>
                 <div className="sm:text-center">
-                  <a href="/contact" className="text-indigo-300 hover:text-indigo-200 hover:underline">
-                    Contact
-                  </a>
+                  <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                    <a href="/contact" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                      Contact
+                    </a>
+                    <a href="/about" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                      About
+                    </a>
+                    <a href="/legal/eula" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                      EULA
+                    </a>
+                    <a href="/legal/terms" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                      Terms
+                    </a>
+                    <a href="/legal/privacy" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                      Privacy
+                    </a>
+                  </div>
                 </div>
                 <div className="sm:text-right">Built by Wolf Consulting Group, LLC.</div>
               </div>
