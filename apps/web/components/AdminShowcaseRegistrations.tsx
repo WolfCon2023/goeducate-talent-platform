@@ -56,6 +56,9 @@ export function AdminShowcaseRegistrations() {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<RegistrationRow[]>([]);
 
+  const [showcases, setShowcases] = useState<Array<{ id: string; title?: string; startDateTime?: string | null }>>([]);
+  const [showcasesLoading, setShowcasesLoading] = useState(false);
+
   const [status, setStatus] = useState("");
   const [email, setEmail] = useState("");
   const [showcaseId, setShowcaseId] = useState("");
@@ -89,6 +92,29 @@ export function AdminShowcaseRegistrations() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadShowcases() {
+      setShowcasesLoading(true);
+      try {
+        const token = getAccessToken();
+        const role = getTokenRole(token);
+        if (!token) return;
+        if (role !== "admin") return;
+        const res = await apiFetch<{ results: Array<{ id: string; title?: string; startDateTime?: string | null }> }>("/admin/showcases", { token });
+        if (!cancelled) setShowcases(res.results ?? []);
+      } catch {
+        // ignore; still allow filtering by email/status
+      } finally {
+        if (!cancelled) setShowcasesLoading(false);
+      }
+    }
+    void loadShowcases();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function exportCsv() {
     const header = [
@@ -163,8 +189,20 @@ export function AdminShowcaseRegistrations() {
           <Input id="srEmail" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" />
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="srShowcaseId">Showcase ID</Label>
-          <Input id="srShowcaseId" value={showcaseId} onChange={(e) => setShowcaseId(e.target.value)} placeholder="Mongo ObjectId" />
+          <Label htmlFor="srShowcase">Showcase</Label>
+          <select
+            id="srShowcase"
+            value={showcaseId}
+            onChange={(e) => setShowcaseId(e.target.value)}
+            className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+          >
+            <option value="">{showcasesLoading ? "Loading showcases..." : "All showcases"}</option>
+            {showcases.map((s) => (
+              <option key={s.id} value={s.id}>
+                {(s.title ?? "Showcase") + (s.startDateTime ? ` · ${fmtDateTime(s.startDateTime)}` : "")}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

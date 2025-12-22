@@ -164,6 +164,9 @@ export function AuthNav() {
           <Link href="/showcases" className={navItem("/showcases")}>
             Showcases
           </Link>
+          <Link href="/showcases/registrations" className={navItem("/showcases/registrations")}>
+            My registrations
+          </Link>
           {profilePhotoUrl ? (
             <>
               <button

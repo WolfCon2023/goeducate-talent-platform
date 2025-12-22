@@ -381,6 +381,22 @@ filmSubmissionsRouter.patch(
           href: "/player/film"
         });
         publishNotificationsChanged(String(film.userId));
+
+        // Email the player as well (best-effort).
+        if (isNotificationEmailConfigured()) {
+          const user = await UserModel.findById(film.userId).lean();
+          if (user?.email) {
+            void sendNotificationEmail({
+              to: user.email,
+              subject: "GoEducate Talent – Film needs changes",
+              title: "Film needs changes",
+              message: note
+                ? `An evaluator requested changes to your submission. Notes: ${note}`
+                : "An evaluator requested changes to your submission. Please review the notes and resubmit.",
+              href: "/player/film"
+            }).catch(() => {});
+          }
+        }
       }
 
       return res.json(film);
