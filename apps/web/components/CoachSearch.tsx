@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 type Sport = "" | "football" | "basketball" | "volleyball" | "soccer" | "track" | "other";
 
@@ -89,6 +90,7 @@ type PlayerProfile = {
 };
 
 export function CoachSearch() {
+  const confirm = useConfirm();
   const [sport, setSport] = useState<Sport>("");
   const [positionChoice, setPositionChoice] = useState<string>("");
   const [positionOther, setPositionOther] = useState<string>("");
@@ -102,11 +104,16 @@ export function CoachSearch() {
   const [weightMax, setWeightMax] = useState("");
   const [state, setState] = useState("");
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<"updated_desc" | "gradYear_asc" | "gradYear_desc" | "lastName_asc">("updated_desc");
+  const [sort, setSort] = useState<
+    "updated_desc" | "gradYear_asc" | "gradYear_desc" | "lastName_asc" | "newest_film" | "newest_evaluation" | "top_rated"
+  >("updated_desc");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<PlayerProfile[]>([]);
   const [watchlisted, setWatchlisted] = useState<Record<string, boolean>>({});
+  const [savedName, setSavedName] = useState("");
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [saved, setSaved] = useState<Array<{ id: string; name: string; params: Record<string, string> }>>([]);
 
   function toHeightIn(ft: string, inch: string) {
     const f = ft ? Number(ft) : NaN;
@@ -155,6 +162,122 @@ export function CoachSearch() {
     }
   }
 
+  const loadSaved = async () => {
+    setError(null);
+    setSavedLoading(true);
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+      const res = await apiFetch<{ results: Array<{ id: string; name: string; params: Record<string, string> }> }>("/coach/saved-searches", { token });
+      setSaved(res.results ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load saved searches");
+    } finally {
+      setSavedLoading(false);
+    }
+  };
+
+  async function saveCurrent() {
+    const name = savedName.trim();
+    if (name.length < 2) {
+      setError("Saved search name is required.");
+      return;
+    }
+    setError(null);
+    setSavedLoading(true);
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+
+      // Rebuild current params (same logic as search())
+      const params = new URLSearchParams();
+      if (sport) params.set("sport", sport);
+      const finalPosition = sport
+        ? sport === "other"
+          ? positionOther.trim()
+          : positionChoice === "Other"
+            ? positionOther.trim()
+            : positionChoice.trim()
+        : "";
+      if (finalPosition) params.set("position", finalPosition);
+      if (gradYearMin) params.set("gradYearMin", gradYearMin);
+      if (gradYearMax) params.set("gradYearMax", gradYearMax);
+      const hMin = toHeightIn(heightMinFt, heightMinIn);
+      const hMax = toHeightIn(heightMaxFt, heightMaxIn);
+      if (hMin) params.set("heightInMin", hMin);
+      if (hMax) params.set("heightInMax", hMax);
+      if (weightMin) params.set("weightLbMin", weightMin);
+      if (weightMax) params.set("weightLbMax", weightMax);
+      if (state) params.set("state", state);
+      if (q) params.set("q", q);
+      if (sort) params.set("sort", sort);
+
+      const obj: Record<string, string> = {};
+      params.forEach((v, k) => {
+        obj[k] = v;
+      });
+
+      await apiFetch("/coach/saved-searches", { method: "POST", token, body: JSON.stringify({ name, params: obj }) });
+      setSavedName("");
+      await loadSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save search");
+    } finally {
+      setSavedLoading(false);
+    }
+  }
+
+  async function deleteSaved(id: string) {
+    const ok = await confirm({
+      title: "Delete saved search?",
+      message: "This cannot be undone.",
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      destructive: true
+    });
+    if (!ok) return;
+
+    setError(null);
+    setSavedLoading(true);
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+      await apiFetch(`/coach/saved-searches/${id}`, { method: "DELETE", token });
+      await loadSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete saved search");
+    } finally {
+      setSavedLoading(false);
+    }
+  }
+
+  function applySaved(params: Record<string, string>) {
+    const s = (params.sport ?? "") as Sport;
+    setSport(s || "");
+    const pos = params.position ?? "";
+    if (s === "other") {
+      setPositionChoice("");
+      setPositionOther(pos);
+    } else if (pos && pos !== "Other") {
+      setPositionChoice(pos);
+      setPositionOther("");
+    } else {
+      setPositionChoice("");
+      setPositionOther("");
+    }
+    setGradYearMin(params.gradYearMin ?? "");
+    setGradYearMax(params.gradYearMax ?? "");
+    setHeightMinFt("");
+    setHeightMinIn("");
+    setHeightMaxFt("");
+    setHeightMaxIn("");
+    setWeightMin(params.weightLbMin ?? "");
+    setWeightMax(params.weightLbMax ?? "");
+    setState(params.state ?? "");
+    setQ(params.q ?? "");
+    setSort((params.sort as any) || "updated_desc");
+  }
+
   async function addToWatchlist(playerUserId: string) {
     setError(null);
     try {
@@ -181,6 +304,47 @@ export function CoachSearch() {
 
   return (
     <div className="grid gap-6">
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Saved searches</h2>
+            <p className="mt-1 text-sm text-white/80">Save filters for quick reuse.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={loadSaved} disabled={savedLoading}>
+              {savedLoading ? "Loading..." : "Refresh"}
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+          <div className="grid gap-2">
+            <Label htmlFor="savedName">Save current filters as</Label>
+            <Input id="savedName" value={savedName} onChange={(e) => setSavedName(e.target.value)} placeholder="e.g., 2026 Football QBs" />
+          </div>
+          <div className="flex items-end">
+            <Button type="button" onClick={saveCurrent} disabled={savedLoading}>
+              Save
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2">
+          {saved.map((s) => (
+            <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="text-sm font-semibold text-white">{s.name}</div>
+              <div className="flex gap-2">
+                <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => applySaved(s.params)}>
+                  Apply
+                </Button>
+                <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => deleteSaved(s.id)}>
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
+          {saved.length === 0 ? <p className="text-sm text-white/70">No saved searches yet.</p> : null}
+        </div>
+      </Card>
+
       <Card>
         <h2 className="text-lg font-semibold">Player search</h2>
         <p className="mt-1 text-sm text-white/80">
@@ -293,6 +457,9 @@ export function CoachSearch() {
               onChange={(e) => setSort(e.target.value as any)}
             >
               <option value="updated_desc">Recently updated</option>
+              <option value="newest_film">Newest film</option>
+              <option value="newest_evaluation">Newest evaluation</option>
+              <option value="top_rated">Top-rated (latest eval)</option>
               <option value="lastName_asc">Last name (A–Z)</option>
               <option value="gradYear_asc">Grad year (low→high)</option>
               <option value="gradYear_desc">Grad year (high→low)</option>

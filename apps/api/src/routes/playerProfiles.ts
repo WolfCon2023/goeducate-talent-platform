@@ -7,6 +7,12 @@ import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
+import { FilmSubmissionModel } from "../models/FilmSubmission.js";
+import { EvaluationReportModel } from "../models/EvaluationReport.js";
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export const playerProfilesRouter = Router();
 
@@ -99,10 +105,15 @@ playerProfilesRouter.get(
 
       const filter: Record<string, unknown> = {};
 
-      if (sport) filter.sport = sport;
-      if (position) filter.position = position;
-      if (state) filter.state = state;
-      if (city) filter.city = city;
+      const sportNorm = String(sport ?? "").trim().toLowerCase();
+      const posNorm = String(position ?? "").trim();
+      const stateNorm = String(state ?? "").trim().toUpperCase();
+      const cityNorm = String(city ?? "").trim();
+
+      if (sportNorm) filter.sport = sportNorm;
+      if (posNorm) filter.position = { $regex: `^${escapeRegex(posNorm)}$`, $options: "i" };
+      if (stateNorm) filter.state = { $regex: `^${escapeRegex(stateNorm)}$`, $options: "i" };
+      if (cityNorm) filter.city = { $regex: `^${escapeRegex(cityNorm)}$`, $options: "i" };
 
       const gyMin = gradYearMin ? Number(gradYearMin) : undefined;
       const gyMax = gradYearMax ? Number(gradYearMax) : undefined;
@@ -139,6 +150,58 @@ playerProfilesRouter.get(
       }
 
       const sortKey = String(sort ?? "").trim();
+
+      // Advanced sorts use aggregation to include "latest film" and "latest evaluation"
+      if (sortKey === "newest_film" || sortKey === "newest_evaluation" || sortKey === "top_rated") {
+        const results = await PlayerProfileModel.aggregate([
+          { $match: filter as any },
+          {
+            $lookup: {
+              from: FilmSubmissionModel.collection.name,
+              let: { uid: "$userId" },
+              pipeline: [
+                { $match: { $expr: { $eq: ["$userId", "$$uid"] } } },
+                { $sort: { createdAt: -1 } },
+                { $limit: 1 },
+                { $project: { _id: 0, createdAt: 1 } }
+              ],
+              as: "latestFilm"
+            }
+          },
+          {
+            $lookup: {
+              from: EvaluationReportModel.collection.name,
+              let: { uid: "$userId" },
+              pipeline: [
+                { $match: { $expr: { $eq: ["$playerUserId", "$$uid"] } } },
+                { $sort: { createdAt: -1 } },
+                { $limit: 1 },
+                { $project: { _id: 0, createdAt: 1, overallGrade: 1 } }
+              ],
+              as: "latestEval"
+            }
+          },
+          {
+            $addFields: {
+              latestFilmAt: { $arrayElemAt: ["$latestFilm.createdAt", 0] },
+              latestEvaluationAt: { $arrayElemAt: ["$latestEval.createdAt", 0] },
+              latestOverallGrade: { $arrayElemAt: ["$latestEval.overallGrade", 0] }
+            }
+          },
+          {
+            $sort:
+              sortKey === "newest_film"
+                ? { latestFilmAt: -1, updatedAt: -1 }
+                : sortKey === "newest_evaluation"
+                  ? { latestEvaluationAt: -1, updatedAt: -1 }
+                  : { latestOverallGrade: -1, latestEvaluationAt: -1, updatedAt: -1 }
+          },
+          { $limit: 50 },
+          { $project: { latestFilm: 0, latestEval: 0 } }
+        ]);
+        return res.json({ results });
+      }
+
       const sortSpec: Record<string, 1 | -1> =
         sortKey === "gradYear_asc"
           ? { gradYear: 1, lastName: 1, firstName: 1 }

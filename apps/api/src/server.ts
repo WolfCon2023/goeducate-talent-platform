@@ -24,6 +24,7 @@ import { profilePhotosRouter } from "./routes/profilePhotos.js";
 import { accessRequestsRouter } from "./routes/accessRequests.js";
 import { publicContactRouter } from "./routes/publicContact.js";
 import { showcasesRouter } from "./routes/showcases.js";
+import { savedSearchesRouter } from "./routes/savedSearches.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -102,6 +103,7 @@ async function main() {
   app.use(evaluationTemplatesRouter);
   app.use(evaluationFormsRouter);
   app.use(showcasesRouter);
+  app.use(savedSearchesRouter);
 
   app.use(errorHandler);
 
