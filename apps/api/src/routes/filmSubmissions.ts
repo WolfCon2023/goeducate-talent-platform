@@ -13,6 +13,7 @@ import { NotificationModel, NOTIFICATION_TYPE } from "../models/Notification.js"
 import { UserModel } from "../models/User.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
+import { publishNotificationsChanged } from "../notifications/bus.js";
 
 export const filmSubmissionsRouter = Router();
 
@@ -46,6 +47,7 @@ filmSubmissionsRouter.post(
         message: `We received your submission: "${created.title}".`,
         href: "/player/film"
       });
+      publishNotificationsChanged(String(userId));
 
       // Email notification for the player (best-effort).
       if (isNotificationEmailConfigured()) {
@@ -87,6 +89,7 @@ filmSubmissionsRouter.post(
                   href: "/evaluator"
                 }))
               );
+              for (const id of uniqueInternalIds) publishNotificationsChanged(id);
             }
 
             const opsEmails = String(env.SUBMISSION_ALERT_EMAILS ?? "info@goeducateinc.org")

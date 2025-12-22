@@ -10,6 +10,7 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { ShowcaseModel, SHOWCASE_STATUS } from "../models/Showcase.js";
 import { getStripe } from "../stripe.js";
 import { UserModel } from "../models/User.js";
+import { ShowcaseRegistrationModel } from "../models/ShowcaseRegistration.js";
 
 export const showcasesRouter = Router();
 
@@ -164,6 +165,142 @@ showcasesRouter.get(
   } catch (err) {
     return next(err);
   }
+  }
+);
+
+// Authenticated: list my showcase registrations
+showcasesRouter.get(
+  "/showcase-registrations/me",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      const userId = new mongoose.Types.ObjectId(req.user!.id);
+      const u = await UserModel.findById(userId).lean();
+      const email = String(u?.email ?? "").trim().toLowerCase();
+
+      const match: any = { $or: [{ userId }] };
+      if (email) match.$or.push({ email });
+
+      const rows = await ShowcaseRegistrationModel.aggregate([
+        { $match: match },
+        { $sort: { createdAt: -1 } },
+        { $limit: 200 },
+        {
+          $lookup: {
+            from: "showcases",
+            localField: "showcaseId",
+            foreignField: "_id",
+            as: "showcase"
+          }
+        },
+        { $unwind: { path: "$showcase", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 1,
+            showcaseId: 1,
+            fullName: 1,
+            email: 1,
+            role: 1,
+            sport: 1,
+            paymentStatus: 1,
+            createdAt: 1,
+            waiverAcceptedAt: 1,
+            waiverVersion: 1,
+            refundPolicyAcceptedAt: 1,
+            refundPolicyVersion: 1,
+            showcase: {
+              _id: "$showcase._id",
+              slug: "$showcase.slug",
+              title: "$showcase.title",
+              startDateTime: "$showcase.startDateTime",
+              endDateTime: "$showcase.endDateTime",
+              city: "$showcase.city",
+              state: "$showcase.state",
+              locationName: "$showcase.locationName",
+              status: "$showcase.status"
+            }
+          }
+        }
+      ]);
+
+      return res.json({ results: rows.map((r: any) => ({ ...r, id: String(r._id) })) });
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+// Admin: list showcase registrations
+showcasesRouter.get(
+  "/admin/showcase-registrations",
+  requireAuth,
+  requireRole([ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      const showcaseId = String(req.query.showcaseId ?? "").trim();
+      const email = String(req.query.email ?? "").trim().toLowerCase();
+      const status = String(req.query.status ?? "").trim();
+
+      const q: any = {};
+      if (showcaseId) {
+        if (!mongoose.isValidObjectId(showcaseId)) {
+          return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid showcaseId" }));
+        }
+        q.showcaseId = new mongoose.Types.ObjectId(showcaseId);
+      }
+      if (email) q.email = email;
+      if (status) q.paymentStatus = status;
+
+      const rows = await ShowcaseRegistrationModel.aggregate([
+        { $match: q },
+        { $sort: { createdAt: -1 } },
+        { $limit: 500 },
+        {
+          $lookup: {
+            from: "showcases",
+            localField: "showcaseId",
+            foreignField: "_id",
+            as: "showcase"
+          }
+        },
+        { $unwind: { path: "$showcase", preserveNullAndEmptyArrays: true } },
+        {
+          $project: {
+            _id: 1,
+            showcaseId: 1,
+            userId: 1,
+            fullName: 1,
+            email: 1,
+            role: 1,
+            sport: 1,
+            paymentStatus: 1,
+            createdAt: 1,
+            stripeCheckoutSessionId: 1,
+            stripePaymentIntentId: 1,
+            waiverAcceptedAt: 1,
+            waiverVersion: 1,
+            refundPolicyAcceptedAt: 1,
+            refundPolicyVersion: 1,
+            showcase: {
+              _id: "$showcase._id",
+              slug: "$showcase.slug",
+              title: "$showcase.title",
+              startDateTime: "$showcase.startDateTime",
+              endDateTime: "$showcase.endDateTime",
+              city: "$showcase.city",
+              state: "$showcase.state",
+              locationName: "$showcase.locationName",
+              status: "$showcase.status"
+            }
+          }
+        }
+      ]);
+
+      return res.json({ results: rows.map((r: any) => ({ ...r, id: String(r._id) })) });
+    } catch (err) {
+      return next(err);
+    }
   }
 );
 

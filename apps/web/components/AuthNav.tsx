@@ -33,12 +33,62 @@ export function AuthNav() {
     setDisplayName(null);
     setProfilePhotoUrl(null);
     setUnreadCount(0);
-    let interval: number | null = null;
     let cancelled = false;
+    let abort: AbortController | null = null;
 
     async function refreshUnread(t: string) {
       const unread = await apiFetch<{ count: number }>("/notifications/unread-count", { token: t }).catch(() => ({ count: 0 }));
       if (!cancelled) setUnreadCount(unread.count ?? 0);
+    }
+
+    async function startUnreadStream(t: string) {
+      // Use fetch streaming so we can pass Authorization header (EventSource can't set headers).
+      abort?.abort();
+      abort = new AbortController();
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+      if (!apiBase) return;
+
+      try {
+        const res = await fetch(`${apiBase}/notifications/stream`, {
+          method: "GET",
+          headers: { Accept: "text/event-stream", Authorization: `Bearer ${t}` },
+          signal: abort.signal
+        });
+        if (!res.ok || !res.body) return;
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+
+          // Parse minimal SSE framing
+          let idx: number;
+          while ((idx = buf.indexOf("\n\n")) >= 0) {
+            const raw = buf.slice(0, idx);
+            buf = buf.slice(idx + 2);
+
+            const lines = raw.split("\n").map((l) => l.trimEnd());
+            const eventLine = lines.find((l) => l.startsWith("event:"));
+            const dataLine = lines.find((l) => l.startsWith("data:"));
+            const event = eventLine ? eventLine.slice("event:".length).trim() : "";
+            const dataStr = dataLine ? dataLine.slice("data:".length).trim() : "";
+            if (event === "unread" && dataStr) {
+              try {
+                const parsed = JSON.parse(dataStr) as { count?: number };
+                if (!cancelled && typeof parsed.count === "number") setUnreadCount(parsed.count);
+              } catch {
+                // ignore
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore; we'll fall back to periodic refresh via app events
+      }
     }
 
     async function loadMe() {
@@ -52,6 +102,8 @@ export function AuthNav() {
 
         // Notification badge (best-effort)
         await refreshUnread(token);
+        // Start streaming updates (best-effort)
+        void startUnreadStream(token);
       } catch {
         // Token is invalid/expired: log out locally
         clearAccessToken();
@@ -62,13 +114,6 @@ export function AuthNav() {
     }
 
     void loadMe();
-
-    // Keep badge fresh even if the user stays on the same page (e.g. submits film).
-    if (token) {
-      interval = window.setInterval(() => {
-        void refreshUnread(token);
-      }, 15000);
-    }
 
     // Instant refresh when notifications are updated elsewhere in the app.
     const onChanged = () => {
@@ -82,7 +127,7 @@ export function AuthNav() {
 
     return () => {
       cancelled = true;
-      if (interval) window.clearInterval(interval);
+      abort?.abort();
       window.removeEventListener("goeducate:notifications-changed", onChanged);
       window.removeEventListener("goeducate:me-changed", onMeChanged);
     };

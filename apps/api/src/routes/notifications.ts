@@ -6,8 +6,62 @@ import { ROLE } from "@goeducate/shared";
 import { ApiError } from "../http/errors.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { NotificationModel } from "../models/Notification.js";
+import { publishNotificationsChanged, subscribeNotificationsChanged } from "../notifications/bus.js";
 
 export const notificationsRouter = Router();
+
+function sseWrite(res: any, event: string, data: unknown) {
+  res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+// Authenticated: SSE stream for unread count updates (reduces polling)
+notificationsRouter.get(
+  "/notifications/stream",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      const userId = String(req.user!.id);
+
+      res.status(200);
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders?.();
+
+      const sendUnread = async () => {
+        const _userId = new mongoose.Types.ObjectId(userId);
+        const count = await NotificationModel.countDocuments({ userId: _userId, readAt: { $exists: false } });
+        sseWrite(res, "unread", { count });
+      };
+
+      // Initial payload
+      await sendUnread();
+
+      // Realtime-ish updates when notification DB changes happen via our app.
+      const unsub = subscribeNotificationsChanged(userId, () => {
+        void sendUnread().catch(() => {
+          // Ignore stream errors
+        });
+      });
+
+      // Keep-alive ping
+      const interval = setInterval(() => {
+        res.write(`: ping ${Date.now()}\n\n`);
+      }, 15000);
+
+      req.on("close", () => {
+        clearInterval(interval);
+        unsub();
+      });
+
+      return;
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
 
 // Authenticated: list your notifications
 notificationsRouter.get(
@@ -68,6 +122,7 @@ notificationsRouter.patch(
       ).lean();
 
       if (!updated) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Notification not found" }));
+      publishNotificationsChanged(String(req.user!.id));
       return res.json(updated);
     } catch (err) {
       return next(err);
@@ -92,6 +147,7 @@ notificationsRouter.delete(
       if (!deleted.deletedCount) {
         return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Notification not found" }));
       }
+      publishNotificationsChanged(String(req.user!.id));
       return res.status(204).send();
     } catch (err) {
       return next(err);
@@ -112,6 +168,7 @@ notificationsRouter.delete(
       if (unreadOnly) query.readAt = { $exists: false };
 
       const result = await NotificationModel.deleteMany(query);
+      publishNotificationsChanged(String(req.user!.id));
       return res.json({ deletedCount: result.deletedCount ?? 0 });
     } catch (err) {
       return next(err);
@@ -132,6 +189,7 @@ notificationsRouter.patch(
       if (unreadOnly) query.readAt = { $exists: false };
 
       const result = await NotificationModel.updateMany(query, { $set: { readAt: new Date() } });
+      publishNotificationsChanged(String(req.user!.id));
       return res.json({ modifiedCount: (result as any).modifiedCount ?? 0 });
     } catch (err) {
       return next(err);

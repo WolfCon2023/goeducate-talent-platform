@@ -82,6 +82,11 @@ export default function ShowcasesPage() {
           <h1 className="text-balance text-4xl font-semibold tracking-tight">Showcases</h1>
           <p className="mt-3 text-lg text-white/90">Browse upcoming showcases and register.</p>
         </div>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/showcases/registrations" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+            My registrations
+          </Link>
+        </div>
       </section>
 
       {error ? (

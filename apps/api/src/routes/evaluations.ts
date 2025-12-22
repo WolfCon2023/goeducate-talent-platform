@@ -14,6 +14,7 @@ import { WatchlistModel } from "../models/Watchlist.js";
 import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
 import { EvaluationFormModel } from "../models/EvaluationForm.js";
+import { publishNotificationsChanged } from "../notifications/bus.js";
 
 function computeGradeFromRubric(opts: {
   rubric: any;
@@ -165,6 +166,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
       message: `Your evaluation is ready for "${film.title}".`,
       href: `/player/film/${String(filmSubmissionId)}`
     });
+    publishNotificationsChanged(String(playerUserId));
 
     if (isNotificationEmailConfigured()) {
       const playerUser = await UserModel.findById(playerUserId).lean();
@@ -199,6 +201,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
             href: `/coach/player/${String(playerUserId)}`
           }))
         );
+        for (const c of subscribed) publishNotificationsChanged(String(c._id));
 
         if (isNotificationEmailConfigured()) {
           await Promise.all(
