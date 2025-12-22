@@ -35,14 +35,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </header>
             <main className="mx-auto max-w-7xl px-6 py-10 sm:px-8">{children}</main>
             <footer className="border-t border-[color:var(--color-border)] py-10 text-sm text-[color:var(--color-text-muted)] print:hidden">
-              <div className="mx-auto flex max-w-7xl flex-col gap-2 px-6 sm:flex-row sm:items-center sm:justify-between sm:px-8">
+              <div className="mx-auto grid max-w-7xl gap-3 px-6 sm:grid-cols-3 sm:items-center sm:px-8">
                 <div>© 2025 GoEducate, Inc. All rights reserved.</div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <div className="sm:text-center">
                   <a href="/contact" className="text-indigo-300 hover:text-indigo-200 hover:underline">
                     Contact
                   </a>
-                  <span>Built by Wolf Consulting Group, LLC.</span>
                 </div>
+                <div className="sm:text-right">Built by Wolf Consulting Group, LLC.</div>
               </div>
             </footer>
           </ConfirmProvider>
