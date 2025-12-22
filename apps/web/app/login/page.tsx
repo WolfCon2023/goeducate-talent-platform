@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -62,6 +63,13 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign in"}
           </Button>
         </form>
+
+        <div className="mt-6 text-sm text-white/80">
+          Need access?{" "}
+          <Link href="/request-access" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+            Request access
+          </Link>
+        </div>
       </Card>
     </div>
   );

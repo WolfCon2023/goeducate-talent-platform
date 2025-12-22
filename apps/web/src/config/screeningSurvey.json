@@ -1,0 +1,216 @@
+{
+  "screeningSurvey": {
+    "version": "1.0.0",
+    "roles": ["player", "coach", "evaluator"],
+    "sports": {
+      "options": ["Basketball", "Football", "Volleyball", "Baseball", "Soccer", "Other"],
+      "otherSportTextFieldKey": "sportOther"
+    },
+    "questionsByRole": {
+      "player": [
+        {
+          "id": "player_competition_level",
+          "label": "What is your current level of athletic competition?",
+          "type": "single_select",
+          "required": true,
+          "options": [
+            "Middle School",
+            "High School (Varsity)",
+            "High School (JV)",
+            "Prep School",
+            "Club / AAU / Travel",
+            "Postgraduate (PG)",
+            "Not Currently Competing"
+          ]
+        },
+        {
+          "id": "player_grad_year",
+          "label": "What is your expected high school or prep school graduation year?",
+          "type": "single_select",
+          "required": true,
+          "options": ["2025", "2026", "2027", "2028", "2029 or later", "Already Graduated"]
+        },
+        {
+          "id": "player_college_interest_level",
+          "label": "What level of collegiate athletics are you interested in pursuing?",
+          "type": "single_select",
+          "required": true,
+          "options": [
+            "NCAA Division I",
+            "NCAA Division II",
+            "NCAA Division III",
+            "NAIA",
+            "Junior College (JUCO)",
+            "Undecided / Exploring Options"
+          ]
+        },
+        {
+          "id": "player_academic_eligibility",
+          "label": "Which best describes your current academic standing?",
+          "type": "single_select",
+          "required": true,
+          "options": [
+            "Academically eligible and on track",
+            "Eligible with academic support needed",
+            "Currently working toward eligibility",
+            "Unsure of eligibility status",
+            "Not currently eligible"
+          ]
+        },
+        {
+          "id": "player_recruiting_readiness",
+          "label": "Which best describes your current recruiting status?",
+          "type": "single_select",
+          "required": true,
+          "options": [
+            "Actively communicating with college coaches",
+            "Have received college interest",
+            "Have game film ready but no outreach yet",
+            "Early-stage athlete seeking exposure",
+            "Exploring future opportunities"
+          ]
+        }
+      ],
+      "coach": [
+        {
+          "id": "coach_role",
+          "label": "Which best describes your current coaching role?",
+          "type": "single_select",
+          "required": true,
+          "options": [
+            "Head Coach",
+            "Assistant Coach",
+            "Position Coach",
+            "Program Director",
+            "Strength & Conditioning Coach"
+          ]
+        },
+        {
+          "id": "coach_level",
+          "label": "At what level are you currently coaching?",
+          "type": "single_select",
+          "required": true,
+          "options": [
+            "High School",
+            "Prep School",
+            "Junior College",
+            "NAIA",
+            "NCAA Division III",
+            "NCAA Division II",
+            "NCAA Division I"
+          ]
+        },
+        {
+          "id": "coach_active_status",
+          "label": "Are you currently active in a coaching role?",
+          "type": "single_select",
+          "required": true,
+          "options": ["Yes, currently coaching", "Yes, seasonal or part-time", "No, but recently active", "No, not currently active"]
+        },
+        {
+          "id": "coach_years_experience",
+          "label": "How many years of coaching experience do you have?",
+          "type": "single_select",
+          "required": true,
+          "options": ["0–2 years", "3–5 years", "6–10 years", "11–15 years", "16+ years"]
+        },
+        {
+          "id": "coach_recruiting_involvement",
+          "label": "What is your involvement in athlete recruiting?",
+          "type": "single_select",
+          "required": true,
+          "options": [
+            "Directly recruit and evaluate athletes",
+            "Assist with recruiting decisions",
+            "Provide evaluations and recommendations",
+            "Limited recruiting involvement",
+            "No recruiting involvement"
+          ]
+        }
+      ],
+      "evaluator": [
+        {
+          "id": "evaluator_background",
+          "label": "What best describes your background in athlete evaluation?",
+          "type": "single_select",
+          "required": true,
+          "options": [
+            "College coach or former college coach",
+            "High school or prep coach",
+            "Professional scout or recruiter",
+            "Recruiting analyst / evaluator",
+            "Camp or showcase evaluator"
+          ]
+        },
+        {
+          "id": "evaluator_levels_evaluated",
+          "label": "At which levels have you evaluated athletes?",
+          "type": "multi_select",
+          "required": true,
+          "options": [
+            "High School",
+            "Prep School",
+            "Junior College",
+            "NAIA",
+            "NCAA Division III",
+            "NCAA Division II",
+            "NCAA Division I"
+          ]
+        },
+        {
+          "id": "evaluator_years_experience",
+          "label": "How many years of athlete evaluation experience do you have?",
+          "type": "single_select",
+          "required": true,
+          "options": ["Less than 1 year", "1–3 years", "4–7 years", "8–12 years", "13+ years"]
+        },
+        {
+          "id": "evaluator_context",
+          "label": "In which settings do you most often evaluate athletes?",
+          "type": "single_select",
+          "required": true,
+          "options": ["Live games", "Camps and showcases", "Practices and workouts", "Game film", "Combination of live and film"]
+        },
+        {
+          "id": "evaluator_purpose",
+          "label": "How are your evaluations typically used?",
+          "type": "single_select",
+          "required": true,
+          "options": [
+            "College recruiting decisions",
+            "Scholarship or roster evaluations",
+            "Athlete development feedback",
+            "Ranking or comparison analysis",
+            "Exposure and recommendation purposes"
+          ]
+        }
+      ]
+    },
+    "commonFields": [
+      {
+        "id": "requestedRole",
+        "label": "Which type of access are you requesting?",
+        "type": "single_select",
+        "required": true,
+        "options": ["player", "coach", "evaluator"]
+      },
+      {
+        "id": "sport",
+        "label": "Primary sport",
+        "type": "single_select",
+        "required": true,
+        "optionsRef": "sports.options"
+      },
+      {
+        "id": "sportOther",
+        "label": "If Other, enter sport name",
+        "type": "text",
+        "requiredWhen": { "field": "sport", "equals": "Other" },
+        "minLength": 2,
+        "maxLength": 50
+      }
+    ]
+  }
+}
+
+

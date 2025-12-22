@@ -21,6 +21,7 @@ import { notificationsRouter } from "./routes/notifications.js";
 import { evaluationTemplatesRouter } from "./routes/evaluationTemplates.js";
 import { evaluationFormsRouter } from "./routes/evaluationForms.js";
 import { profilePhotosRouter } from "./routes/profilePhotos.js";
+import { accessRequestsRouter } from "./routes/accessRequests.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -64,6 +65,7 @@ async function main() {
   app.use(contactRouter);
   app.use(uploadsRouter);
   app.use(profilePhotosRouter);
+  app.use(accessRequestsRouter);
   app.use(notificationsRouter);
   app.use(evaluationTemplatesRouter);
   app.use(evaluationFormsRouter);

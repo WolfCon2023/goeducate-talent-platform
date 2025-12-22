@@ -8,6 +8,7 @@ import { AdminStats } from "@/components/AdminStats";
 import { AdminNotificationQueue } from "@/components/AdminNotificationQueue";
 import { AdminEvaluationTemplates } from "@/components/AdminEvaluationTemplates";
 import { AdminEvaluationForms } from "@/components/AdminEvaluationForms";
+import { AdminAccessRequests } from "@/components/AdminAccessRequests";
 import { AdminGuard } from "./Guard";
 
 export default function AdminPage() {
@@ -36,6 +37,9 @@ export default function AdminPage() {
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-users">
                 Users
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-access-requests">
+                Access requests
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-invites">
                 Invites
@@ -70,6 +74,10 @@ export default function AdminPage() {
 
         <section id="admin-users" className="scroll-mt-28">
           <AdminUserManager />
+        </section>
+
+        <section id="admin-access-requests" className="scroll-mt-28">
+          <AdminAccessRequests />
         </section>
 
         <section id="admin-invites" className="scroll-mt-28">

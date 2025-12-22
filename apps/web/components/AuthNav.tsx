@@ -177,8 +177,8 @@ export function AuthNav() {
           <Link href="/login" className={navItem("/login")}>
             Login
           </Link>
-          <Link href="/register" className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
-            Create account
+          <Link href="/request-access" className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
+            Request access
           </Link>
         </>
       )}

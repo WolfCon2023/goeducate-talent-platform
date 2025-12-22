@@ -14,8 +14,8 @@ export default function HomePage() {
             powerful search.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/register" className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
-              Create a free player account
+            <Link href="/request-access" className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+              Request access
             </Link>
             <Link
               href="/coach"
