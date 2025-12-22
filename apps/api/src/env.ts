@@ -49,7 +49,10 @@ const EnvSchema = z.object({
   STRIPE_PRICE_ID_ANNUAL: z.string().min(3).optional(),
 
   // Persistent uploads (optional). Use a Railway volume and set this to the mount path, e.g. "/data/uploads".
-  UPLOADS_DIR: z.string().min(1).optional()
+  UPLOADS_DIR: z.string().min(1).optional(),
+
+  // Contact form routing
+  CONTACT_TO_EMAIL: z.string().email().optional()
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -72,7 +75,8 @@ export function getEnv(): ResolvedEnv {
   const withDefaults: ResolvedEnv = {
     ...env,
     MONGODB_URI: env.MONGODB_URI ?? "mongodb://localhost:27017/goeducate_talent",
-    JWT_SECRET: env.JWT_SECRET ?? "dev_secret_change_me_please_1234567890"
+    JWT_SECRET: env.JWT_SECRET ?? "dev_secret_change_me_please_1234567890",
+    CONTACT_TO_EMAIL: env.CONTACT_TO_EMAIL ?? "info@goeducateinc.org"
   };
 
   if (isProd) {

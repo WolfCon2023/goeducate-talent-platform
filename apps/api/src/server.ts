@@ -22,6 +22,7 @@ import { evaluationTemplatesRouter } from "./routes/evaluationTemplates.js";
 import { evaluationFormsRouter } from "./routes/evaluationForms.js";
 import { profilePhotosRouter } from "./routes/profilePhotos.js";
 import { accessRequestsRouter } from "./routes/accessRequests.js";
+import { publicContactRouter } from "./routes/publicContact.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -63,6 +64,7 @@ async function main() {
   app.use(playerProfilesRouter);
   app.use(watchlistsRouter);
   app.use(contactRouter);
+  app.use(publicContactRouter);
   app.use(uploadsRouter);
   app.use(profilePhotosRouter);
   app.use(accessRequestsRouter);
