@@ -56,6 +56,12 @@ async function main() {
   const env = getEnv();
   const app = express();
 
+  // Railway (and other platforms) sometimes health-check "/" by default.
+  // Return 200 to avoid the service being marked unhealthy due to a 404.
+  app.get("/", (_req, res) => {
+    res.status(200).send("ok");
+  });
+
   app.use(
     cors({
       origin: (origin, callback) => {
