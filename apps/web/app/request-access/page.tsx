@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 
 import { Button, Card, Input, Label } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
+import { FormErrorSummary, FieldError } from "@/components/FormErrors";
+import { parseApiError, type FieldErrors } from "@/lib/formErrors";
 
 import surveyJson from "@/src/config/screeningSurvey.json";
 
@@ -42,7 +44,9 @@ export default function RequestAccessPage() {
   const [sportOther, setSportOther] = useState("");
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [status, setStatus] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
 
   const roleQuestions = useMemo(() => survey.questionsByRole[requestedRole] ?? [], [requestedRole, survey.questionsByRole]);
 
@@ -57,38 +61,42 @@ export default function RequestAccessPage() {
     else setAnswer(q, [...arr, opt]);
   }
 
-  function validateStep(idx: number): string | null {
+  function validateStep(idx: number): FieldErrors {
+    const fe: FieldErrors = {};
     if (idx === 0) {
-      if (!fullName.trim()) return "Full name is required.";
-      if (!isEmailLike(email)) return "Please enter a valid email.";
-      return null;
+      if (!fullName.trim()) fe.fullName = ["Full name is required."];
+      if (!email.trim()) fe.email = ["Email is required."];
+      else if (!isEmailLike(email)) fe.email = ["Please enter a valid email."];
+      return fe;
     }
     if (idx === 1) {
-      if (!requestedRole) return "Requested role is required.";
-      if (!sport) return "Sport is required.";
-      if (sport === "Other" && sportOther.trim().length < 2) return "Please enter your sport.";
-      return null;
+      if (!requestedRole) fe.requestedRole = ["Requested role is required."];
+      if (!sport) fe.sport = ["Sport is required."];
+      if (sport === "Other" && sportOther.trim().length < 2) fe.sportOther = ["Please enter your sport."];
+      return fe;
     }
     if (idx === 2) {
       for (const q of roleQuestions) {
         if (!q.required) continue;
         const v = answers[q.id];
         if (q.type === "multi_select") {
-          if (!Array.isArray(v) || v.length === 0) return `Please answer: ${q.label}`;
+          if (!Array.isArray(v) || v.length === 0) fe[q.id] = ["This field is required."];
         } else {
-          if (!v || (typeof v === "string" && !v.trim())) return `Please answer: ${q.label}`;
+          if (!v || (typeof v === "string" && !v.trim())) fe[q.id] = ["This field is required."];
         }
       }
-      return null;
+      return fe;
     }
-    return null;
+    return fe;
   }
 
   async function submit() {
-    setStatus(null);
-    const err0 = validateStep(0) ?? validateStep(1) ?? validateStep(2);
-    if (err0) {
-      setStatus(err0);
+    setSuccess(null);
+    setFormError(null);
+    setFieldErrors(undefined);
+    const fe = { ...validateStep(0), ...validateStep(1), ...validateStep(2) };
+    if (Object.keys(fe).length > 0) {
+      setFieldErrors(fe);
       return;
     }
     setSubmitting(true);
@@ -104,10 +112,12 @@ export default function RequestAccessPage() {
           answers
         })
       });
-      setStatus("Request submitted. If approved, you will receive an email with next steps.");
+      setSuccess("Request submitted. If approved, you will receive an email with next steps.");
       setStep(3);
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : "Failed to submit request");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Failed to submit request");
+      setFieldErrors(parsed.fieldErrors);
     } finally {
       setSubmitting(false);
     }
@@ -136,15 +146,22 @@ export default function RequestAccessPage() {
           <div className={`rounded-full px-2 py-1 ${step >= 3 ? "bg-white/10" : "bg-white/5"}`}>Done</div>
         </div>
 
+        <div className="mt-6">
+          <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
+          {success ? <div className="mt-3 text-sm text-white/80">{success}</div> : null}
+        </div>
+
         {step === 0 ? (
           <div className="mt-6 grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="fullName">Full name</Label>
               <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
+              <FieldError name="fullName" fieldErrors={fieldErrors} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+              <FieldError name="email" fieldErrors={fieldErrors} />
             </div>
           </div>
         ) : null}
@@ -169,6 +186,7 @@ export default function RequestAccessPage() {
                   </option>
                 ))}
               </select>
+              <FieldError name="requestedRole" fieldErrors={fieldErrors} />
             </div>
 
             <div className="grid gap-2">
@@ -185,12 +203,14 @@ export default function RequestAccessPage() {
                   </option>
                 ))}
               </select>
+              <FieldError name="sport" fieldErrors={fieldErrors} />
             </div>
 
             {sport === "Other" ? (
               <div className="grid gap-2">
                 <Label htmlFor="sportOther">Other sport</Label>
                 <Input id="sportOther" value={sportOther} onChange={(e) => setSportOther(e.target.value)} placeholder="Enter sport name" />
+                <FieldError name="sportOther" fieldErrors={fieldErrors} />
               </div>
             ) : null}
           </div>
@@ -253,6 +273,7 @@ export default function RequestAccessPage() {
                     })}
                   </div>
                 ) : null}
+                <FieldError name={q.id} fieldErrors={fieldErrors} />
               </div>
             ))}
           </div>
@@ -272,8 +293,6 @@ export default function RequestAccessPage() {
           </div>
         ) : null}
 
-        {status ? <div className="mt-6 text-sm text-white/80">{status}</div> : null}
-
         {step < 3 ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -282,7 +301,8 @@ export default function RequestAccessPage() {
                   type="button"
                   className="border border-white/15 bg-white/5 hover:bg-white/10"
                   onClick={() => {
-                    setStatus(null);
+                    setFormError(null);
+                    setFieldErrors(undefined);
                     setStep((s) => Math.max(0, s - 1));
                   }}
                 >
@@ -295,12 +315,13 @@ export default function RequestAccessPage() {
                 <Button
                   type="button"
                   onClick={() => {
-                    const err = validateStep(step);
-                    if (err) {
-                      setStatus(err);
+                    setFormError(null);
+                    setFieldErrors(undefined);
+                    const fe = validateStep(step);
+                    if (Object.keys(fe).length > 0) {
+                      setFieldErrors(fe);
                       return;
                     }
-                    setStatus(null);
                     setStep((s) => s + 1);
                   }}
                 >

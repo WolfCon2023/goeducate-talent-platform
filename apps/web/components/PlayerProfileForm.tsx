@@ -6,6 +6,8 @@ import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
+import { FieldError, FormErrorSummary } from "@/components/FormErrors";
+import { parseApiError, type FieldErrors } from "@/lib/formErrors";
 
 type Sport = "football" | "basketball" | "volleyball" | "soccer" | "track" | "other";
 
@@ -133,6 +135,8 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
     typeof props.initial?.heightIn === "number" ? props.initial.heightIn % 12 : undefined
   );
   const [status, setStatus] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -142,7 +146,7 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
       const role = getTokenRole(token);
       if (!token) return;
       if (role && role !== "player") {
-        setStatus("This page is only available to player accounts.");
+        setFormError("This page is only available to player accounts.");
         return;
       }
       setLoading(true);
@@ -185,7 +189,7 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
       } catch (err) {
         // Ignore "no profile yet" case
         const msg = err instanceof Error ? err.message : "";
-        if (msg !== "Profile not found") setStatus(msg || "Failed to load profile");
+        if (msg !== "Profile not found") setFormError(msg || "Failed to load profile");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -211,15 +215,28 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
 
   async function save() {
     setStatus(null);
+    setFormError(null);
+    setFieldErrors(undefined);
     setSaving(true);
     try {
       const token = getAccessToken();
       if (!token) throw new Error("Please login first.");
       const role = getTokenRole(token);
       if (role && role !== "player") throw new Error("This page is only available to player accounts.");
+
       const heightIn = computeHeightIn(heightFt, heightInPart);
       const finalPosition = positionChoice === "Other" ? positionOther.trim() : positionChoice;
-      if (!finalPosition) throw new Error("Position/Event is required.");
+      const fe: FieldErrors = {};
+      if (!form.firstName.trim()) fe.firstName = ["First name is required."];
+      if (!form.lastName.trim()) fe.lastName = ["Last name is required."];
+      if (!form.city.trim()) fe.city = ["City is required."];
+      if (!form.state.trim()) fe.state = ["State is required."];
+      if (!Number.isFinite(Number(form.gradYear))) fe.gradYear = ["Graduation year is required."];
+      if (!finalPosition) fe.position = ["Position / Event is required."];
+      if (Object.keys(fe).length > 0) {
+        setFieldErrors(fe);
+        return;
+      }
       await apiFetch("/player-profiles/me", {
         method: "PUT",
         token,
@@ -233,7 +250,9 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
       });
       setStatus("Saved.");
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : "Save failed");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Save failed");
+      setFieldErrors(parsed.fieldErrors);
     } finally {
       setSaving(false);
     }
@@ -254,15 +273,20 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
       </div>
 
       {loading ? <p className="mt-4 text-sm text-white/80">Loading your saved profile...</p> : null}
+      <div className="mt-4">
+        <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
+      </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <div className="grid gap-2">
           <Label htmlFor="firstName">First name</Label>
           <Input id="firstName" value={form.firstName} onChange={(e) => set("firstName", e.target.value)} />
+          <FieldError name="firstName" fieldErrors={fieldErrors} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="lastName">Last name</Label>
           <Input id="lastName" value={form.lastName} onChange={(e) => set("lastName", e.target.value)} />
+          <FieldError name="lastName" fieldErrors={fieldErrors} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="sport">Sport</Label>
@@ -284,6 +308,7 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
             <option value="track">Track</option>
             <option value="other">Other (enter manually)</option>
           </select>
+          <FieldError name="sport" fieldErrors={fieldErrors} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="position">Position / Event</Label>
@@ -320,6 +345,7 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
               placeholder="Other (enter manually)"
             />
           ) : null}
+          <FieldError name="position" fieldErrors={fieldErrors} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="gradYear">Graduation year</Label>
@@ -329,14 +355,17 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
             value={form.gradYear}
             onChange={(e) => set("gradYear", Number(e.target.value))}
           />
+          <FieldError name="gradYear" fieldErrors={fieldErrors} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="city">City</Label>
           <Input id="city" value={form.city} onChange={(e) => set("city", e.target.value)} />
+          <FieldError name="city" fieldErrors={fieldErrors} />
         </div>
         <div className="grid gap-2">
           <Label htmlFor="state">State</Label>
           <Input id="state" value={form.state} onChange={(e) => set("state", e.target.value)} />
+          <FieldError name="state" fieldErrors={fieldErrors} />
         </div>
         <div className="grid gap-2">
           <div className="text-sm font-medium text-[color:var(--muted)]">Height</div>
@@ -389,6 +418,7 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
             onChange={(e) => set("contactEmail", e.target.value || undefined)}
             placeholder="you@example.com"
           />
+          <FieldError name="contactEmail" fieldErrors={fieldErrors} />
         </div>
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="contactPhone">Contact phone (coach gated)</Label>
@@ -398,6 +428,7 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
             onChange={(e) => set("contactPhone", e.target.value || undefined)}
             placeholder="(555) 555-5555"
           />
+          <FieldError name="contactPhone" fieldErrors={fieldErrors} />
         </div>
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="hudlLink">HUDL link (later)</Label>

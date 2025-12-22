@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useConfirm } from "@/components/ConfirmDialog";
+import { FieldError, FormErrorSummary } from "@/components/FormErrors";
 import { Button, Card, Input, Label } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
+import { parseApiError, type FieldErrors } from "@/lib/formErrors";
 
 type Role = "player" | "coach" | "evaluator" | "admin";
 
@@ -23,7 +25,7 @@ export function AdminUserManager() {
   const confirm = useConfirm();
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [results, setResults] = useState<UserRow[]>([]);
 
   const [role, setRole] = useState<"" | Role>("");
@@ -31,7 +33,9 @@ export function AdminUserManager() {
 
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<Role>("coach");
-  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [inviteFormError, setInviteFormError] = useState<string | null>(null);
+  const [inviteFieldErrors, setInviteFieldErrors] = useState<FieldErrors | undefined>(undefined);
   const [creatingInvite, setCreatingInvite] = useState(false);
 
   const query = useMemo(() => {
@@ -43,7 +47,7 @@ export function AdminUserManager() {
   }, [role, q]);
 
   async function load() {
-    setError(null);
+    setFormError(null);
     setLoading(true);
     try {
       const token = getAccessToken();
@@ -53,7 +57,8 @@ export function AdminUserManager() {
       const res = await apiFetch<{ results: UserRow[] }>(`/admin/users?${query}`, { token });
       setResults(res.results);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load users");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Failed to load users");
     } finally {
       setLoading(false);
     }
@@ -74,7 +79,7 @@ export function AdminUserManager() {
     });
     if (!ok) return;
 
-    setError(null);
+    setFormError(null);
     try {
       const token = getAccessToken();
       const tokenRole = getTokenRole(token);
@@ -83,14 +88,23 @@ export function AdminUserManager() {
       await apiFetch(`/admin/users/${user.id}`, { method: "DELETE", token });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete user");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Failed to delete user");
     }
   }
 
   async function createInvite() {
-    setInviteStatus(null);
+    setInviteSuccess(null);
+    setInviteFormError(null);
+    setInviteFieldErrors(undefined);
     setCreatingInvite(true);
     try {
+      const fe: FieldErrors = {};
+      if (!inviteEmail.trim()) fe.inviteEmail = ["Email is required."];
+      if (Object.keys(fe).length > 0) {
+        setInviteFieldErrors(fe);
+        return;
+      }
       const token = getAccessToken();
       const tokenRole = getTokenRole(token);
       if (!token) throw new Error("Please login first.");
@@ -111,17 +125,19 @@ export function AdminUserManager() {
 
       const link = `${window.location.origin}/invite`;
       if (res.emailSent) {
-        setInviteStatus(
+        setInviteSuccess(
           `Invite emailed to ${res.invite.email} (${res.invite.role}). Link: ${link} (code also shown below). Code: ${res.invite.token}`
         );
       } else {
-        setInviteStatus(
+        setInviteSuccess(
           `Invite created for ${res.invite.email} (${res.invite.role}). Email not sent${res.emailError ? ` (${res.emailError})` : ""}. Code: ${res.invite.token}. Link: ${link}`
         );
       }
       setInviteEmail("");
     } catch (err) {
-      setInviteStatus(err instanceof Error ? err.message : "Failed to create invite");
+      const parsed = parseApiError(err);
+      setInviteFormError(parsed.formError ?? "Failed to create invite");
+      setInviteFieldErrors(parsed.fieldErrors);
     } finally {
       setCreatingInvite(false);
     }
@@ -138,6 +154,10 @@ export function AdminUserManager() {
           <Button type="button" onClick={load} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
           </Button>
+        </div>
+
+        <div className="mt-4">
+          <FormErrorSummary formError={formError ?? undefined} />
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
@@ -161,8 +181,6 @@ export function AdminUserManager() {
             <Input id="q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="name@school.org" />
           </div>
         </div>
-
-        {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
 
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-left text-sm">
@@ -209,10 +227,16 @@ export function AdminUserManager() {
         <h2 className="text-lg font-semibold">Generate invite</h2>
         <p className="mt-1 text-sm text-white/80">Creates a one-time code. Share the code + link so they can create an account.</p>
 
+        <div className="mt-4">
+          <FormErrorSummary formError={inviteFormError ?? undefined} fieldErrors={inviteFieldErrors} />
+          {inviteSuccess ? <div className="mt-3 text-sm text-[color:var(--color-text-muted)]">{inviteSuccess}</div> : null}
+        </div>
+
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="adminInviteEmail">Email</Label>
             <Input id="adminInviteEmail" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} autoComplete="off" />
+            <FieldError name="inviteEmail" fieldErrors={inviteFieldErrors} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="inviteRole">Role</Label>
@@ -234,7 +258,6 @@ export function AdminUserManager() {
           <Button type="button" onClick={createInvite} disabled={creatingInvite || !inviteEmail.trim()}>
             {creatingInvite ? "Creating..." : "Create invite"}
           </Button>
-          {inviteStatus ? <p className="text-sm text-[color:var(--color-text-muted)]">{inviteStatus}</p> : null}
         </div>
       </Card>
     </div>

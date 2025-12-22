@@ -2,6 +2,20 @@ export type ApiError = {
   error?: { code?: string; message?: string; details?: unknown };
 };
 
+export class ApiFetchError extends Error {
+  status: number;
+  code?: string;
+  details?: unknown;
+
+  constructor(opts: { message: string; status: number; code?: string; details?: unknown }) {
+    super(opts.message);
+    this.name = "ApiFetchError";
+    this.status = opts.status;
+    this.code = opts.code;
+    this.details = opts.details;
+  }
+}
+
 function getApiBaseUrl() {
   const url = process.env.NEXT_PUBLIC_API_URL;
   if (!url) throw new Error("Missing NEXT_PUBLIC_API_URL");
@@ -23,18 +37,12 @@ export async function apiFetch<T>(path: string, init?: RequestInit & { token?: s
   if (!res.ok) {
     const body = (await res.json().catch(() => ({}))) as ApiError;
     const baseMsg = body.error?.message ?? `Request failed: ${res.status}`;
-    const details = body.error?.details;
-    if (details && typeof details === "object") {
-      // Common Zod flatten shape: { fieldErrors: { ... }, formErrors: [...] }
-      const maybeFieldErrors = (details as any).fieldErrors;
-      const maybeFormErrors = (details as any).formErrors;
-      const extra =
-        maybeFieldErrors || maybeFormErrors
-          ? JSON.stringify({ fieldErrors: maybeFieldErrors ?? {}, formErrors: maybeFormErrors ?? [] })
-          : JSON.stringify(details);
-      throw new Error(`${baseMsg} (${extra})`);
-    }
-    throw new Error(baseMsg);
+    throw new ApiFetchError({
+      message: baseMsg,
+      status: res.status,
+      code: body.error?.code,
+      details: body.error?.details
+    });
   }
 
   // 204 No Content

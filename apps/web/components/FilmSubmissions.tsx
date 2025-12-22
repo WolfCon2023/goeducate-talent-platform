@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { useConfirm } from "@/components/ConfirmDialog";
+import { FieldError, FormErrorSummary } from "@/components/FormErrors";
 import { Button, Card, Input, Label } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
+import { parseApiError, type FieldErrors } from "@/lib/formErrors";
 
 type FilmSubmission = {
   _id: string;
@@ -42,7 +44,8 @@ export function FilmSubmissions() {
   const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
   const [results, setResults] = useState<FilmSubmission[]>([]);
   const [reports, setReports] = useState<Record<string, EvaluationReport | null>>({});
   const [reportLoading, setReportLoading] = useState<Record<string, boolean>>({});
@@ -57,7 +60,8 @@ export function FilmSubmissions() {
   const titleRequired = !title.trim();
 
   const load = useCallback(async () => {
-    setError(null);
+    setFormError(null);
+    setFieldErrors(undefined);
     setLoading(true);
     try {
       const token = getAccessToken();
@@ -76,7 +80,8 @@ export function FilmSubmissions() {
         })
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load submissions");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Failed to load submissions");
     } finally {
       setLoading(false);
     }
@@ -84,7 +89,7 @@ export function FilmSubmissions() {
   }, []);
 
   async function loadReport(filmSubmissionId: string) {
-    setError(null);
+    setFormError(null);
     setReportLoading((p) => ({ ...p, [filmSubmissionId]: true }));
     try {
       const token = getAccessToken();
@@ -98,7 +103,7 @@ export function FilmSubmissions() {
       const msg = err instanceof Error ? err.message : "Failed to load evaluation";
       // If no evaluation exists yet, keep it non-fatal and store null
       if (msg === "Evaluation not found") setReports((p) => ({ ...p, [filmSubmissionId]: null }));
-      else setError(msg);
+      else setFormError(msg);
     } finally {
       setReportLoading((p) => ({ ...p, [filmSubmissionId]: false }));
     }
@@ -109,7 +114,8 @@ export function FilmSubmissions() {
   }, [load]);
 
   async function uploadToCloudinary(file: File) {
-    setError(null);
+    setFormError(null);
+    setFieldErrors(undefined);
     setUploading(true);
     try {
       // Nice UX: if title is blank, default it from the filename (sans extension).
@@ -151,16 +157,25 @@ export function FilmSubmissions() {
       setVideoUrl(json.secure_url);
       setCloudinaryPublicId(json.public_id ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Upload failed");
+      setFieldErrors(parsed.fieldErrors);
     } finally {
       setUploading(false);
     }
   }
 
   async function create() {
-    setError(null);
+    setFormError(null);
+    setFieldErrors(undefined);
     setCreating(true);
     try {
+      const nextFieldErrors: FieldErrors = {};
+      if (!title.trim()) nextFieldErrors.title = ["Title is required."];
+      if (Object.keys(nextFieldErrors).length > 0) {
+        setFieldErrors(nextFieldErrors);
+        return;
+      }
       const token = getAccessToken();
       if (!token) throw new Error("Please login as a player first.");
       const role = getTokenRole(token);
@@ -187,7 +202,9 @@ export function FilmSubmissions() {
       setNotes("");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create submission");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Failed to create submission");
+      setFieldErrors(parsed.fieldErrors);
     } finally {
       setCreating(false);
     }
@@ -202,7 +219,7 @@ export function FilmSubmissions() {
       destructive: true
     });
     if (!ok) return;
-    setError(null);
+    setFormError(null);
     try {
       const token = getAccessToken();
       const role = getTokenRole(token);
@@ -211,13 +228,15 @@ export function FilmSubmissions() {
       await apiFetch(`/film-submissions/${id}`, { method: "DELETE", token });
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete submission");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Failed to delete submission");
     }
   }
 
   return (
     <div className="grid gap-6">
       <Card>
+        <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
         <h2 className="text-lg font-semibold">Submit film</h2>
         <p className="mt-1 text-sm text-[color:var(--muted)]">
           Add game film metadata. You can upload a video file or paste a hosted video URL.
@@ -227,6 +246,7 @@ export function FilmSubmissions() {
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="title">Title</Label>
             <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Week 3 vs Central" />
+            <FieldError name="title" fieldErrors={fieldErrors} />
             {titleRequired ? <p className="text-xs text-[color:var(--muted-2)]">Title is required.</p> : null}
           </div>
           <div className="grid gap-2">
@@ -277,7 +297,7 @@ export function FilmSubmissions() {
           <Button type="button" onClick={create} disabled={creating || uploading || titleRequired}>
             {uploading ? "Uploading..." : creating ? "Submitting..." : "Submit"}
           </Button>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
+          {formError ? <p className="text-sm text-red-300">{formError}</p> : null}
         </div>
       </Card>
 

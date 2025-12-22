@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { FieldError, FormErrorSummary } from "@/components/FormErrors";
 import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
+import { parseApiError, type FieldErrors } from "@/lib/formErrors";
 
 type Role = "player" | "coach";
 
@@ -23,16 +25,24 @@ export default function RegisterPage() {
   const [role, setRole] = useState<Role>("player");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
+    setFieldErrors(undefined);
     setLoading(true);
     try {
-      if (role === "coach" && (!firstName.trim() || !lastName.trim())) {
-        throw new Error("Coach first and last name are required.");
+      const fe: FieldErrors = {};
+      if (!email.trim()) fe.email = ["Email is required."];
+      if (!password || password.length < 8) fe.password = ["Password must be at least 8 characters."];
+      if (role === "coach" && !firstName.trim()) fe.firstName = ["First name is required for coaches."];
+      if (role === "coach" && !lastName.trim()) fe.lastName = ["Last name is required for coaches."];
+      if (Object.keys(fe).length > 0) {
+        setFieldErrors(fe);
+        return;
       }
       const res = await apiFetch<{ token: string; user: { role: string } }>("/auth/register", {
         method: "POST",
@@ -46,7 +56,9 @@ export default function RegisterPage() {
       setAccessToken(res.token);
       router.push(role === "coach" ? "/coach" : "/player");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Registration failed");
+      setFieldErrors(parsed.fieldErrors);
     } finally {
       setLoading(false);
     }
@@ -65,15 +77,18 @@ export default function RegisterPage() {
         </p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+          <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
           {role === "coach" ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="firstName">First name</Label>
                 <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" />
+                <FieldError name="firstName" fieldErrors={fieldErrors} />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="lastName">Last name</Label>
                 <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} autoComplete="family-name" />
+                <FieldError name="lastName" fieldErrors={fieldErrors} />
               </div>
             </div>
           ) : null}
@@ -81,6 +96,7 @@ export default function RegisterPage() {
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            <FieldError name="email" fieldErrors={fieldErrors} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="password">Password</Label>
@@ -91,6 +107,7 @@ export default function RegisterPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
             />
+            <FieldError name="password" fieldErrors={fieldErrors} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="role">Role</Label>
@@ -104,7 +121,6 @@ export default function RegisterPage() {
               <option value="coach">Coach</option>
             </select>
           </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
           <Button type="submit" disabled={loading}>
             {loading ? "Creating..." : "Create account"}
           </Button>

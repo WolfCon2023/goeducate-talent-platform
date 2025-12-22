@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 
+import { FieldError, FormErrorSummary } from "@/components/FormErrors";
 import { Button, Card, Input, Label } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
+import { parseApiError, type FieldErrors } from "@/lib/formErrors";
 
 type Role = "evaluator" | "admin";
 
@@ -12,13 +14,24 @@ export function AdminCreateUser() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<Role>("evaluator");
-  const [status, setStatus] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
   async function create() {
-    setStatus(null);
+    setSuccess(null);
+    setFormError(null);
+    setFieldErrors(undefined);
     setSaving(true);
     try {
+      const fe: FieldErrors = {};
+      if (!email.trim()) fe.email = ["Email is required."];
+      if (!password || password.length < 8) fe.password = ["Password must be at least 8 characters."];
+      if (Object.keys(fe).length > 0) {
+        setFieldErrors(fe);
+        return;
+      }
       const token = getAccessToken();
       const tokenRole = getTokenRole(token);
       if (!token) throw new Error("Please login first.");
@@ -29,12 +42,14 @@ export function AdminCreateUser() {
         token,
         body: JSON.stringify({ email, password, role })
       });
-      setStatus(`Created ${res.user.role}: ${res.user.email}`);
+      setSuccess(`Created ${res.user.role}: ${res.user.email}`);
       setEmail("");
       setPassword("");
       setRole("evaluator");
     } catch (err) {
-      setStatus(err instanceof Error ? err.message : "Failed to create user");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Failed to create user");
+      setFieldErrors(parsed.fieldErrors);
     } finally {
       setSaving(false);
     }
@@ -51,10 +66,15 @@ export function AdminCreateUser() {
           void create();
         }}
       >
+        <div className="mt-4">
+          <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
+          {success ? <div className="mt-3 text-sm text-white/80">{success}</div> : null}
+        </div>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="createUserEmail">Email</Label>
             <Input id="createUserEmail" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
+            <FieldError name="email" fieldErrors={fieldErrors} />
           </div>
           <div className="grid gap-2 sm:col-span-2">
             <Label htmlFor="createUserPassword">Password</Label>
@@ -65,6 +85,7 @@ export function AdminCreateUser() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="off"
             />
+            <FieldError name="password" fieldErrors={fieldErrors} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="createUserRole">Role</Label>
@@ -84,7 +105,6 @@ export function AdminCreateUser() {
           <Button type="submit" disabled={saving || !email.trim() || password.length < 8}>
             {saving ? "Creating..." : "Create user"}
           </Button>
-          {status ? <p className="text-sm text-white/80">{status}</p> : null}
         </div>
       </form>
     </Card>

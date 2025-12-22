@@ -7,19 +7,30 @@ import { Card, Input, Label, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { setAccessToken } from "@/lib/auth";
 import Link from "next/link";
+import { FormErrorSummary, FieldError } from "@/components/FormErrors";
+import { parseApiError, type FieldErrors } from "@/lib/formErrors";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
   const [loading, setLoading] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
+    setFormError(null);
+    setFieldErrors(undefined);
     setLoading(true);
     try {
+      const nextFieldErrors: FieldErrors = {};
+      if (!email.trim()) nextFieldErrors.email = ["Email is required."];
+      if (!password) nextFieldErrors.password = ["Password is required."];
+      if (Object.keys(nextFieldErrors).length > 0) {
+        setFieldErrors(nextFieldErrors);
+        return;
+      }
       const res = await apiFetch<{ token: string; user: { role: string } }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password })
@@ -31,7 +42,9 @@ export default function LoginPage() {
       else if (res.user.role === "admin") router.push("/admin");
       else router.push("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Login failed");
+      setFieldErrors(parsed.fieldErrors);
     } finally {
       setLoading(false);
     }
@@ -44,9 +57,11 @@ export default function LoginPage() {
         <p className="mt-1 text-sm text-white/80">Sign in to your account.</p>
 
         <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+          <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            <FieldError name="email" fieldErrors={fieldErrors} />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="password">Password</Label>
@@ -57,8 +72,8 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
             />
+            <FieldError name="password" fieldErrors={fieldErrors} />
           </div>
-          {error ? <p className="text-sm text-red-300">{error}</p> : null}
           <Button type="submit" disabled={loading}>
             {loading ? "Signing in..." : "Sign in"}
           </Button>
