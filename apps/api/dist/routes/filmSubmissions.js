@@ -327,7 +327,7 @@ filmSubmissionsRouter.patch("/film-submissions/:id/status", requireAuth, require
             });
             publishNotificationsChanged(String(film.userId));
             // Email the player as well (best-effort).
-            const user = await UserModel.findById(film.userId).lean();
+                const user = await UserModel.findById(film.userId).lean();
             const profile = await PlayerProfileModel.findOne({ userId: film.userId }).lean();
             const to = String(user?.email ?? profile?.contactEmail ?? "").trim().toLowerCase();
             const subject = "GoEducate Talent – Film needs changes";
@@ -354,11 +354,11 @@ filmSubmissionsRouter.patch("/film-submissions/:id/status", requireAuth, require
                         await sendNotificationEmail({
                             to,
                             subject,
-                            title: "Film needs changes",
-                            message: note
-                                ? `An evaluator requested changes to your submission. Notes: ${note}`
-                                : "An evaluator requested changes to your submission. Please review the notes and resubmit.",
-                            href: "/player/film"
+                        title: "Film needs changes",
+                        message: note
+                            ? `An evaluator requested changes to your submission. Notes: ${note}`
+                            : "An evaluator requested changes to your submission. Please review the notes and resubmit.",
+                        href: "/player/film"
                         });
                         await EmailAuditLogModel.create({
                             type: EMAIL_AUDIT_TYPE.FILM_NEEDS_CHANGES,
@@ -375,7 +375,7 @@ filmSubmissionsRouter.patch("/film-submissions/:id/status", requireAuth, require
                             subject,
                             error: err
                         });
-                    }
+                }
                 })();
             }
         }
