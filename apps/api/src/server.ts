@@ -6,6 +6,7 @@ import express from "express";
 import { connectDb } from "./db.js";
 import { getEnv } from "./env.js";
 import { errorHandler } from "./http/errors.js";
+import { requestLogger } from "./middleware/requestLogger.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { evaluationsRouter } from "./routes/evaluations.js";
@@ -75,6 +76,9 @@ async function main() {
       credentials: true
     })
   );
+
+  // Request correlation + latency logging (helps debug Railway deploy/runtime issues).
+  app.use(requestLogger);
 
   // Stripe webhook must receive the raw request body for signature verification.
   app.post("/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookHandler);

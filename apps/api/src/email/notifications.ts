@@ -1,4 +1,6 @@
 import { createTransporterOrThrow, escapeHtml, isEmailConfigured } from "./mailer.js";
+import { sendMailWithAudit } from "./audit.js";
+import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 
 export function isNotificationEmailConfigured() {
   return isEmailConfigured();
@@ -40,7 +42,10 @@ export async function sendNotificationEmail(input: {
   const ccList = Array.isArray(input.cc) ? input.cc : input.cc ? [input.cc] : [];
   const bccList = Array.isArray(input.bcc) ? input.bcc : input.bcc ? [input.bcc] : [];
 
-  await transporter.sendMail({
+  await sendMailWithAudit({
+    transporter,
+    type: EMAIL_AUDIT_TYPE.NOTIFICATION,
+    mail: {
     from: env.INVITE_FROM_EMAIL,
     to: input.to,
     ...(ccList.length ? { cc: ccList } : {}),
@@ -48,6 +53,8 @@ export async function sendNotificationEmail(input: {
     subject: input.subject,
     text,
     html
+    },
+    meta: { href: input.href }
   });
 }
 

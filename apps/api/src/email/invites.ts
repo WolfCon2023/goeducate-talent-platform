@@ -1,4 +1,6 @@
 import { createTransporterOrThrow, escapeHtml, isEmailConfigured } from "./mailer.js";
+import { sendMailWithAudit } from "./audit.js";
+import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 
 export type InviteEmail = {
   to: string;
@@ -43,12 +45,18 @@ export async function sendInviteEmail(input: InviteEmail) {
     </div>
   `.trim();
 
-  await transporter.sendMail({
-    from: env.INVITE_FROM_EMAIL,
-    to: input.to,
-    subject,
-    text,
-    html
+  await sendMailWithAudit({
+    transporter,
+    type: EMAIL_AUDIT_TYPE.INVITE,
+    mail: {
+      from: env.INVITE_FROM_EMAIL,
+      to: input.to,
+      subject,
+      text,
+      html
+    },
+    related: { inviteEmail: input.to },
+    meta: { role: input.role }
   });
 }
 

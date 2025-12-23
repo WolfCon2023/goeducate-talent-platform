@@ -1,4 +1,6 @@
 import { createTransporterOrThrow, escapeHtml, isEmailConfigured } from "./mailer.js";
+import { sendMailWithAudit } from "./audit.js";
+import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 
 export function isShowcaseEmailConfigured() {
   return isEmailConfigured();
@@ -56,12 +58,17 @@ export async function sendShowcaseRegistrationEmail(input: {
     </div>
   `.trim();
 
-  await transporter.sendMail({
-    from: env.INVITE_FROM_EMAIL,
-    to: input.to,
-    subject,
-    text,
-    html
+  await sendMailWithAudit({
+    transporter,
+    type: EMAIL_AUDIT_TYPE.SHOWCASE_REGISTRATION_CONFIRMATION,
+    mail: {
+      from: env.INVITE_FROM_EMAIL,
+      to: input.to,
+      subject,
+      text,
+      html
+    },
+    meta: { showcaseTitle: input.showcaseTitle }
   });
 }
 

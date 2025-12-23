@@ -20,6 +20,10 @@ import { isInviteEmailConfigured, sendInviteEmail } from "../email/invites.js";
 import nodemailer from "nodemailer";
 import { normalizeUsStateToCode, US_STATES } from "../util/usStates.js";
 import { logAdminAction } from "../audit/adminAudit.js";
+import { EmailAuditLogModel } from "../models/EmailAuditLog.js";
+import { createTransporterOrThrow, isEmailConfigured } from "../email/mailer.js";
+import { sendMailWithAudit } from "../email/audit.js";
+import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 
 export const adminRouter = Router();
 
@@ -586,6 +590,76 @@ adminRouter.get("/admin/players/by-state/:state", requireAuth, requireRole([ROLE
       total,
       players
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: email diagnostics
+adminRouter.get("/admin/email/config", requireAuth, requireRole([ROLE.ADMIN]), async (_req, res, next) => {
+  try {
+    const env = getEnv();
+    return res.json({
+      configured: isEmailConfigured(),
+      from: env.INVITE_FROM_EMAIL ?? null,
+      host: env.SMTP_HOST ? String(env.SMTP_HOST) : null,
+      port: env.SMTP_PORT ?? null,
+      secure: env.SMTP_SECURE ?? (env.SMTP_PORT === 465 ? true : null),
+      authMethod: env.SMTP_AUTH_METHOD ?? null,
+      webAppUrl: env.WEB_APP_URL ?? null
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+adminRouter.get("/admin/email/audit", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const limitRaw = Number(req.query.limit ?? 100);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 100;
+    const status = String(req.query.status ?? "").trim();
+    const type = String(req.query.type ?? "").trim();
+    const to = String(req.query.to ?? "").trim().toLowerCase();
+
+    const q: any = {};
+    if (status) q.status = status;
+    if (type) q.type = type;
+    if (to) q.to = to;
+
+    const results = await EmailAuditLogModel.find(q).sort({ createdAt: -1 }).limit(limit).lean();
+    return res.json({ results });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const to = String((req.body as any)?.to ?? "").trim().toLowerCase();
+    if (!to || !to.includes("@")) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid 'to' email is required" }));
+    }
+    if (!isEmailConfigured()) {
+      return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Email is not configured" }));
+    }
+
+    const { env, transporter } = createTransporterOrThrow();
+    const subject = `GoEducate Talent – Test email`;
+    const text = `This is a test email from GoEducate Talent.\n\nTime: ${new Date().toISOString()}\nRequestId: ${(req as any).requestId ?? ""}\n`;
+    const html = `<div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5;">
+  <h2 style="margin:0 0 12px 0;">Test email</h2>
+  <p style="margin:0 0 12px 0;">This is a test email from GoEducate Talent.</p>
+  <p style="margin:0 0 0 0;color:#51607F;">Time: ${new Date().toISOString()}</p>
+</div>`;
+
+    const info = await sendMailWithAudit({
+      transporter,
+      type: EMAIL_AUDIT_TYPE.TEST,
+      mail: { from: env.INVITE_FROM_EMAIL, to, subject, text, html },
+      related: { userId: req.user?.id }
+    });
+
+    return res.json({ ok: true, messageId: (info as any)?.messageId ?? null });
   } catch (err) {
     return next(err);
   }

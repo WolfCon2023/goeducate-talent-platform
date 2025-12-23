@@ -12,6 +12,7 @@ import { AdminNotificationQueue } from "@/components/AdminNotificationQueue";
 import { AdminEvaluationTemplates } from "@/components/AdminEvaluationTemplates";
 import { AdminEvaluationForms } from "@/components/AdminEvaluationForms";
 import { AdminAccessRequests } from "@/components/AdminAccessRequests";
+import { AdminEmailDiagnostics } from "@/components/AdminEmailDiagnostics";
 import { AdminGuard } from "./Guard";
 
 export default function AdminPage() {
@@ -46,6 +47,9 @@ export default function AdminPage() {
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-notifications">
                 Notifications
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-email">
+                Email
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-users">
                 Users
@@ -87,6 +91,10 @@ export default function AdminPage() {
 
         <section id="admin-notifications" className="scroll-mt-28">
           <AdminNotificationQueue />
+        </section>
+
+        <section id="admin-email" className="scroll-mt-28">
+          <AdminEmailDiagnostics />
         </section>
 
         <section id="admin-users" className="scroll-mt-28">
