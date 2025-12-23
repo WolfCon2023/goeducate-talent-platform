@@ -15,7 +15,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "node -e \"console.log('build skipped (dist is committed)')\""
+    "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "zod": "^4.1.9"

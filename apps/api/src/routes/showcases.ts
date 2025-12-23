@@ -344,7 +344,6 @@ showcasesRouter.post(
       return res.json({ ok: true, ...result });
     } catch (err) {
       // Avoid leaking Stripe internals
-      if (err instanceof ApiErrorClass) return next(err);
       return next(err);
     }
   }

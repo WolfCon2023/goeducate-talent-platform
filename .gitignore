@@ -4,5 +4,9 @@ node_modules
 .next/
 **/.next/
 
+# Build output
+dist/
+**/dist/
+
 # TypeScript incremental build info
 *.tsbuildinfo
