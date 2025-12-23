@@ -69,13 +69,6 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <Card>
-          <h2 className="text-lg font-semibold">Next</h2>
-          <p className="mt-2 text-sm text-white/80">
-            Admin UI for moderating content is planned. For now, you can create internal users below.
-          </p>
-        </Card>
-
         <section id="admin-stats" className="scroll-mt-28">
           <AdminStats />
         </section>
