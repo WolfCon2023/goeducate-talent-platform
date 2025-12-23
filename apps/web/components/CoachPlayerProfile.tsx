@@ -1,0 +1,152 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+import { Card, Button } from "@/components/ui";
+import { apiFetch, ApiFetchError } from "@/lib/api";
+import { getAccessToken } from "@/lib/auth";
+
+type PlayerProfile = {
+  _id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  sport?: string;
+  position: string;
+  gradYear: number;
+  state: string;
+  city: string;
+  heightIn?: number;
+  weightLb?: number;
+  hudlLink?: string;
+};
+
+type ContactInfo = {
+  contactEmail: string | null;
+  contactPhone: string | null;
+};
+
+export function CoachPlayerProfile(props: { userId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [contact, setContact] = useState<ContactInfo | null>(null);
+  const [contactBlocked, setContactBlocked] = useState<"subscription" | "other" | null>(null);
+
+  async function load() {
+    setError(null);
+    setLoading(true);
+    setContactBlocked(null);
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+
+      const p = await apiFetch<PlayerProfile>(`/player-profiles/player/${encodeURIComponent(props.userId)}`, { token });
+      setProfile(p);
+
+      try {
+        const c = await apiFetch<ContactInfo>(`/contact/player/${encodeURIComponent(props.userId)}`, { token });
+        setContact(c);
+      } catch (err) {
+        if (err instanceof ApiFetchError && err.status === 402) {
+          setContactBlocked("subscription");
+        } else {
+          setContactBlocked("other");
+        }
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load player");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.userId]);
+
+  return (
+    <Card>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm font-semibold text-[color:var(--foreground)]">Player profile</div>
+          <div className="mt-1 text-sm text-[color:var(--muted)]">{props.userId}</div>
+        </div>
+        <Button type="button" onClick={load} disabled={loading}>
+          {loading ? "Refreshing..." : "Refresh"}
+        </Button>
+      </div>
+
+      {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
+
+      {profile ? (
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
+            <div className="text-lg font-semibold">
+              {profile.firstName} {profile.lastName}
+            </div>
+            <div className="mt-2 text-sm text-[color:var(--muted)]">
+              {(profile.sport ? `${profile.sport} · ` : "") + `${profile.position} · ${profile.gradYear}`}
+              {" · "}
+              {profile.city}, {profile.state}
+              {typeof profile.heightIn === "number" ? ` · ${profile.heightIn} in` : ""}
+              {typeof profile.weightLb === "number" ? ` · ${profile.weightLb} lb` : ""}
+            </div>
+            {profile.hudlLink ? (
+              <div className="mt-3 text-sm">
+                <a className="text-indigo-300 hover:text-indigo-200 hover:underline" href={profile.hudlLink} target="_blank" rel="noreferrer">
+                  HUDL / highlights
+                </a>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
+            <div className="text-sm font-semibold text-[color:var(--foreground)]">Contact info</div>
+            <div className="mt-2 text-sm text-[color:var(--muted)]">
+              {contact ? (
+                <div className="grid gap-1">
+                  <div>
+                    Email:{" "}
+                    {contact.contactEmail ? (
+                      <a className="text-indigo-300 hover:underline" href={`mailto:${contact.contactEmail}`}>
+                        {contact.contactEmail}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </div>
+                  <div>
+                    Phone:{" "}
+                    {contact.contactPhone ? (
+                      <a className="text-indigo-300 hover:underline" href={`tel:${contact.contactPhone}`}>
+                        {contact.contactPhone}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </div>
+                </div>
+              ) : contactBlocked === "subscription" ? (
+                <div>
+                  Subscription required to view contact info.{" "}
+                  <Link className="text-indigo-300 hover:text-indigo-200 hover:underline" href="/coach/billing">
+                    Manage / Upgrade
+                  </Link>
+                </div>
+              ) : contactBlocked === "other" ? (
+                <div>Contact info unavailable.</div>
+              ) : (
+                <div className="text-[color:var(--muted)]">—</div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+
