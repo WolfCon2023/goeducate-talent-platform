@@ -14,6 +14,7 @@ type EmailConfig = {
   secure: boolean | null;
   authMethod: string | null;
   webAppUrl: string | null;
+  sentryEnabled?: boolean;
 };
 
 type EmailAuditRow = {
@@ -119,6 +120,12 @@ export function AdminEmailDiagnostics() {
             <div>Secure: <span className="text-[color:var(--foreground)]">{typeof config?.secure === "boolean" ? String(config.secure) : "—"}</span></div>
             <div>Auth method: <span className="text-[color:var(--foreground)]">{config?.authMethod ?? "—"}</span></div>
             <div>WEB_APP_URL: <span className="text-[color:var(--foreground)]">{config?.webAppUrl ?? "—"}</span></div>
+            <div>
+              Sentry:{" "}
+              <span className={config?.sentryEnabled ? "text-emerald-300" : "text-[color:var(--muted)]"}>
+                {typeof config?.sentryEnabled === "boolean" ? (config.sentryEnabled ? "Enabled" : "Disabled") : "—"}
+              </span>
+            </div>
           </div>
         </div>
 

@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 
+import { captureException } from "../obs/sentry.js";
+
 export type ApiErrorBody = {
   error: {
     code: string;
@@ -21,13 +23,18 @@ export class ApiError extends Error {
   }
 }
 
-export function errorHandler(err: unknown, _req: Request, res: Response<ApiErrorBody>, _next: NextFunction) {
+export function errorHandler(err: unknown, req: Request, res: Response<ApiErrorBody>, _next: NextFunction) {
   if (err instanceof ApiError) {
+    // Only report 5xx ApiErrors to Sentry to reduce noise.
+    if (err.status >= 500) {
+      captureException(err, { req, extra: { code: err.code, details: err.details } });
+    }
     return res.status(err.status).json({
       error: { code: err.code, message: err.message, details: err.details }
     });
   }
   console.error(err);
+  captureException(err, { req });
   return res.status(500).json({ error: { code: "INTERNAL_SERVER_ERROR", message: "Internal server error" } });
 }
 

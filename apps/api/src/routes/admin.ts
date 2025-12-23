@@ -24,6 +24,7 @@ import { EmailAuditLogModel } from "../models/EmailAuditLog.js";
 import { createTransporterOrThrow, isEmailConfigured } from "../email/mailer.js";
 import { sendMailWithAudit } from "../email/audit.js";
 import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
+import { isSentryEnabled } from "../obs/sentry.js";
 
 export const adminRouter = Router();
 
@@ -606,7 +607,8 @@ adminRouter.get("/admin/email/config", requireAuth, requireRole([ROLE.ADMIN]), a
       port: env.SMTP_PORT ?? null,
       secure: env.SMTP_SECURE ?? (env.SMTP_PORT === 465 ? true : null),
       authMethod: env.SMTP_AUTH_METHOD ?? null,
-      webAppUrl: env.WEB_APP_URL ?? null
+      webAppUrl: env.WEB_APP_URL ?? null,
+      sentryEnabled: isSentryEnabled()
     });
   } catch (err) {
     return next(err);

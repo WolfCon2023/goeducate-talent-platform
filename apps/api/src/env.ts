@@ -52,7 +52,11 @@ const EnvSchema = z.object({
   UPLOADS_DIR: z.string().min(1).optional(),
 
   // Contact form routing
-  CONTACT_TO_EMAIL: z.string().email().optional()
+  CONTACT_TO_EMAIL: z.string().email().optional(),
+
+  // Observability (optional)
+  SENTRY_DSN: z.string().min(1).optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional()
 });
 
 export type Env = z.infer<typeof EnvSchema>;
