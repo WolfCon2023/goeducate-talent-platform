@@ -147,7 +147,7 @@ export function AuthNav() {
   function logout() {
     clearAccessToken();
     setRole(null);
-    router.push("/");
+    router.push("/login");
     router.refresh();
   }
 

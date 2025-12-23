@@ -27,11 +27,12 @@ function extractEmailAddress(from) {
 }
 export function isEmailConfigured() {
     const env = getEnv();
-    return !!(env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASS && env.INVITE_FROM_EMAIL && env.WEB_APP_URL);
+    // Do NOT require WEB_APP_URL for basic email sending; links can be omitted if missing.
+    return !!(env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASS && env.INVITE_FROM_EMAIL);
 }
 export function createTransporterOrThrow() {
     const env = getEnv();
-    if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS || !env.INVITE_FROM_EMAIL || !env.WEB_APP_URL) {
+    if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS || !env.INVITE_FROM_EMAIL) {
         throw new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Email is not configured" });
     }
     // Validate sender format (allow "Name <email>" or "email").

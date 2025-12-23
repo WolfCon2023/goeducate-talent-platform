@@ -98,7 +98,9 @@ export async function stripeWebhookHandler(req, res) {
                                     try {
                                         const env = getEnv();
                                         const base = (env.WEB_APP_URL ?? "").replace(/\/+$/, "");
-                                        const detailsUrl = `${base}/showcases/${encodeURIComponent(String(showcase.slug ?? showcase._id))}`;
+                                        const detailsUrl = base
+                                            ? `${base}/showcases/${encodeURIComponent(String(showcase.slug ?? showcase._id))}`
+                                            : "";
                                         await sendShowcaseRegistrationEmail({
                                             to: String(email).trim().toLowerCase(),
                                             fullName: String(fullName).trim() || "Registrant",

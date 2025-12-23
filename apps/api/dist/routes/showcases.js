@@ -9,6 +9,7 @@ import { ShowcaseModel, SHOWCASE_STATUS } from "../models/Showcase.js";
 import { getStripe } from "../stripe.js";
 import { UserModel } from "../models/User.js";
 import { ShowcaseRegistrationModel } from "../models/ShowcaseRegistration.js";
+import { isShowcaseEmailConfigured, sendShowcaseRegistrationEmail } from "../email/showcases.js";
 import { logAdminAction } from "../audit/adminAudit.js";
 export const showcasesRouter = Router();
 const DEFAULT_REFUND_POLICY = [
@@ -296,6 +297,104 @@ showcasesRouter.get("/showcases/:idOrSlug", requireAuth, requireRole([ROLE.PLAYE
         return next(err);
     }
 });
+
+// Authenticated: confirm a completed Stripe Checkout session and create the registration record.
+// This is a fallback for when Stripe webhooks are delayed or not configured correctly.
+showcasesRouter.post("/showcase-registrations/confirm", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]), async (req, res, next) => {
+    try {
+        const env = getEnv();
+        if (!env.STRIPE_SECRET_KEY) {
+            return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Stripe is not configured" }));
+        }
+        const sessionId = String(req.body?.sessionId ?? "").trim();
+        if (!sessionId) {
+            return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Missing sessionId" }));
+        }
+        const stripe = getStripe(env);
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        if (!session || typeof session === "string") {
+            return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Checkout session not found" }));
+        }
+        const kind = session.metadata?.kind;
+        if (kind !== "showcase_registration") {
+            return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid checkout session" }));
+        }
+        const paymentStatus = String(session.payment_status ?? "");
+        if (paymentStatus !== "paid") {
+            return next(new ApiError({ status: 409, code: "NOT_PAID", message: "Checkout session is not paid" }));
+        }
+        const showcaseId = String(session.metadata?.showcaseId ?? "");
+        if (!showcaseId || !mongoose.isValidObjectId(showcaseId)) {
+            return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid showcaseId" }));
+        }
+        // Security check: session should belong to the current user (when metadata.userId is set).
+        const reqUserId = String(req.user?.id ?? "");
+        const metaUserId = String(session.metadata?.userId ?? "");
+        if (metaUserId && mongoose.isValidObjectId(metaUserId) && metaUserId !== reqUserId) {
+            return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Checkout session does not belong to this user" }));
+        }
+        const showcase = await ShowcaseModel.findById(new mongoose.Types.ObjectId(showcaseId)).lean();
+        if (!showcase) {
+            return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Showcase not found" }));
+        }
+        const existing = await ShowcaseRegistrationModel.findOne({ stripeCheckoutSessionId: sessionId }).lean();
+        if (!existing) {
+            const fullName = String(session.metadata?.fullName ?? "").trim() || "Registrant";
+            const email = String(session.metadata?.email ?? "").trim().toLowerCase();
+            const role = session.metadata?.role ? String(session.metadata.role) : undefined;
+            const sport = session.metadata?.sport ? String(session.metadata.sport) : undefined;
+            const waiverAcceptedAt = session.metadata?.waiverAcceptedAt ? new Date(String(session.metadata.waiverAcceptedAt)) : undefined;
+            const waiverVersion = session.metadata?.waiverVersion ? String(session.metadata.waiverVersion) : undefined;
+            const refundPolicyAcceptedAt = session.metadata?.refundPolicyAcceptedAt ? new Date(String(session.metadata.refundPolicyAcceptedAt)) : undefined;
+            const refundPolicyVersion = session.metadata?.refundPolicyVersion ? String(session.metadata.refundPolicyVersion) : undefined;
+            const userId = metaUserId && mongoose.isValidObjectId(metaUserId) ? new mongoose.Types.ObjectId(metaUserId) : undefined;
+            await ShowcaseRegistrationModel.create({
+                showcaseId: new mongoose.Types.ObjectId(showcaseId),
+                ...(userId ? { userId } : {}),
+                fullName,
+                email,
+                ...(role ? { role } : {}),
+                ...(sport ? { sport } : {}),
+                ...(waiverAcceptedAt ? { waiverAcceptedAt } : {}),
+                ...(waiverVersion ? { waiverVersion } : {}),
+                ...(showcase.waiverText ? { waiverTextSnapshot: String(showcase.waiverText) } : {}),
+                ...(refundPolicyAcceptedAt ? { refundPolicyAcceptedAt } : {}),
+                ...(refundPolicyVersion ? { refundPolicyVersion } : {}),
+                ...(showcase.refundPolicy ? { refundPolicyTextSnapshot: String(showcase.refundPolicy) } : {}),
+                ...(showcase.weatherClause ? { weatherClauseTextSnapshot: String(showcase.weatherClause) } : {}),
+                paymentStatus: "paid",
+                stripeCheckoutSessionId: sessionId,
+                stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id
+            });
+            if (typeof showcase.capacity === "number" && typeof showcase.spotsRemaining === "number") {
+                await ShowcaseModel.updateOne({ _id: showcase._id, spotsRemaining: { $gt: 0 } }, { $inc: { spotsRemaining: -1 } });
+            }
+            if (isShowcaseEmailConfigured() && email) {
+                try {
+                    const base = String(env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+                    const detailsUrl = base ? `${base}/showcases/${encodeURIComponent(String(showcase.slug ?? showcase._id))}` : "";
+                    await sendShowcaseRegistrationEmail({
+                        to: email,
+                        fullName,
+                        showcaseTitle: String(showcase.title ?? "Showcase"),
+                        startDateTimeIso: showcase.startDateTime ? new Date(showcase.startDateTime).toISOString() : null,
+                        city: showcase.city,
+                        state: showcase.state,
+                        detailsUrl
+                    });
+                }
+                catch (err) {
+                    console.error("[confirm] showcase email failed", err);
+                }
+            }
+        }
+        return res.json({ ok: true });
+    }
+    catch (err) {
+        return next(err);
+    }
+});
+
 // Public (or authed): start registration checkout session
 showcasesRouter.post("/showcases/:idOrSlug/register", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]), async (req, res, next) => {
     try {
