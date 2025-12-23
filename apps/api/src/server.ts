@@ -7,7 +7,6 @@ import { connectDb } from "./db.js";
 import { getEnv } from "./env.js";
 import { errorHandler } from "./http/errors.js";
 import { requestLogger } from "./middleware/requestLogger.js";
-import { initSentry, captureException } from "./obs/sentry.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { evaluationsRouter } from "./routes/evaluations.js";
@@ -57,7 +56,6 @@ async function connectWithRetry(mongoUri: string, opts?: { maxAttempts?: number;
 
 async function main() {
   const env = getEnv();
-  initSentry();
   const app = express();
 
   // Railway (and other platforms) sometimes health-check "/" by default.
@@ -156,11 +154,9 @@ async function main() {
 
   process.on("unhandledRejection", (reason) => {
     console.error("[api] unhandledRejection", reason);
-    captureException(reason);
   });
   process.on("uncaughtException", (err) => {
     console.error("[api] uncaughtException", err);
-    captureException(err);
   });
 }
 
