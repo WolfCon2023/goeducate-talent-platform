@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { Button, Card } from "@/components/ui";
+import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
 
 type EmailConfig = {
   configured: boolean;
@@ -119,9 +120,7 @@ export function AdminEmailDiagnostics() {
     }
   }
 
-  useEffect(() => {
-    void load();
-  }, [page]);
+  useAutoRevalidate(load, { deps: [page], intervalMs: 30_000 });
 
   return (
     <Card>

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { Card, Button } from "@/components/ui";
+import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
 
 type AuditRow = {
   _id: string;
@@ -44,9 +45,7 @@ export function AdminAuditLog() {
     }
   }
 
-  useEffect(() => {
-    void load();
-  }, [page]);
+  useAutoRevalidate(load, { deps: [page], intervalMs: 30_000 });
 
   return (
     <Card>

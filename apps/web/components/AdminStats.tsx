@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Card, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
+import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
 
 type AdminStatsResponse = {
   submissions: { total: number; byStatus: Record<string, number> };
@@ -49,9 +50,7 @@ export function AdminStats() {
     }
   }
 
-  useEffect(() => {
-    void load();
-  }, []);
+  useAutoRevalidate(load, { intervalMs: 30_000 });
 
   const byStatus = data?.submissions.byStatus ?? {};
 

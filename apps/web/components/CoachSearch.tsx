@@ -285,6 +285,7 @@ export function CoachSearch() {
       if (!token) throw new Error("Please login as a coach first.");
       await apiFetch(`/watchlists/${playerUserId}`, { method: "POST", token });
       setWatchlisted((p) => ({ ...p, [playerUserId]: true }));
+      window.dispatchEvent(new Event("goeducate:watchlist-changed"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add to watchlist");
     }
@@ -297,6 +298,7 @@ export function CoachSearch() {
       if (!token) throw new Error("Please login as a coach first.");
       await apiFetch(`/watchlists/${playerUserId}`, { method: "DELETE", token });
       setWatchlisted((p) => ({ ...p, [playerUserId]: false }));
+      window.dispatchEvent(new Event("goeducate:watchlist-changed"));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to remove from watchlist");
     }

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
+import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
 
 export function CoachWatchlist() {
   const [loading, setLoading] = React.useState(false);
@@ -46,8 +47,13 @@ export function CoachWatchlist() {
     }
   }
 
+  useAutoRevalidate(load, { intervalMs: 45_000 });
+
+  // Event-driven refresh when other parts of the app add/remove watchlist items.
   React.useEffect(() => {
-    void load();
+    const onChanged = () => void load();
+    window.addEventListener("goeducate:watchlist-changed", onChanged);
+    return () => window.removeEventListener("goeducate:watchlist-changed", onChanged);
   }, []);
 
   return (
