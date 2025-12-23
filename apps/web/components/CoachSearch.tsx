@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { Card, Input, Label, Button } from "@/components/ui";
+import { Card, Input, Label, Button, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -313,9 +313,7 @@ export function CoachSearch() {
             <p className="mt-1 text-sm text-white/80">Save filters for quick reuse.</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={loadSaved} disabled={savedLoading}>
-              {savedLoading ? "Loading..." : "Refresh"}
-            </Button>
+            <RefreshIconButton onClick={loadSaved} loading={savedLoading} title="Refresh saved searches" />
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">

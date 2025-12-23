@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { Card, Button } from "@/components/ui";
+import { Card, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
@@ -61,9 +61,7 @@ export function AdminStats() {
           <h2 className="text-lg font-semibold">Dashboard</h2>
           <p className="mt-1 text-sm text-[color:var(--muted)]">Submission and evaluation activity overview.</p>
         </div>
-        <Button type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </Button>
+        <RefreshIconButton onClick={load} loading={loading} />
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}

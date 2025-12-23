@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Card, Input, Label } from "@/components/ui";
+import { Button, Card, Input, Label, RefreshIconButton } from "@/components/ui";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
@@ -154,9 +154,7 @@ export function AdminEvaluationTemplates() {
             <span className="font-semibold">position=any</span> as a fallback.
           </p>
         </div>
-        <Button type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </Button>
+        <RefreshIconButton onClick={load} loading={loading} />
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}

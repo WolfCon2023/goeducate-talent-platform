@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
-import { Card, Button } from "@/components/ui";
+import { Card, RefreshIconButton } from "@/components/ui";
 
 import { geoAlbersUsa, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
@@ -222,9 +222,7 @@ export function AdminPlayerMap() {
           <h2 className="text-lg font-semibold">Player map</h2>
           <p className="mt-1 text-sm text-[color:var(--muted)]">Where players are located across the U.S. (by state).</p>
         </div>
-        <Button type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </Button>
+        <RefreshIconButton onClick={load} loading={loading} />
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}

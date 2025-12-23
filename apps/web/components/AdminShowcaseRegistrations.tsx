@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Card, Button, Input, Label } from "@/components/ui";
+import { Card, Button, Input, Label, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 
@@ -168,9 +168,7 @@ export function AdminShowcaseRegistrations() {
           <p className="mt-1 text-sm text-white/80">Search and export registration records.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" onClick={load} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button>
+          <RefreshIconButton onClick={load} loading={loading} />
           <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={exportCsv} disabled={!results.length}>
             Export CSV
           </Button>

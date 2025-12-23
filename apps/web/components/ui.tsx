@@ -67,4 +67,41 @@ export const Button = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttrib
   );
 });
 
+export function RefreshIconButton(props: {
+  onClick: () => void;
+  loading?: boolean;
+  disabled?: boolean;
+  title?: string;
+  className?: string;
+}) {
+  const title = props.title ?? "Refresh";
+  const disabled = props.disabled || props.loading;
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      disabled={disabled}
+      aria-label={title}
+      title={title}
+      className={cx(
+        "inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-white/90 shadow-sm transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)] disabled:cursor-not-allowed disabled:opacity-60",
+        props.className
+      )}
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="18"
+        height="18"
+        className={props.loading ? "animate-spin" : ""}
+        aria-hidden="true"
+      >
+        <path
+          fill="currentColor"
+          d="M12 6V3L8 7l4 4V8c2.757 0 5 2.243 5 5a5 5 0 0 1-9.9 1h-2.02A7 7 0 0 0 19 13c0-3.86-3.14-7-7-7Zm-5 5a5 5 0 0 1 9.9-1h2.02A7 7 0 0 0 5 11c0 3.86 3.14 7 7 7v3l4-4-4-4v3c-2.757 0-5-2.243-5-5Z"
+        />
+      </svg>
+    </button>
+  );
+}
+
 

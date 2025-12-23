@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useConfirm } from "@/components/ConfirmDialog";
 import { FieldError, FormErrorSummary } from "@/components/FormErrors";
-import { Button, Card, Input, Label } from "@/components/ui";
+import { Button, Card, Input, Label, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { parseApiError, type FieldErrors } from "@/lib/formErrors";
@@ -307,9 +307,7 @@ export function FilmSubmissions() {
             <h2 className="text-lg font-semibold">Your submissions</h2>
             <p className="mt-1 text-sm text-[color:var(--muted)]">Status is shown for evaluator workflow.</p>
           </div>
-          <Button type="button" onClick={load} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button>
+          <RefreshIconButton onClick={load} loading={loading} />
         </div>
 
         <div className="mt-6 grid gap-3">

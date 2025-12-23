@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Button, Card } from "@/components/ui";
+import { Button, Card, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole, getTokenSub } from "@/lib/auth";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -160,9 +160,7 @@ export function EvaluatorQueue() {
               My queue
             </button>
           </div>
-          <Button type="button" onClick={load} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button>
+          <RefreshIconButton onClick={load} loading={loading} />
         </div>
       </div>
 

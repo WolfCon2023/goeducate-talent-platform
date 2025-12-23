@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
-import { Button, Card } from "@/components/ui";
+import { Button, Card, RefreshIconButton } from "@/components/ui";
 import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
 
 type EmailConfig = {
@@ -129,9 +129,7 @@ export function AdminEmailDiagnostics() {
           <h2 className="text-lg font-semibold">Email diagnostics</h2>
           <p className="mt-1 text-sm text-[color:var(--muted)]">Verify SMTP configuration and inspect recent sends/failures.</p>
         </div>
-        <Button type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </Button>
+        <RefreshIconButton onClick={load} loading={loading} />
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}

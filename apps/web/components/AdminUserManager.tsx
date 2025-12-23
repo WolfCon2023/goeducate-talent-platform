@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useConfirm } from "@/components/ConfirmDialog";
 import { FieldError, FormErrorSummary } from "@/components/FormErrors";
-import { Button, Card, Input, Label } from "@/components/ui";
+import { Button, Card, Input, Label, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { parseApiError, type FieldErrors } from "@/lib/formErrors";
@@ -151,9 +151,7 @@ export function AdminUserManager() {
             <h2 className="text-lg font-semibold">User management</h2>
             <p className="mt-1 text-sm text-white/80">Search users, delete users, and generate invite codes.</p>
           </div>
-          <Button type="button" onClick={load} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button>
+          <RefreshIconButton onClick={load} loading={loading} title="Refresh users" />
         </div>
 
         <div className="mt-4">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Card, Button, Input, Label } from "@/components/ui";
+import { Card, Button, Input, Label, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 
@@ -118,9 +118,7 @@ export function AdminAccessRequests() {
             <option value="rejected">Rejected</option>
             <option value="all">All</option>
           </select>
-          <Button type="button" className="border border-white/15 bg-white/5 hover:bg-white/10" onClick={() => loadList(filter)} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button>
+          <RefreshIconButton onClick={() => void loadList(filter)} loading={loading} title="Refresh access requests" />
         </div>
       </div>
 

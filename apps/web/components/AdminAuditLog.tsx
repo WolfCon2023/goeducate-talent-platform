@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
-import { Card, Button } from "@/components/ui";
+import { Card, Button, RefreshIconButton } from "@/components/ui";
 import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
 
 type AuditRow = {
@@ -54,9 +54,7 @@ export function AdminAuditLog() {
           <h2 className="text-lg font-semibold">Admin audit log</h2>
           <p className="mt-1 text-sm text-[color:var(--muted)]">Track who changed what (admin actions).</p>
         </div>
-        <Button type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </Button>
+        <RefreshIconButton onClick={load} loading={loading} />
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}

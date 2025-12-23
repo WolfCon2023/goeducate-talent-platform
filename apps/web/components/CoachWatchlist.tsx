@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 
-import { Card, Button } from "@/components/ui";
+import { Card, Button, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
@@ -63,9 +63,7 @@ export function CoachWatchlist() {
           <div className="text-sm font-semibold">Watchlist</div>
           <p className="mt-1 text-sm text-white/80">Players you’re tracking for new evaluations.</p>
         </div>
-        <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={load} disabled={loading}>
-          {loading ? "Loading..." : "Refresh"}
-        </Button>
+        <RefreshIconButton onClick={load} loading={loading} />
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}

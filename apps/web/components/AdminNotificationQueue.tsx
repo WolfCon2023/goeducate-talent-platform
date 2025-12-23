@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useConfirm } from "@/components/ConfirmDialog";
-import { Button, Card } from "@/components/ui";
+import { Button, Card, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 
@@ -92,9 +92,7 @@ export function AdminNotificationQueue() {
           >
             {unreadOnly ? "Showing: Unread" : "Showing: All"}
           </button>
-          <Button type="button" onClick={load} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button>
+          <RefreshIconButton onClick={load} loading={loading} />
         </div>
       </div>
 

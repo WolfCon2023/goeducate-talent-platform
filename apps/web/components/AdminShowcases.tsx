@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Card, Input, Label } from "@/components/ui";
+import { Button, Card, Input, Label, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { FormErrorSummary, FieldError } from "@/components/FormErrors";
@@ -329,9 +329,7 @@ export function AdminShowcases() {
             <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={resetForm}>
               New
             </Button>
-            <Button type="button" onClick={load} disabled={loading}>
-              {loading ? "Refreshing..." : "Refresh"}
-            </Button>
+            <RefreshIconButton onClick={load} loading={loading} title="Refresh showcases" />
           </div>
         </div>
 

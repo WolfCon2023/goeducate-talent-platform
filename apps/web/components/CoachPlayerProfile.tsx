@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { Card, Button } from "@/components/ui";
+import { Card, RefreshIconButton } from "@/components/ui";
 import { apiFetch, ApiFetchError } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 
@@ -74,9 +74,7 @@ export function CoachPlayerProfile(props: { userId: string }) {
           <div className="text-sm font-semibold text-[color:var(--foreground)]">Player profile</div>
           <div className="mt-1 text-sm text-[color:var(--muted)]">{props.userId}</div>
         </div>
-        <Button type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </Button>
+        <RefreshIconButton onClick={load} loading={loading} />
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}

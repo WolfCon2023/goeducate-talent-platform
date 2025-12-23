@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Button, Card, Input, Label } from "@/components/ui";
+import { Button, Card, Input, Label, RefreshIconButton } from "@/components/ui";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
@@ -225,9 +225,7 @@ export function AdminEvaluationForms() {
           <h2 className="text-lg font-semibold">Evaluation forms (universal rubric)</h2>
           <p className="mt-1 text-sm text-[color:var(--muted)]">One active form per sport. Evaluators use it to produce consistent reports.</p>
         </div>
-        <Button type="button" onClick={load} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
-        </Button>
+        <RefreshIconButton onClick={load} loading={loading} />
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
