@@ -103,6 +103,14 @@ async function main() {
     const server = app.listen(port, host, () => {
         console.log(`[api] listening on http://${host}:${port}`);
     });
+    // Railway / proxies sometimes expect port 8080 regardless of configured PORT.
+    // Bind a secondary listener as a compatibility fallback (same app, same process).
+    const fallbackPort = 8080;
+    const fallbackServer = Number.isFinite(port) && port !== fallbackPort
+        ? app.listen(fallbackPort, host, () => {
+            console.log(`[api] also listening on http://${host}:${fallbackPort} (fallback)`);
+        })
+        : null;
     // Connect to MongoDB AFTER the server is listening so Railway health checks pass even if Mongo is slow.
     // We retry a few times and keep the process alive; requests that require DB will still fail until connected.
     void connectWithRetry(env.MONGODB_URI);
@@ -111,6 +119,10 @@ async function main() {
         console.log(`[api] ${signal} received; shutting down...`);
         try {
             server.close();
+        }
+        catch { }
+        try {
+            fallbackServer?.close?.();
         }
         catch { }
         try {
