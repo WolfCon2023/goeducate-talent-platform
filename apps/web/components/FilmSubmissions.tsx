@@ -349,7 +349,7 @@ export function FilmSubmissions() {
                 <div className="mt-4">
                   <div className="flex flex-wrap items-center gap-3">
                     <Link
-                      href={`/player/film/${s._id}`}
+                      href={`/player/film/${s._id}?view=evaluation`}
                       className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500"
                     >
                       Open evaluation

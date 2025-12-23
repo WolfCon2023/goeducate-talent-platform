@@ -161,7 +161,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
             type: NOTIFICATION_TYPE.EVALUATION_COMPLETED,
             title: "Evaluation completed",
             message: `Your evaluation is ready for "${film.title}".`,
-            href: `/player/film/${String(filmSubmissionId)}`
+            href: `/player/film/${String(filmSubmissionId)}?view=evaluation`
         });
         publishNotificationsChanged(String(playerUserId));
         if (isNotificationEmailConfigured()) {
@@ -179,7 +179,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
                     subject: "GoEducate Talent – Evaluation completed",
                     title: "Evaluation completed",
                     message: `Your evaluation is ready for "${film.title}".`,
-                    href: `/player/film/${String(filmSubmissionId)}`
+                    href: `/player/film/${String(filmSubmissionId)}?view=evaluation`
                 }).catch((err) => {
                     console.error("[email] evaluation completed (player) failed", err);
                 });
@@ -191,7 +191,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
                     subject: "GoEducate Talent – Evaluation completed (copy)",
                     title: "Evaluation completed",
                     message: `Evaluation completed for "${film.title}". Player email is missing on the user record.`,
-                    href: `/player/film/${String(filmSubmissionId)}`
+                    href: `/player/film/${String(filmSubmissionId)}?view=evaluation`
                 }).catch((err) => {
                     console.error("[email] evaluation completed (ops copy) failed", err);
                 });

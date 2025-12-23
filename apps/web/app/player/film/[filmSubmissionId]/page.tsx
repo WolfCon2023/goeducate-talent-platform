@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useParams, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Card, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
@@ -20,6 +20,16 @@ type FilmSubmission = {
   createdAt?: string;
 };
 
+type EvaluationReport = {
+  filmSubmissionId: string;
+  overallGrade: number;
+  strengths: string;
+  improvements: string;
+  notes?: string;
+  createdAt?: string;
+  rubric?: unknown;
+};
+
 function fmtDate(iso?: string) {
   if (!iso) return "TBD";
   return new Date(iso).toLocaleString();
@@ -27,11 +37,19 @@ function fmtDate(iso?: string) {
 
 export default function PlayerFilmDetailPage() {
   const params = useParams<{ filmSubmissionId: string }>();
+  const search = useSearchParams();
   const filmSubmissionId = String(params?.filmSubmissionId ?? "").trim();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [film, setFilm] = useState<FilmSubmission | null>(null);
+
+  const [evalLoading, setEvalLoading] = useState(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
+  const [report, setReport] = useState<EvaluationReport | null>(null);
+  const evalRef = useRef<HTMLDivElement | null>(null);
+
+  const showEvaluation = useMemo(() => String(search?.get("view") ?? "").toLowerCase() === "evaluation", [search]);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,6 +72,44 @@ export default function PlayerFilmDetailPage() {
       cancelled = true;
     };
   }, [filmSubmissionId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadEval() {
+      setEvalError(null);
+      setEvalLoading(true);
+      try {
+        const token = getAccessToken();
+        if (!token) throw new Error("Please login first.");
+        const res = await apiFetch<EvaluationReport>(`/evaluations/film/${encodeURIComponent(filmSubmissionId)}`, { token });
+        if (!cancelled) setReport(res);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Failed to load evaluation";
+        if (!cancelled) {
+          // non-fatal when evaluation doesn't exist yet
+          if (msg === "Evaluation not found") setReport(null);
+          else setEvalError(msg);
+        }
+      } finally {
+        if (!cancelled) setEvalLoading(false);
+      }
+    }
+    if (!filmSubmissionId) return;
+    // Only fetch when it matters (completed film or user explicitly asked to view evaluation)
+    if (showEvaluation || film?.status === "completed") void loadEval();
+    return () => {
+      cancelled = true;
+    };
+  }, [filmSubmissionId, film?.status, showEvaluation]);
+
+  useEffect(() => {
+    if (!showEvaluation) return;
+    // Scroll to evaluation section after render
+    const t = setTimeout(() => {
+      evalRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+    return () => clearTimeout(t);
+  }, [showEvaluation, report, evalError, evalLoading]);
 
   return (
     <PlayerGuard>
@@ -107,6 +163,39 @@ export default function PlayerFilmDetailPage() {
                 <div className="mt-2 whitespace-pre-wrap text-sm text-white/80">{film.notes}</div>
               </div>
             ) : null}
+
+            <div ref={evalRef} className="mt-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="text-sm font-semibold">Evaluation</div>
+                {report && !evalLoading ? (
+                  <div className="text-sm text-white/80">Grade: {report.overallGrade}/10</div>
+                ) : null}
+              </div>
+
+              {evalError ? <div className="mt-2 text-sm text-red-300">{evalError}</div> : null}
+              {evalLoading ? <div className="mt-2 text-sm text-white/80">Loading evaluation…</div> : null}
+
+              {report ? (
+                <div className="mt-3 grid gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-white/60">Strengths</div>
+                    <div className="mt-2 whitespace-pre-wrap text-sm text-white/90">{report.strengths}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-white/60">Improvements</div>
+                    <div className="mt-2 whitespace-pre-wrap text-sm text-white/90">{report.improvements}</div>
+                  </div>
+                  {report.notes ? (
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-white/60">Notes</div>
+                      <div className="mt-2 whitespace-pre-wrap text-sm text-white/90">{report.notes}</div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : report === null && (film.status === "completed" || showEvaluation) ? (
+                <div className="mt-2 text-sm text-white/80">No evaluation found yet.</div>
+              ) : null}
+            </div>
 
             <div className="mt-6">
               <Link href="/player/film">
