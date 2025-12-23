@@ -29,7 +29,7 @@ export function AuthNav() {
   useEffect(() => {
     const token = getAccessToken();
     const tokenRole = getTokenRole(token);
-    setRole(tokenRole);
+    setRole(tokenRole ?? null);
     setDisplayName(null);
     setProfilePhotoUrl(null);
     setUnreadCount(0);

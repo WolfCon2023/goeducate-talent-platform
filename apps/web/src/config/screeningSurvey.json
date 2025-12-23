@@ -1,0 +1,43 @@
+{
+  "screeningSurvey": {
+    "version": "1",
+    "roles": ["player", "coach", "evaluator"],
+    "sports": {
+      "options": ["Basketball", "Football", "Volleyball", "Baseball", "Soccer", "Other"],
+      "otherSportTextFieldKey": "sportOther"
+    },
+    "questionsByRole": {
+      "player": [
+        {
+          "id": "gradYear",
+          "label": "Graduation year",
+          "type": "text",
+          "required": true,
+          "minLength": 4,
+          "maxLength": 4
+        }
+      ],
+      "coach": [
+        {
+          "id": "org",
+          "label": "Organization / School",
+          "type": "text",
+          "required": true,
+          "minLength": 2,
+          "maxLength": 80
+        }
+      ],
+      "evaluator": [
+        {
+          "id": "experience",
+          "label": "Evaluation experience",
+          "type": "single_select",
+          "required": true,
+          "options": ["1-2 years", "3-5 years", "6+ years"]
+        }
+      ]
+    }
+  }
+}
+
+

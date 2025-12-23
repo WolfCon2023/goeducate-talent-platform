@@ -1,1 +1,8 @@
 node_modules
+
+# Next.js build output (should never be committed)
+.next/
+**/.next/
+
+# TypeScript incremental build info
+*.tsbuildinfo

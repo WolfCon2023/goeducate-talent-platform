@@ -1,0 +1,31 @@
+{
+  "name": "goeducate-talent-platform",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "npm@10.9.2",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build -w @goeducate/shared && npm run build -w @goeducate/api && npm run build -w @goeducate/web",
+    "build:shared": "npm run build -w @goeducate/shared",
+    "build:api": "npm run build -w @goeducate/api",
+    "build:web": "npm run build -w @goeducate/web",
+    "start:api": "npm run start -w @goeducate/api",
+    "start:web": "npm run start -w @goeducate/web",
+    "format": "prettier -w ."
+  },
+  "dependencies": {
+    "cloudinary": "^2.8.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3"
+  }
+}
+
