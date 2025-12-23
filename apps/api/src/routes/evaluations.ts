@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 
 import { EvaluationReportCreateSchema, FILM_SUBMISSION_STATUS, ROLE } from "@goeducate/shared";
 
+import { getEnv } from "../env.js";
 import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
@@ -178,15 +179,36 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
     publishNotificationsChanged(String(playerUserId));
 
     if (isNotificationEmailConfigured()) {
+      const env = getEnv();
+      const opsEmails = String(env.SUBMISSION_ALERT_EMAILS ?? "info@goeducateinc.org")
+        .split(",")
+        .map((s) => s.trim())
+        .filter((s) => s.includes("@"));
       const playerUser = await UserModel.findById(playerUserId).lean();
       if (playerUser?.email) {
+        const bcc = opsEmails.filter((e) => e.toLowerCase() !== String(playerUser.email).trim().toLowerCase());
         void sendNotificationEmail({
           to: playerUser.email,
+          ...(bcc.length ? { bcc } : {}),
           subject: "GoEducate Talent – Evaluation completed",
           title: "Evaluation completed",
           message: `Your evaluation is ready for "${film.title}".`,
           href: `/player/film/${String(filmSubmissionId)}`
-        }).catch(() => {});
+        }).catch((err) => {
+          console.error("[email] evaluation completed (player) failed", err);
+        });
+      } else if (opsEmails.length) {
+        // Still alert ops/info even if we don't have a player email.
+        void sendNotificationEmail({
+          to: opsEmails[0],
+          ...(opsEmails.length > 1 ? { bcc: opsEmails.slice(1) } : {}),
+          subject: "GoEducate Talent – Evaluation completed (copy)",
+          title: "Evaluation completed",
+          message: `Evaluation completed for "${film.title}". Player email is missing on the user record.`,
+          href: `/player/film/${String(filmSubmissionId)}`
+        }).catch((err) => {
+          console.error("[email] evaluation completed (ops copy) failed", err);
+        });
       }
     }
 

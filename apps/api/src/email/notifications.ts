@@ -6,6 +6,8 @@ export function isNotificationEmailConfigured() {
 
 export async function sendNotificationEmail(input: {
   to: string;
+  cc?: string | string[];
+  bcc?: string | string[];
   subject: string;
   title: string;
   message: string;
@@ -35,9 +37,14 @@ export async function sendNotificationEmail(input: {
     </div>
   `.trim();
 
+  const ccList = Array.isArray(input.cc) ? input.cc : input.cc ? [input.cc] : [];
+  const bccList = Array.isArray(input.bcc) ? input.bcc : input.bcc ? [input.bcc] : [];
+
   await transporter.sendMail({
     from: env.INVITE_FROM_EMAIL,
     to: input.to,
+    ...(ccList.length ? { cc: ccList } : {}),
+    ...(bccList.length ? { bcc: bccList } : {}),
     subject: input.subject,
     text,
     html

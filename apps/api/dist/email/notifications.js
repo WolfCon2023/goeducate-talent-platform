@@ -4,7 +4,8 @@ export function isNotificationEmailConfigured() {
 }
 export async function sendNotificationEmail(input) {
     const { env, transporter } = createTransporterOrThrow();
-    const link = input.href ? `${env.WEB_APP_URL}${input.href.startsWith("/") ? input.href : `/${input.href}`}` : null;
+    const base = String(env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+    const link = base && input.href ? `${base}${input.href.startsWith("/") ? input.href : `/${input.href}`}` : null;
     const text = [input.title, "", input.message, link ? `Link: ${link}` : ""].filter(Boolean).join("\n");
     const html = `
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5;">
@@ -20,9 +21,13 @@ export async function sendNotificationEmail(input) {
       <p style="color:#51607F;margin:12px 0 0 0;">GoEducate Talent</p>
     </div>
   `.trim();
+    const ccList = Array.isArray(input.cc) ? input.cc : input.cc ? [input.cc] : [];
+    const bccList = Array.isArray(input.bcc) ? input.bcc : input.bcc ? [input.bcc] : [];
     await transporter.sendMail({
         from: env.INVITE_FROM_EMAIL,
         to: input.to,
+        ...(ccList.length ? { cc: ccList } : {}),
+        ...(bccList.length ? { bcc: bccList } : {}),
         subject: input.subject,
         text,
         html
