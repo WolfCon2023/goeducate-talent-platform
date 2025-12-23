@@ -44,25 +44,37 @@ export default function MyShowcaseRegistrationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<RegistrationRow[]>([]);
 
+  async function load() {
+    setError(null);
+    setLoading(true);
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login first.");
+      const res = await apiFetch<{ results: RegistrationRow[] }>("/showcase-registrations/me", { token });
+      setResults(res.results ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load registrations");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
-    async function load() {
-      setError(null);
-      setLoading(true);
-      try {
-        const token = getAccessToken();
-        if (!token) throw new Error("Please login first.");
-        const res = await apiFetch<{ results: RegistrationRow[] }>("/showcase-registrations/me", { token });
-        if (!cancelled) setResults(res.results ?? []);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load registrations");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
+    void load().catch(() => {});
+
+    const onChanged = () => {
+      void load();
+    };
+    const onFocus = () => {
+      void load();
+    };
+    window.addEventListener("goeducate:showcase-registrations-changed", onChanged);
+    window.addEventListener("focus", onFocus);
     return () => {
       cancelled = true;
+      window.removeEventListener("goeducate:showcase-registrations-changed", onChanged);
+      window.removeEventListener("focus", onFocus);
     };
   }, []);
 
@@ -77,9 +89,14 @@ export default function MyShowcaseRegistrationsPage() {
               <h1 className="text-balance text-4xl font-semibold tracking-tight">My registrations</h1>
               <p className="mt-3 text-lg text-white/90">Your showcase registration history.</p>
             </div>
-            <Link href="/showcases" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
-              Back to showcases
-            </Link>
+            <div className="flex items-center gap-3">
+              <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => void load()} disabled={loading}>
+                {loading ? "Refreshing..." : "Refresh"}
+              </Button>
+              <Link href="/showcases" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+                Back to showcases
+              </Link>
+            </div>
           </div>
         </section>
 

@@ -12,8 +12,88 @@ import { getStripe } from "../stripe.js";
 import { UserModel } from "../models/User.js";
 import { ShowcaseRegistrationModel } from "../models/ShowcaseRegistration.js";
 import { logAdminAction } from "../audit/adminAudit.js";
+import { isShowcaseEmailConfigured, sendShowcaseRegistrationEmail } from "../email/showcases.js";
 
 export const showcasesRouter = Router();
+
+async function createRegistrationFromCheckoutSession(opts: {
+  env: ReturnType<typeof getEnv>;
+  session: any;
+}) {
+  const { env, session } = opts;
+
+  const kind = session?.metadata?.kind;
+  if (kind !== "showcase_registration") return { created: false, reason: "not_showcase" as const };
+
+  const showcaseId = String(session?.metadata?.showcaseId ?? "");
+  if (!showcaseId || !mongoose.isValidObjectId(showcaseId)) {
+    return { created: false, reason: "missing_showcaseId" as const };
+  }
+  const sessionId = String(session?.id ?? "");
+  if (!sessionId) return { created: false, reason: "missing_session_id" as const };
+
+  const existing = await ShowcaseRegistrationModel.findOne({ stripeCheckoutSessionId: sessionId }).lean();
+  if (existing) return { created: false, reason: "already_exists" as const };
+
+  const showcase = await ShowcaseModel.findById(showcaseId).lean();
+  if (!showcase) return { created: false, reason: "showcase_not_found" as const };
+
+  const fullName = String(session?.metadata?.fullName ?? "").trim() || "Registrant";
+  const email = String(session?.metadata?.email ?? "").trim().toLowerCase();
+  const role = session?.metadata?.role ? String(session.metadata.role) : undefined;
+  const sport = session?.metadata?.sport ? String(session.metadata.sport) : undefined;
+  const userId = session?.metadata?.userId ? String(session.metadata.userId) : undefined;
+
+  const waiverAcceptedAt = session?.metadata?.waiverAcceptedAt ? new Date(String(session.metadata.waiverAcceptedAt)) : undefined;
+  const waiverVersion = session?.metadata?.waiverVersion ? String(session.metadata.waiverVersion) : undefined;
+  const refundPolicyAcceptedAt = session?.metadata?.refundPolicyAcceptedAt
+    ? new Date(String(session.metadata.refundPolicyAcceptedAt))
+    : undefined;
+  const refundPolicyVersion = session?.metadata?.refundPolicyVersion ? String(session.metadata.refundPolicyVersion) : undefined;
+
+  await ShowcaseRegistrationModel.create({
+    showcaseId: new mongoose.Types.ObjectId(showcaseId),
+    ...(userId && mongoose.isValidObjectId(userId) ? { userId: new mongoose.Types.ObjectId(userId) } : {}),
+    fullName,
+    email,
+    ...(role ? { role } : {}),
+    ...(sport ? { sport } : {}),
+    ...(waiverAcceptedAt ? { waiverAcceptedAt } : {}),
+    ...(waiverVersion ? { waiverVersion } : {}),
+    ...(showcase.waiverText ? { waiverTextSnapshot: String(showcase.waiverText) } : {}),
+    ...(refundPolicyAcceptedAt ? { refundPolicyAcceptedAt } : {}),
+    ...(refundPolicyVersion ? { refundPolicyVersion } : {}),
+    ...(showcase.refundPolicy ? { refundPolicyTextSnapshot: String(showcase.refundPolicy) } : {}),
+    ...(showcase.weatherClause ? { weatherClauseTextSnapshot: String(showcase.weatherClause) } : {}),
+    paymentStatus: "paid",
+    stripeCheckoutSessionId: sessionId,
+    stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id
+  });
+
+  if (typeof showcase.capacity === "number" && typeof showcase.spotsRemaining === "number") {
+    await ShowcaseModel.updateOne({ _id: showcase._id, spotsRemaining: { $gt: 0 } }, { $inc: { spotsRemaining: -1 } });
+  }
+
+  if (isShowcaseEmailConfigured()) {
+    const base = String(env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+    const detailsUrl = base ? `${base}/showcases/${encodeURIComponent(String(showcase.slug ?? showcase._id))}` : "";
+    try {
+      await sendShowcaseRegistrationEmail({
+        to: email,
+        fullName,
+        showcaseTitle: String(showcase.title ?? "Showcase"),
+        startDateTimeIso: showcase.startDateTime ? new Date(showcase.startDateTime).toISOString() : null,
+        city: showcase.city,
+        state: showcase.state,
+        detailsUrl
+      });
+    } catch (err) {
+      console.error("[confirm] showcase email failed", err);
+    }
+  }
+
+  return { created: true, reason: "created" as const };
+}
 
 const DEFAULT_REFUND_POLICY = [
   "Refund Policy",
@@ -232,6 +312,39 @@ showcasesRouter.get(
 
       return res.json({ results: rows.map((r: any) => ({ ...r, id: String(r._id) })) });
     } catch (err) {
+      return next(err);
+    }
+  }
+);
+
+// Authenticated: confirm a completed Stripe Checkout session and create the registration record.
+// This is a safety net in case Stripe webhooks are delayed/misconfigured.
+showcasesRouter.post(
+  "/showcase-registrations/confirm",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      const env = getEnv();
+      if (!env.STRIPE_SECRET_KEY) {
+        return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Stripe is not configured" }));
+      }
+
+      const sessionId = String((req.body as any)?.sessionId ?? "").trim();
+      if (!sessionId) return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "sessionId is required" }));
+
+      const stripe = getStripe(env);
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      // For one-time payments, payment_status is the most useful.
+      if (session.payment_status !== "paid") {
+        return next(new ApiError({ status: 409, code: "NOT_PAID", message: "Checkout session is not paid" }));
+      }
+
+      const result = await createRegistrationFromCheckoutSession({ env, session });
+      return res.json({ ok: true, ...result });
+    } catch (err) {
+      // Avoid leaking Stripe internals
+      if (err instanceof ApiErrorClass) return next(err);
       return next(err);
     }
   }

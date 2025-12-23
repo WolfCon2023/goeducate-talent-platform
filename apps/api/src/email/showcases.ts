@@ -17,6 +17,7 @@ export async function sendShowcaseRegistrationEmail(input: {
 
   const when = input.startDateTimeIso ? new Date(input.startDateTimeIso).toLocaleString() : "TBD";
   const where = [input.city, input.state].filter(Boolean).join(", ");
+  const detailsUrl = String(input.detailsUrl ?? "").trim();
 
   const subject = `Showcase registration confirmed: ${input.showcaseTitle}`;
   const text = [
@@ -26,7 +27,7 @@ export async function sendShowcaseRegistrationEmail(input: {
     `When: ${when}`,
     where ? `Where: ${where}` : "",
     "",
-    `Details: ${input.detailsUrl}`,
+    detailsUrl ? `Details: ${detailsUrl}` : "",
     "",
     "GoEducate Talent"
   ]
@@ -42,11 +43,15 @@ export async function sendShowcaseRegistrationEmail(input: {
       </p>
       <p style="margin:0 0 4px 0;"><strong>When:</strong> ${escapeHtml(when)}</p>
       ${where ? `<p style="margin:0 0 12px 0;"><strong>Where:</strong> ${escapeHtml(where)}</p>` : ""}
-      <p style="margin:12px 0 12px 0;">
-        <a href="${escapeHtml(input.detailsUrl)}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 14px;border-radius:10px;text-decoration:none;">
-          View details
-        </a>
-      </p>
+      ${
+        detailsUrl
+          ? `<p style="margin:12px 0 12px 0;">
+              <a href="${escapeHtml(detailsUrl)}" style="display:inline-block;background:#4f46e5;color:#fff;padding:10px 14px;border-radius:10px;text-decoration:none;">
+                View details
+              </a>
+            </p>`
+          : ""
+      }
       <p style="color:#51607F;margin:12px 0 0 0;">GoEducate Talent</p>
     </div>
   `.trim();

@@ -12,7 +12,8 @@ export const EMAIL_AUDIT_TYPE = {
   ACCESS_REQUEST_ADMIN_ALERT: "access_request_admin_alert",
   ACCESS_REQUEST_APPROVED: "access_request_approved",
   ACCESS_REQUEST_REJECTED: "access_request_rejected",
-  CONTACT_FORM: "contact_form"
+  CONTACT_FORM: "contact_form",
+  FILM_NEEDS_CHANGES: "film_needs_changes"
 } as const;
 
 export type EmailAuditType = (typeof EMAIL_AUDIT_TYPE)[keyof typeof EMAIL_AUDIT_TYPE];

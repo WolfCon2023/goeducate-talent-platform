@@ -4,7 +4,7 @@ import { getEnv } from "../env.js";
 import { ApiError } from "../http/errors.js";
 
 export function escapeHtml(s: string) {
-  return s
+  return String(s)
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
@@ -14,7 +14,7 @@ export function escapeHtml(s: string) {
 
 export function unquote(v: string) {
   const t = v.trim();
-  if ((t.startsWith("\"") && t.endsWith("\"")) || (t.startsWith("'") && t.endsWith("'"))) {
+  if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
     return t.slice(1, -1).trim();
   }
   return t;
@@ -30,14 +30,16 @@ function extractEmailAddress(from: string) {
   return email;
 }
 
+// NOTE: Do NOT require WEB_APP_URL for basic email sending. Some deploys forget it on the API service,
+// but we still want confirmations/alerts to go out (links will be omitted if missing).
 export function isEmailConfigured() {
   const env = getEnv();
-  return !!(env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASS && env.INVITE_FROM_EMAIL && env.WEB_APP_URL);
+  return !!(env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASS && env.INVITE_FROM_EMAIL);
 }
 
 export function createTransporterOrThrow() {
   const env = getEnv();
-  if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS || !env.INVITE_FROM_EMAIL || !env.WEB_APP_URL) {
+  if (!env.SMTP_HOST || !env.SMTP_PORT || !env.SMTP_USER || !env.SMTP_PASS || !env.INVITE_FROM_EMAIL) {
     throw new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Email is not configured" });
   }
 

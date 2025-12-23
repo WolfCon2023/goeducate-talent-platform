@@ -1,21 +1,20 @@
 import { createTransporterOrThrow, escapeHtml, isEmailConfigured } from "./mailer.js";
 
-export type NotificationEmail = {
+export function isNotificationEmailConfigured() {
+  return isEmailConfigured();
+}
+
+export async function sendNotificationEmail(input: {
   to: string;
   subject: string;
   title: string;
   message: string;
   href?: string;
-};
-
-export function isNotificationEmailConfigured() {
-  return isEmailConfigured();
-}
-
-export async function sendNotificationEmail(input: NotificationEmail) {
+}) {
   const { env, transporter } = createTransporterOrThrow();
 
-  const link = input.href ? `${env.WEB_APP_URL}${input.href.startsWith("/") ? input.href : `/${input.href}`}` : null;
+  const base = String(env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+  const link = base && input.href ? `${base}${input.href.startsWith("/") ? input.href : `/${input.href}`}` : null;
 
   const text = [input.title, "", input.message, link ? `Link: ${link}` : ""].filter(Boolean).join("\n");
 

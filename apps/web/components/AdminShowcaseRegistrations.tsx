@@ -94,6 +94,17 @@ export function AdminShowcaseRegistrations() {
   }, [load]);
 
   useEffect(() => {
+    const onChanged = () => void load();
+    const onFocus = () => void load();
+    window.addEventListener("goeducate:showcase-registrations-changed", onChanged);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.removeEventListener("goeducate:showcase-registrations-changed", onChanged);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [load]);
+
+  useEffect(() => {
     let cancelled = false;
     async function loadShowcases() {
       setShowcasesLoading(true);

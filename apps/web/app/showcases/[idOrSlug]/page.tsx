@@ -72,6 +72,7 @@ export default function ShowcaseDetailPage() {
   const [policyOpen, setPolicyOpen] = useState(false);
   const [weatherOpen, setWeatherOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
 
@@ -211,6 +212,31 @@ export default function ShowcaseDetailPage() {
     };
   }, [idOrSlug]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function confirmPaid() {
+      const token = getAccessToken();
+      if (!token) return;
+      if (!success) return;
+      const sessionId = String(search?.get("session_id") ?? "").trim();
+      if (!sessionId) return;
+
+      setConfirming(true);
+      try {
+        await apiFetch("/showcase-registrations/confirm", { method: "POST", token, body: JSON.stringify({ sessionId }) });
+        if (!cancelled) window.dispatchEvent(new Event("goeducate:showcase-registrations-changed"));
+      } catch {
+        // best-effort; Stripe webhooks may still complete registration creation
+      } finally {
+        if (!cancelled) setConfirming(false);
+      }
+    }
+    void confirmPaid();
+    return () => {
+      cancelled = true;
+    };
+  }, [success, search]);
+
   const address = useMemo(() => {
     if (!showcase) return "";
     const parts = [showcase.locationName, showcase.addressLine1, showcase.addressLine2, `${showcase.city}, ${showcase.state} ${showcase.zip ?? ""}`.trim()];
@@ -284,6 +310,12 @@ export default function ShowcaseDetailPage() {
         <Card>
           <div className="text-lg font-semibold text-white">Registration submitted</div>
           <p className="mt-2 text-sm text-white/80">Thanks! If payment completed successfully, you’ll receive a confirmation email.</p>
+          {confirming ? <p className="mt-2 text-sm text-white/70">Finalizing your registration…</p> : null}
+          <div className="mt-3">
+            <Link href="/showcases/registrations" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+              View my registrations →
+            </Link>
+          </div>
         </Card>
       ) : null}
       {canceled ? (

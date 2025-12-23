@@ -14,6 +14,7 @@ import { UserModel } from "../models/User.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { publishNotificationsChanged } from "../notifications/bus.js";
+import { EmailAuditLogModel, EMAIL_AUDIT_STATUS, EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 
 export const filmSubmissionsRouter = Router();
 
@@ -383,19 +384,56 @@ filmSubmissionsRouter.patch(
         publishNotificationsChanged(String(film.userId));
 
         // Email the player as well (best-effort).
-        if (isNotificationEmailConfigured()) {
-          const user = await UserModel.findById(film.userId).lean();
-          if (user?.email) {
-            void sendNotificationEmail({
-              to: user.email,
-              subject: "GoEducate Talent – Film needs changes",
-              title: "Film needs changes",
-              message: note
-                ? `An evaluator requested changes to your submission. Notes: ${note}`
-                : "An evaluator requested changes to your submission. Please review the notes and resubmit.",
-              href: "/player/film"
-            }).catch(() => {});
-          }
+        const user = await UserModel.findById(film.userId).lean();
+        const profile = await PlayerProfileModel.findOne({ userId: film.userId }).lean();
+        const to = String(user?.email ?? profile?.contactEmail ?? "")
+          .trim()
+          .toLowerCase();
+        const subject = "GoEducate Talent – Film needs changes";
+
+        if (!to || !to.includes("@")) {
+          // Don't attempt email if we don't have a valid destination.
+          await EmailAuditLogModel.create({
+            type: EMAIL_AUDIT_TYPE.FILM_NEEDS_CHANGES,
+            status: EMAIL_AUDIT_STATUS.SKIPPED,
+            to: to || "(missing)",
+            subject
+          });
+        } else if (!isNotificationEmailConfigured()) {
+          await EmailAuditLogModel.create({
+            type: EMAIL_AUDIT_TYPE.FILM_NEEDS_CHANGES,
+            status: EMAIL_AUDIT_STATUS.SKIPPED,
+            to,
+            subject
+          });
+        } else {
+          void (async () => {
+            try {
+              await sendNotificationEmail({
+                to,
+                subject,
+                title: "Film needs changes",
+                message: note
+                  ? `An evaluator requested changes to your submission. Notes: ${note}`
+                  : "An evaluator requested changes to your submission. Please review the notes and resubmit.",
+                href: "/player/film"
+              });
+              await EmailAuditLogModel.create({
+                type: EMAIL_AUDIT_TYPE.FILM_NEEDS_CHANGES,
+                status: EMAIL_AUDIT_STATUS.SENT,
+                to,
+                subject
+              });
+            } catch (err) {
+              await EmailAuditLogModel.create({
+                type: EMAIL_AUDIT_TYPE.FILM_NEEDS_CHANGES,
+                status: EMAIL_AUDIT_STATUS.FAILED,
+                to,
+                subject,
+                error: err
+              });
+            }
+          })();
         }
       }
 

@@ -34,9 +34,20 @@ export function EvaluatorQueue() {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<FilmSubmission[]>([]);
   const [view, setView] = useState<"all" | "mine">(() => {
-    const role = getTokenRole(getAccessToken());
-    return role === "evaluator" ? "mine" : "all";
+    // Default to "all" so new submissions are visible even before assignment.
+    // Persist the user's choice across sessions.
+    try {
+      const raw = window.localStorage.getItem("goeducate:evaluatorQueueView");
+      if (raw === "mine" || raw === "all") return raw;
+    } catch {}
+    return "all";
   });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem("goeducate:evaluatorQueueView", view);
+    } catch {}
+  }, [view]);
 
   const load = useCallback(async () => {
     setError(null);
