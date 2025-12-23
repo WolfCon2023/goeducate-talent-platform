@@ -503,6 +503,94 @@ adminRouter.get("/admin/players/by-state", requireAuth, requireRole([ROLE.ADMIN]
   }
 });
 
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Admin-only: list players in a given state (includes latest evaluation grade + contact info)
+adminRouter.get("/admin/players/by-state/:state", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const stateParam = String(req.params.state ?? "").trim();
+    const code = normalizeUsStateToCode(stateParam);
+    if (!code) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid US state is required" }));
+    }
+    const stateName = US_STATES.find((s) => s.code === code)?.name ?? code;
+
+    const limitRaw = Number(req.query.limit ?? 200);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 200;
+
+    const or: any[] = [{ state: { $regex: `^${escapeRegex(code)}$`, $options: "i" } }];
+    if (stateName && stateName !== code) {
+      or.push({ state: { $regex: `^${escapeRegex(stateName)}$`, $options: "i" } });
+    }
+    const match: any = { $or: or };
+
+    const [total, players] = await Promise.all([
+      PlayerProfileModel.countDocuments(match),
+      PlayerProfileModel.aggregate([
+        { $match: match },
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user"
+          }
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        {
+          $lookup: {
+            from: EvaluationReportModel.collection.name,
+            let: { uid: "$userId" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$playerUserId", "$$uid"] } } },
+              { $sort: { createdAt: -1 } },
+              { $limit: 1 },
+              { $project: { _id: 0, createdAt: 1, overallGrade: 1 } }
+            ],
+            as: "latestEval"
+          }
+        },
+        {
+          $addFields: {
+            latestEvaluationAt: { $arrayElemAt: ["$latestEval.createdAt", 0] },
+            latestOverallGrade: { $arrayElemAt: ["$latestEval.overallGrade", 0] }
+          }
+        },
+        { $sort: { lastName: 1, firstName: 1, updatedAt: -1 } },
+        { $limit: limit },
+        {
+          $project: {
+            _id: 0,
+            userId: 1,
+            firstName: 1,
+            lastName: 1,
+            sport: 1,
+            position: 1,
+            city: 1,
+            state: 1,
+            contactEmail: 1,
+            contactPhone: 1,
+            hudlLink: 1,
+            latestOverallGrade: 1,
+            latestEvaluationAt: 1,
+            user: { id: "$user._id", email: "$user.email", role: "$user.role" }
+          }
+        }
+      ])
+    ]);
+
+    return res.json({
+      state: { code, name: stateName },
+      total,
+      players
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // Admin-only: notifications "queue" (latest notifications across all users)
 adminRouter.get("/admin/notifications", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
   try {

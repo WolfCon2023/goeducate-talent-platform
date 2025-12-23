@@ -13,6 +13,26 @@ import usTopo from "us-atlas/states-10m.json";
 type PlayerByState = { code: string; name: string; count: number };
 type PlayerByStateResponse = { byState: PlayerByState[]; unknownCount: number };
 
+type PlayerRow = {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  sport?: string | null;
+  position?: string | null;
+  city?: string | null;
+  state?: string | null;
+  latestOverallGrade?: number | null;
+  user?: { id?: string; email?: string | null } | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+};
+
+type PlayersInStateResponse = {
+  state: { code: string; name: string };
+  total: number;
+  players: PlayerRow[];
+};
+
 type Tooltip = { x: number; y: number; text: string } | null;
 
 function clamp(n: number, min: number, max: number) {
@@ -27,6 +47,60 @@ function colorForCount(count: number, max: number) {
   return `rgba(79,70,229,${alpha.toFixed(3)})`;
 }
 
+const US_STATE_NAME_TO_CODE: Record<string, string> = {
+  Alabama: "AL",
+  Alaska: "AK",
+  Arizona: "AZ",
+  Arkansas: "AR",
+  California: "CA",
+  Colorado: "CO",
+  Connecticut: "CT",
+  Delaware: "DE",
+  "District of Columbia": "DC",
+  Florida: "FL",
+  Georgia: "GA",
+  Hawaii: "HI",
+  Idaho: "ID",
+  Illinois: "IL",
+  Indiana: "IN",
+  Iowa: "IA",
+  Kansas: "KS",
+  Kentucky: "KY",
+  Louisiana: "LA",
+  Maine: "ME",
+  Maryland: "MD",
+  Massachusetts: "MA",
+  Michigan: "MI",
+  Minnesota: "MN",
+  Mississippi: "MS",
+  Missouri: "MO",
+  Montana: "MT",
+  Nebraska: "NE",
+  Nevada: "NV",
+  "New Hampshire": "NH",
+  "New Jersey": "NJ",
+  "New Mexico": "NM",
+  "New York": "NY",
+  "North Carolina": "NC",
+  "North Dakota": "ND",
+  Ohio: "OH",
+  Oklahoma: "OK",
+  Oregon: "OR",
+  Pennsylvania: "PA",
+  "Rhode Island": "RI",
+  "South Carolina": "SC",
+  "South Dakota": "SD",
+  Tennessee: "TN",
+  Texas: "TX",
+  Utah: "UT",
+  Vermont: "VT",
+  Virginia: "VA",
+  Washington: "WA",
+  "West Virginia": "WV",
+  Wisconsin: "WI",
+  Wyoming: "WY"
+};
+
 export function AdminPlayerMap() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +108,12 @@ export function AdminPlayerMap() {
   const [selected, setSelected] = useState<PlayerByState | null>(null);
   const [tooltip, setTooltip] = useState<Tooltip>(null);
 
+  const [playersLoading, setPlayersLoading] = useState(false);
+  const [playersError, setPlayersError] = useState<string | null>(null);
+  const [playersData, setPlayersData] = useState<PlayersInStateResponse | null>(null);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const playersAbortRef = useRef<AbortController | null>(null);
 
   async function load() {
     setError(null);
@@ -53,9 +132,50 @@ export function AdminPlayerMap() {
     }
   }
 
+  async function loadPlayersFor(s: PlayerByState | null) {
+    setPlayersError(null);
+    setPlayersData(null);
+    playersAbortRef.current?.abort();
+
+    if (!s) return;
+
+    const maybeCode = String(s.code ?? "").trim();
+    const code = maybeCode || US_STATE_NAME_TO_CODE[String(s.name ?? "").trim()] || "";
+    if (!code) {
+      setPlayersError("Missing state code for selected state.");
+      return;
+    }
+
+    setPlayersLoading(true);
+    const controller = new AbortController();
+    playersAbortRef.current = controller;
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+
+      const res = await apiFetch<PlayersInStateResponse>(`/admin/players/by-state/${encodeURIComponent(code)}?limit=500`, {
+        token,
+        signal: controller.signal
+      });
+      setPlayersData(res);
+    } catch (err) {
+      if (err instanceof Error && /aborted/i.test(err.message)) return;
+      setPlayersError(err instanceof Error ? err.message : "Failed to load players for state");
+    } finally {
+      setPlayersLoading(false);
+    }
+  }
+
   useEffect(() => {
     void load();
   }, []);
+
+  useEffect(() => {
+    void loadPlayersFor(selected);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.code, selected?.name]);
 
   const byName = useMemo(() => {
     const m = new Map<string, PlayerByState>();
@@ -199,6 +319,88 @@ export function AdminPlayerMap() {
                 <div>Click a state to pin details.</div>
               )}
             </div>
+
+            {selected ? (
+              <div className="mt-4">
+                <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">
+                  Registered players in state
+                </div>
+
+                {playersLoading ? (
+                  <div className="mt-2 text-sm text-[color:var(--muted)]">Loading…</div>
+                ) : null}
+                {playersError ? <div className="mt-2 text-sm text-red-300">{playersError}</div> : null}
+
+                {playersData ? (
+                  <div className="mt-3">
+                    <div className="mb-2 text-xs text-[color:var(--muted-2)]">
+                      Showing {playersData.players.length} of {playersData.total}
+                    </div>
+                    <div className="max-h-[360px] overflow-auto rounded-xl border border-white/10">
+                      <table className="w-full text-left text-sm">
+                        <thead className="sticky top-0 bg-[var(--surface)] text-xs uppercase tracking-wide text-[color:var(--muted-2)]">
+                          <tr>
+                            <th className="px-3 py-2">Name</th>
+                            <th className="px-3 py-2">Sport</th>
+                            <th className="px-3 py-2">Position</th>
+                            <th className="px-3 py-2">Rating</th>
+                            <th className="px-3 py-2">Contact</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {playersData.players.map((p) => {
+                            const name = `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim() || "—";
+                            const rating =
+                              typeof p.latestOverallGrade === "number" && Number.isFinite(p.latestOverallGrade)
+                                ? p.latestOverallGrade
+                                : null;
+                            const email = p.user?.email ?? null;
+                            const contactEmail = p.contactEmail ?? null;
+                            const contactPhone = p.contactPhone ?? null;
+                            return (
+                              <tr key={p.userId} className="border-t border-white/10">
+                                <td className="px-3 py-2 text-[color:var(--foreground)]">{name}</td>
+                                <td className="px-3 py-2">{p.sport || "—"}</td>
+                                <td className="px-3 py-2">{p.position || "—"}</td>
+                                <td className="px-3 py-2">{rating ?? "—"}</td>
+                                <td className="px-3 py-2">
+                                  <div className="grid gap-1">
+                                    {email ? (
+                                      <a className="text-indigo-300 hover:underline" href={`mailto:${email}`}>
+                                        {email}
+                                      </a>
+                                    ) : (
+                                      <span>—</span>
+                                    )}
+                                    {contactEmail && contactEmail !== email ? (
+                                      <a className="text-indigo-300 hover:underline" href={`mailto:${contactEmail}`}>
+                                        {contactEmail}
+                                      </a>
+                                    ) : null}
+                                    {contactPhone ? (
+                                      <a className="text-indigo-300 hover:underline" href={`tel:${contactPhone}`}>
+                                        {contactPhone}
+                                      </a>
+                                    ) : null}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          {playersData.players.length === 0 ? (
+                            <tr>
+                              <td className="px-3 py-3 text-[color:var(--muted)]" colSpan={5}>
+                                No players found.
+                              </td>
+                            </tr>
+                          ) : null}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
