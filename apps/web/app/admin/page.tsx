@@ -13,6 +13,7 @@ import { AdminEvaluationTemplates } from "@/components/AdminEvaluationTemplates"
 import { AdminEvaluationForms } from "@/components/AdminEvaluationForms";
 import { AdminAccessRequests } from "@/components/AdminAccessRequests";
 import { AdminEmailDiagnostics } from "@/components/AdminEmailDiagnostics";
+import { AdminAuditLog } from "@/components/AdminAuditLog";
 import { AdminGuard } from "./Guard";
 
 export default function AdminPage() {
@@ -50,6 +51,9 @@ export default function AdminPage() {
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-email">
                 Email
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-audit">
+                Audit log
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-users">
                 Users
@@ -95,6 +99,10 @@ export default function AdminPage() {
 
         <section id="admin-email" className="scroll-mt-28">
           <AdminEmailDiagnostics />
+        </section>
+
+        <section id="admin-audit" className="scroll-mt-28">
+          <AdminAuditLog />
         </section>
 
         <section id="admin-users" className="scroll-mt-28">

@@ -25,14 +25,19 @@ type EmailAuditRow = {
   messageId?: string;
   createdAt: string;
   error?: any;
+  meta?: any;
 };
 
 export function AdminEmailDiagnostics() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [resending, setResending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<EmailConfig | null>(null);
   const [rows, setRows] = useState<EmailAuditRow[]>([]);
+  const [total, setTotal] = useState<number>(0);
+  const [page, setPage] = useState<number>(0);
+  const pageSize = 50;
   const [toEmail, setToEmail] = useState("");
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
 
@@ -47,10 +52,14 @@ export function AdminEmailDiagnostics() {
 
       const [cfg, audit] = await Promise.all([
         apiFetch<EmailConfig>("/admin/email/config", { token }),
-        apiFetch<{ results: EmailAuditRow[] }>("/admin/email/audit?limit=100", { token })
+        apiFetch<{ total: number; results: EmailAuditRow[]; skip: number; limit: number }>(
+          `/admin/email/audit?limit=${pageSize}&skip=${page * pageSize}`,
+          { token }
+        )
       ]);
       setConfig(cfg);
       setRows(audit.results ?? []);
+      setTotal(audit.total ?? 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load email diagnostics");
     } finally {
@@ -85,9 +94,34 @@ export function AdminEmailDiagnostics() {
     }
   }
 
+  async function resendInvite(row: EmailAuditRow) {
+    setError(null);
+    setResending(row._id);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+
+      const inviteRole = String(row?.meta?.role ?? "").trim();
+      if (!inviteRole) throw new Error("Missing invite role metadata on this row.");
+
+      await apiFetch("/admin/email/resend-invite", {
+        token,
+        method: "POST",
+        body: JSON.stringify({ email: row.to, role: inviteRole })
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend invite");
+    } finally {
+      setResending(null);
+    }
+  }
+
   useEffect(() => {
     void load();
-  }, []);
+  }, [page]);
 
   return (
     <Card>
@@ -145,6 +179,30 @@ export function AdminEmailDiagnostics() {
 
       <div className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
         <div className="text-sm font-semibold text-[color:var(--foreground)]">Recent email audit log</div>
+        <div className="mt-2 flex items-center justify-between gap-3 text-sm text-[color:var(--muted)]">
+          <div>
+            Showing <span className="text-[color:var(--foreground)] font-semibold">{rows.length}</span> of{" "}
+            <span className="text-[color:var(--foreground)] font-semibold">{total}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/90 hover:bg-white/10 disabled:opacity-50"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0 || loading}
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/90 hover:bg-white/10 disabled:opacity-50"
+              onClick={() => setPage((p) => (p + 1) * pageSize < total ? p + 1 : p)}
+              disabled={(page + 1) * pageSize >= total || loading}
+            >
+              Next
+            </button>
+          </div>
+        </div>
         <div className="mt-3 max-h-[420px] overflow-auto rounded-xl border border-white/10">
           <table className="w-full text-left text-sm">
             <thead className="sticky top-0 bg-[var(--surface)] text-xs uppercase tracking-wide text-[color:var(--muted-2)]">
@@ -154,6 +212,7 @@ export function AdminEmailDiagnostics() {
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">To</th>
                 <th className="px-3 py-2">Subject</th>
+                <th className="px-3 py-2">Actions</th>
                 <th className="px-3 py-2">Error</th>
               </tr>
             </thead>
@@ -169,6 +228,21 @@ export function AdminEmailDiagnostics() {
                   </td>
                   <td className="px-3 py-2">{r.to}</td>
                   <td className="px-3 py-2">{r.subject}</td>
+                  <td className="px-3 py-2">
+                    {r.type === "invite" ? (
+                      <button
+                        type="button"
+                        className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 hover:bg-white/10 disabled:opacity-50"
+                        onClick={() => resendInvite(r)}
+                        disabled={Boolean(resending) || !config?.configured}
+                        title="Resend (creates a fresh invite token)"
+                      >
+                        {resending === r._id ? "Resending..." : "Resend"}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-[color:var(--muted)]">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-xs text-[color:var(--muted)]">
                     {r.error ? (typeof r.error === "string" ? r.error : JSON.stringify(r.error)) : "—"}
                   </td>
@@ -176,7 +250,7 @@ export function AdminEmailDiagnostics() {
               ))}
               {rows.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-3 text-[color:var(--muted)]" colSpan={6}>
+                  <td className="px-3 py-3 text-[color:var(--muted)]" colSpan={7}>
                     No email audit logs found.
                   </td>
                 </tr>

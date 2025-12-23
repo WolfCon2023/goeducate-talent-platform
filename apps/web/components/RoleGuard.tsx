@@ -1,41 +1,37 @@
 "use client";
 
-import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 
 import { getAccessToken, getTokenRole } from "@/lib/auth";
+import { toast } from "@/components/ToastProvider";
 
 export function RoleGuard(props: { allowed: string[]; children: React.ReactNode }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [role, setRole] = React.useState<string | undefined>(undefined);
+  const [ready, setReady] = React.useState(false);
 
   React.useEffect(() => {
     const token = getAccessToken();
     setRole(getTokenRole(token));
+    setReady(true);
   }, []);
 
   // Not logged in
+  if (!ready) return null;
   if (!role) {
-    return (
-      <div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-white/5 p-6">
-        <div className="text-lg font-semibold">Login required</div>
-        <p className="mt-2 text-sm text-white/80">Please sign in to continue.</p>
-        <div className="mt-4">
-          <Link href="/login" className="text-indigo-300 hover:text-indigo-200 hover:underline">
-            Go to login
-          </Link>
-        </div>
-      </div>
-    );
+    toast({ kind: "info", title: "Login required", message: "Please sign in to continue.", ttlMs: 3500 });
+    const returnTo = encodeURIComponent(pathname || "/");
+    router.replace(`/login?reason=login_required&returnTo=${returnTo}`);
+    return null;
   }
 
   // Logged in, but not allowed
   if (!props.allowed.includes(role)) {
-    return (
-      <div className="mx-auto max-w-xl rounded-2xl border border-white/10 bg-white/5 p-6">
-        <div className="text-lg font-semibold">Access denied</div>
-        <p className="mt-2 text-sm text-white/80">Your account does not have permission to view this page.</p>
-      </div>
-    );
+    toast({ kind: "error", title: "Access denied", message: "Your account does not have permission to view this page.", ttlMs: 4500 });
+    router.replace(role === "admin" ? "/admin" : role === "coach" ? "/coach" : role === "evaluator" ? "/evaluator" : "/player");
+    return null;
   }
 
   return <>{props.children}</>;

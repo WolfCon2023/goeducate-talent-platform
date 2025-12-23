@@ -24,6 +24,7 @@ import { EmailAuditLogModel } from "../models/EmailAuditLog.js";
 import { createTransporterOrThrow, isEmailConfigured } from "../email/mailer.js";
 import { sendMailWithAudit } from "../email/audit.js";
 import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
+import { AdminAuditLogModel } from "../models/AdminAuditLog.js";
 
 export const adminRouter = Router();
 
@@ -617,6 +618,8 @@ adminRouter.get("/admin/email/audit", requireAuth, requireRole([ROLE.ADMIN]), as
   try {
     const limitRaw = Number(req.query.limit ?? 100);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 100;
+    const skipRaw = Number(req.query.skip ?? 0);
+    const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.min(50_000, skipRaw)) : 0;
     const status = String(req.query.status ?? "").trim();
     const type = String(req.query.type ?? "").trim();
     const to = String(req.query.to ?? "").trim().toLowerCase();
@@ -626,8 +629,53 @@ adminRouter.get("/admin/email/audit", requireAuth, requireRole([ROLE.ADMIN]), as
     if (type) q.type = type;
     if (to) q.to = to;
 
-    const results = await EmailAuditLogModel.find(q).sort({ createdAt: -1 }).limit(limit).lean();
-    return res.json({ results });
+    const [total, results] = await Promise.all([
+      EmailAuditLogModel.countDocuments(q),
+      EmailAuditLogModel.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
+    ]);
+    return res.json({ total, results, skip, limit });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: resend invite email (creates a fresh invite token)
+adminRouter.post("/admin/email/resend-invite", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const email = String((req.body as any)?.email ?? "").trim().toLowerCase();
+    const role = String((req.body as any)?.role ?? "").trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid email is required" }));
+    }
+    if (!role) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid role is required" }));
+    }
+    if (!isInviteEmailConfigured()) {
+      return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Email is not configured" }));
+    }
+
+    const invite = await createInvite({ email, role, createdByUserId: req.user!.id as any });
+
+    const env = getEnv();
+    const base = String(env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+    await sendInviteEmail({
+      to: invite.email,
+      role: invite.role,
+      code: invite.token,
+      inviteUrl: base ? `${base}/invite` : "/invite",
+      expiresAtIso: invite.expiresAt
+    });
+
+    await logAdminAction({
+      req,
+      actorUserId: String(req.user!.id),
+      action: "email_resend_invite",
+      targetType: "email",
+      targetId: email,
+      meta: { role }
+    });
+
+    return res.json({ ok: true });
   } catch (err) {
     return next(err);
   }
@@ -665,12 +713,70 @@ adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), as
   }
 });
 
+// Admin-only: audit log (who did what)
+adminRouter.get("/admin/audit", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const limitRaw = Number(req.query.limit ?? 100);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 100;
+    const skipRaw = Number(req.query.skip ?? 0);
+    const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.min(50_000, skipRaw)) : 0;
+    const action = String(req.query.action ?? "").trim();
+    const actorEmail = String(req.query.actorEmail ?? "").trim().toLowerCase();
+
+    const match: any = {};
+    if (action) match.action = { $regex: action, $options: "i" };
+
+    const basePipeline: any[] = [{ $match: match }, { $sort: { createdAt: -1 } }];
+    basePipeline.push(
+      {
+        $lookup: {
+          from: "users",
+          localField: "actorUserId",
+          foreignField: "_id",
+          as: "actor"
+        }
+      },
+      { $unwind: { path: "$actor", preserveNullAndEmptyArrays: true } }
+    );
+    if (actorEmail) basePipeline.push({ $match: { "actor.email": actorEmail } });
+
+    const [totalRows, results] = await Promise.all([
+      AdminAuditLogModel.aggregate([...basePipeline, { $count: "count" }]),
+      AdminAuditLogModel.aggregate([
+        ...basePipeline,
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $project: {
+            _id: 1,
+            createdAt: 1,
+            action: 1,
+            targetType: 1,
+            targetId: 1,
+            ip: 1,
+            userAgent: 1,
+            meta: 1,
+            actor: { id: "$actor._id", email: "$actor.email", role: "$actor.role" }
+          }
+        }
+      ])
+    ]);
+
+    const total = Number(totalRows?.[0]?.count ?? 0);
+    return res.json({ total, results, skip, limit });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // Admin-only: notifications "queue" (latest notifications across all users)
 adminRouter.get("/admin/notifications", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
   try {
     const unreadOnly = String(req.query.unreadOnly ?? "").trim() === "1";
     const limitRaw = Number(req.query.limit ?? 50);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
+    const skipRaw = Number(req.query.skip ?? 0);
+    const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.min(50_000, skipRaw)) : 0;
 
     const match: any = {};
     if (unreadOnly) match.readAt = { $exists: false };
@@ -678,6 +784,7 @@ adminRouter.get("/admin/notifications", requireAuth, requireRole([ROLE.ADMIN]), 
     const results = await NotificationModel.aggregate([
       { $match: match },
       { $sort: { createdAt: -1 } },
+      { $skip: skip },
       { $limit: limit },
       {
         $lookup: {
@@ -702,7 +809,8 @@ adminRouter.get("/admin/notifications", requireAuth, requireRole([ROLE.ADMIN]), 
       }
     ]);
 
-    return res.json({ results });
+    const total = await NotificationModel.countDocuments(match);
+    return res.json({ total, results, skip, limit });
   } catch (err) {
     return next(err);
   }

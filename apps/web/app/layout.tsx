@@ -6,6 +6,7 @@ import { AuthNav } from "@/components/AuthNav";
 import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ToastProvider } from "@/components/ToastProvider";
 
 import "./globals.css";
 
@@ -19,7 +20,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <ThemeProvider>
-          <ConfirmProvider>
+          <ToastProvider>
+            <ConfirmProvider>
             <header className="sticky top-0 z-50 border-b border-[color:var(--color-border)] bg-[color:var(--color-panel)]/80 backdrop-blur print:hidden">
               <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 sm:px-8">
                 <Link href="/" className="flex items-center gap-3 text-lg font-semibold tracking-tight">
@@ -59,7 +61,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <div className="sm:text-right">Built by Wolf Consulting Group, LLC.</div>
               </div>
             </footer>
-          </ConfirmProvider>
+            </ConfirmProvider>
+          </ToastProvider>
         </ThemeProvider>
       </body>
     </html>

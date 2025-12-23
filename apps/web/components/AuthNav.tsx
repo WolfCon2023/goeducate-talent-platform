@@ -155,18 +155,29 @@ export function AuthNav() {
     <nav className="flex items-center gap-2 text-sm">
       {role ? (
         <>
-          <Link href="/player" className={navItem("/player")}>
-            Player
-          </Link>
-          <Link href="/coach" className={navItem("/coach")}>
-            Coach
-          </Link>
+          {role === "player" || role === "admin" ? (
+            <Link href="/player" className={navItem("/player")}>
+              Player
+            </Link>
+          ) : null}
+          {role === "coach" || role === "admin" ? (
+            <Link href="/coach" className={navItem("/coach")}>
+              Coach
+            </Link>
+          ) : null}
+          {role === "evaluator" || role === "admin" ? (
+            <Link href="/evaluator" className={navItem("/evaluator")}>
+              Evaluator
+            </Link>
+          ) : null}
           <Link href="/showcases" className={navItem("/showcases")}>
             Showcases
           </Link>
-          <Link href="/showcases/registrations" className={navItem("/showcases/registrations")}>
-            My registrations
-          </Link>
+          {role === "player" || role === "coach" || role === "admin" ? (
+            <Link href="/showcases/registrations" className={navItem("/showcases/registrations")}>
+              My registrations
+            </Link>
+          ) : null}
           {profilePhotoUrl ? (
             <>
               <button
