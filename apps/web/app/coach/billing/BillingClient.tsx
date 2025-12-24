@@ -8,6 +8,7 @@ import { Card, Button } from "@/components/ui";
 import { toast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
+import { useConfirm } from "@/components/ConfirmDialog";
 
 type BillingStatus = {
   configured: boolean;
@@ -15,11 +16,15 @@ type BillingStatus = {
   hasCustomer: boolean;
   hasSubscription: boolean;
   plan: "monthly" | "annual" | "unknown" | null;
+  renewalDate: string | null;
+  subscriptionId: string | null;
+  downgradeScheduled: boolean;
 };
 
 export function BillingClient() {
   const router = useRouter();
   const search = useSearchParams();
+  const confirm = useConfirm();
   const [status, setStatus] = React.useState<BillingStatus | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -87,6 +92,40 @@ export function BillingClient() {
     }
   }
 
+  async function scheduleDowngradeToMonthly() {
+    setError(null);
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+
+      const renewal = status?.renewalDate ? new Date(status.renewalDate) : null;
+      const pretty = renewal ? renewal.toLocaleDateString() : "your renewal date";
+      const ok = await confirm({
+        title: "Downgrade to Monthly",
+        message: `Downgrades from Annual to Monthly take effect on ${pretty}. We'll schedule the change so you won't be double-billed.`,
+        confirmText: "Schedule downgrade",
+        cancelText: "Keep Annual"
+      });
+      if (!ok) return;
+
+      setLoading(true);
+      const res = await apiFetch<{ scheduled: boolean; alreadyScheduled?: boolean; effectiveDate?: string | null; message?: string }>(
+        "/billing/downgrade-monthly",
+        { method: "POST", token }
+      );
+      toast({
+        kind: "success",
+        title: res.alreadyScheduled ? "Already scheduled" : "Downgrade scheduled",
+        message: res.effectiveDate ? `Effective ${new Date(res.effectiveDate).toLocaleDateString()}.` : res.message ?? "Scheduled."
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to schedule downgrade");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -117,6 +156,18 @@ export function BillingClient() {
                       <span className="text-white/90">
                         {status.plan === "monthly" ? "Monthly" : status.plan === "annual" ? "Annual" : "Unknown"}
                       </span>
+                      {status.renewalDate ? (
+                        <>
+                          {" · "}Renews:{" "}
+                          <span className="text-white/90">{new Date(status.renewalDate).toLocaleDateString()}</span>
+                        </>
+                      ) : null}
+                      {status.downgradeScheduled ? (
+                        <>
+                          {" · "}
+                          <span className="text-amber-200">Downgrade scheduled</span>
+                        </>
+                      ) : null}
                     </>
                   ) : null}
                 </>
@@ -143,10 +194,29 @@ export function BillingClient() {
           </div>
         ) : status?.hasSubscription ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-            <div className="text-sm text-white/80">Manage your existing subscription (payment method, cancel, invoices).</div>
-            <Button type="button" onClick={openPortal} disabled={loading}>
-              {loading ? "Opening…" : "Manage subscription"}
-            </Button>
+            <div className="text-sm text-white/80">
+              Manage your existing subscription (payment method, cancel, invoices).
+              {status.plan === "annual" && status.renewalDate ? (
+                <div className="mt-2 text-xs text-amber-200">
+                  Downgrading from Annual → Monthly is available on your renewal date ({new Date(status.renewalDate).toLocaleDateString()}).
+                </div>
+              ) : null}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {status.plan === "annual" ? (
+                <Button
+                  type="button"
+                  className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                  onClick={scheduleDowngradeToMonthly}
+                  disabled={loading || Boolean(status.downgradeScheduled)}
+                >
+                  {status.downgradeScheduled ? "Downgrade scheduled" : "Downgrade to Monthly"}
+                </Button>
+              ) : null}
+              <Button type="button" onClick={openPortal} disabled={loading}>
+                {loading ? "Opening…" : "Manage subscription"}
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="mt-6 grid gap-3">
