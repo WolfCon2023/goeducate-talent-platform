@@ -25,6 +25,7 @@ export function AuthNav() {
   const [profilePhotoBust, setProfilePhotoBust] = useState<number>(0);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const token = getAccessToken();
@@ -151,6 +152,38 @@ export function AuthNav() {
     router.refresh();
   }
 
+  const editProfileHref =
+    role === "player"
+      ? "/player/profile"
+      : role === "coach"
+        ? "/coach/profile"
+        : role === "evaluator"
+          ? "/evaluator/profile"
+          : null;
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    function onMouseDown(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest?.("[data-auth-menu-root]")) return;
+      setMenuOpen(false);
+    }
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("mousedown", onMouseDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("mousedown", onMouseDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    // Close menu on navigation changes
+    setMenuOpen(false);
+  }, [pathname]);
+
   return (
     <nav className="flex items-center gap-2 text-sm">
       {role ? (
@@ -221,17 +254,60 @@ export function AuthNav() {
               ) : null}
             </span>
           </Link>
-          <span className="rounded-full border border-[color:var(--border)] bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-semibold text-[color:var(--muted-2)]">
-            {role}
-            {displayName ? ` · ${displayName}` : ""}
-          </span>
-          <button
-            type="button"
-            onClick={logout}
-            className="rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-1.5 text-sm text-[color:var(--foreground)] hover:bg-[var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-          >
-            Logout
-          </button>
+          <div className="relative" data-auth-menu-root>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="inline-flex items-center gap-2 rounded-full border border-[color:var(--border)] bg-[var(--surface-soft)] px-2.5 py-1 text-xs font-semibold text-[color:var(--muted-2)] hover:bg-[var(--surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            >
+              <span className="truncate max-w-[180px]">
+                {displayName ? displayName : role}
+              </span>
+              <span className="text-[10px] text-[color:var(--muted-2)]">{role}</span>
+              <span aria-hidden="true" className="text-[10px] text-white/60">
+                ▼
+              </span>
+            </button>
+
+            {menuOpen ? (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)] shadow-[0_18px_60px_rgba(0,0,0,0.55)]"
+              >
+                {editProfileHref ? (
+                  <Link
+                    href={editProfileHref}
+                    role="menuitem"
+                    className="block px-4 py-2.5 text-sm text-white/90 hover:bg-white/5"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Edit profile
+                  </Link>
+                ) : null}
+                <Link
+                  href={dashboardHref}
+                  role="menuitem"
+                  className="block px-4 py-2.5 text-sm text-white/90 hover:bg-white/5"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    logout();
+                  }}
+                  className="block w-full px-4 py-2.5 text-left text-sm text-white/90 hover:bg-white/5"
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : null}
+          </div>
         </>
       ) : (
         <>
