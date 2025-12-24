@@ -42,6 +42,7 @@ type Draft = {
   formId?: string;
   filmSubmissionId?: string;
   playerUserId?: string;
+  title?: string;
   rubric: Record<string, { n?: number; o?: string; note?: string }>;
   strengths: string;
   improvements: string;
@@ -61,6 +62,12 @@ function safeJsonParse<T>(raw: string | null): T | null {
   } catch {
     return null;
   }
+}
+
+function randomId() {
+  // Browser-safe unique id
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function buildRubricPayload(formDef: EvaluationFormDef | null, rubric: Draft["rubric"]) {
@@ -259,7 +266,8 @@ export function EvaluatorNotesTool() {
           if (typeof window !== "undefined") window.localStorage.setItem(key, JSON.stringify(remoteDraft));
         }
         setCloudSavedAt(remoteDraft.updatedAt ?? null);
-        if (item && "title" in item && item.title) setActiveTitle(String(item.title));
+        const t = (item && "title" in item && item.title) ? String(item.title) : (remoteDraft.title ? String(remoteDraft.title) : null);
+        if (t) setActiveTitle(t);
         setCloudStatus("saved");
       } catch {
         // Non-fatal. Local draft is still available.
@@ -303,6 +311,7 @@ export function EvaluatorNotesTool() {
           token,
           body: JSON.stringify({
             key,
+            title: d.title ?? activeTitle ?? undefined,
             sport,
             filmSubmissionId: filmSubmissionId ?? undefined,
             formId: formDef?._id,
@@ -412,16 +421,20 @@ export function EvaluatorNotesTool() {
         sport,
         formId: formDef?._id,
         filmSubmissionId: filmSubmissionId ?? undefined,
+        title: title.trim(),
         rubric,
         strengths,
         improvements,
         notes,
         updatedAt: new Date().toISOString()
       };
-      const created = await apiFetch<{ key: string; title: string | null }>(`/evaluator/notes/drafts/save-as`, {
-        method: "POST",
+      // Backwards compatible: create a new named key client-side and upsert via existing PUT endpoint.
+      const newKey = `goeducate.evalNotesDraft:v1:named:${randomId()}`;
+      await apiFetch(`/evaluator/notes/drafts`, {
+        method: "PUT",
         token,
         body: JSON.stringify({
+          key: newKey,
           title: title.trim(),
           sport,
           filmSubmissionId: filmSubmissionId ?? undefined,
@@ -430,9 +443,9 @@ export function EvaluatorNotesTool() {
         })
       });
       setKeyMode("named");
-      setActiveKey(created.key);
-      setActiveTitle(created.title ?? title.trim());
-      if (typeof window !== "undefined") window.localStorage.setItem(created.key, JSON.stringify(d));
+      setActiveKey(newKey);
+      setActiveTitle(title.trim());
+      if (typeof window !== "undefined") window.localStorage.setItem(newKey, JSON.stringify(d));
       toast({ kind: "success", title: "Saved as", message: "Draft saved to your account." });
       await loadDraftList();
     } catch (err) {
@@ -443,7 +456,8 @@ export function EvaluatorNotesTool() {
   async function openDraft(it: DraftItem) {
     setKeyMode("named");
     setActiveKey(it.key);
-    setActiveTitle(it.title ?? null);
+    const t = it.title ?? it.payload?.title ?? null;
+    setActiveTitle(t);
     const d = it.payload;
     if (d?.sport) setSport(d.sport);
     setRubric(d?.rubric ?? {});
@@ -451,7 +465,7 @@ export function EvaluatorNotesTool() {
     setImprovements(d?.improvements ?? "");
     setNotes(d?.notes ?? "");
     if (typeof window !== "undefined") window.localStorage.setItem(it.key, JSON.stringify(d));
-    toast({ kind: "info", title: "Draft opened", message: it.title ? `Opened "${it.title}".` : "Opened draft." });
+    toast({ kind: "info", title: "Draft opened", message: t ? `Opened "${t}".` : "Opened draft." });
   }
 
   async function deleteDraft(it: DraftItem) {
