@@ -9,4 +9,5 @@ To trigger:
 
 trigger: deploy evaluator notes save-as endpoint 2025-12-24T22:15:00Z
 trigger: deploy admin evaluations endpoint 2025-12-24T22:40:00Z
+trigger: deploy api with committed dist outputs 2025-12-24T22:22:45Z
 
