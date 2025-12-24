@@ -14,6 +14,7 @@ type BillingStatus = {
   status: string;
   hasCustomer: boolean;
   hasSubscription: boolean;
+  plan: "monthly" | "annual" | "unknown" | null;
 };
 
 export function BillingClient() {
@@ -110,6 +111,14 @@ export function BillingClient() {
                     {status.configured ? "Configured" : "Not configured"}
                   </span>
                   {" · "}Status: <span className="text-white/90">{String(status.status ?? "—")}</span>
+                  {status.hasSubscription ? (
+                    <>
+                      {" · "}Plan:{" "}
+                      <span className="text-white/90">
+                        {status.plan === "monthly" ? "Monthly" : status.plan === "annual" ? "Annual" : "Unknown"}
+                      </span>
+                    </>
+                  ) : null}
                 </>
               ) : (
                 "Loading…"

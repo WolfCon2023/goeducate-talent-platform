@@ -25,17 +25,65 @@ billingRouter.get("/billing/status", requireAuth, requireRole([ROLE.COACH]), asy
         configured: false,
         status: COACH_SUBSCRIPTION_STATUS.INACTIVE,
         hasCustomer: false,
-        hasSubscription: false
+        hasSubscription: false,
+        plan: null
       });
     }
 
-    const user = await UserModel.findById(req.user!.id).lean();
+    const stripe = getStripe(env);
+    const user = await UserModel.findById(new mongoose.Types.ObjectId(req.user!.id));
     const coach = getCoachOrThrow(user);
+
+    // Default to stored values; we may override with Stripe truth below.
+    let effectiveHasSubscription = Boolean(coach.stripeSubscriptionId);
+    let effectiveStatus = coach.subscriptionStatus ?? COACH_SUBSCRIPTION_STATUS.INACTIVE;
+    let plan: "monthly" | "annual" | "unknown" | null = null;
+
+    // If we have a customer, ask Stripe for the active subscription so we can show plan type and avoid duplicates.
+    if (coach.stripeCustomerId) {
+      try {
+        const subs = await stripe.subscriptions.list({ customer: coach.stripeCustomerId, status: "all", limit: 10 });
+        const active = subs.data.find((s) => ["active", "trialing", "past_due"].includes(String(s.status)));
+        if (active) {
+          effectiveHasSubscription = true;
+          effectiveStatus = COACH_SUBSCRIPTION_STATUS.ACTIVE;
+
+          const priceId = active.items?.data?.[0]?.price?.id ?? null;
+          const interval = active.items?.data?.[0]?.price?.recurring?.interval ?? null;
+          if (priceId && priceId === env.STRIPE_PRICE_ID_MONTHLY) plan = "monthly";
+          else if (priceId && priceId === env.STRIPE_PRICE_ID_ANNUAL) plan = "annual";
+          else if (interval === "month") plan = "monthly";
+          else if (interval === "year") plan = "annual";
+          else plan = "unknown";
+
+          // Best-effort: keep our DB in sync so other endpoints (portal) work reliably.
+          if (!coach.stripeSubscriptionId || coach.stripeSubscriptionId !== active.id) {
+            coach.stripeSubscriptionId = active.id;
+          }
+          coach.subscriptionStatus = COACH_SUBSCRIPTION_STATUS.ACTIVE;
+          await coach.save();
+        } else {
+          // No active Stripe subscription found. Keep stored status if it was manually set.
+          if (coach.subscriptionStatus !== COACH_SUBSCRIPTION_STATUS.ACTIVE) {
+            effectiveStatus = COACH_SUBSCRIPTION_STATUS.INACTIVE;
+          }
+        }
+      } catch (err) {
+        console.error("[billing] failed to load Stripe subscription status", err);
+        // Fall back to stored values.
+      }
+    } else if (effectiveStatus === COACH_SUBSCRIPTION_STATUS.ACTIVE) {
+      // Manually toggled active with no Stripe record; plan unknown.
+      plan = "unknown";
+      effectiveHasSubscription = true;
+    }
+
     return res.json({
       configured: true,
-      status: coach.subscriptionStatus ?? COACH_SUBSCRIPTION_STATUS.INACTIVE,
+      status: effectiveStatus,
       hasCustomer: Boolean(coach.stripeCustomerId),
-      hasSubscription: Boolean(coach.stripeSubscriptionId)
+      hasSubscription: effectiveHasSubscription,
+      plan
     });
   } catch (err) {
     return next(err);
