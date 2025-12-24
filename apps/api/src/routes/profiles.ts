@@ -45,14 +45,22 @@ profilesRouter.get("/profiles/me", requireAuth, async (req, res, next) => {
       return res.json({ profile, profileCompletion });
     }
     if (role === ROLE.COACH) {
-      const profile = await CoachProfileModel.findOne({ userId }).lean();
-      if (!profile) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Profile not found" }));
+      // Coaches can start with an empty profile; create on first view to avoid noisy 404s.
+      const profile = await CoachProfileModel.findOneAndUpdate(
+        { userId },
+        { $setOnInsert: { userId } },
+        { new: true, upsert: true }
+      ).lean();
       const profileCompletion = computeCoachProfileCompletion(profile as any);
       return res.json({ profile, profileCompletion });
     }
     if (role === ROLE.EVALUATOR) {
-      const profile = await EvaluatorProfileModel.findOne({ userId }).lean();
-      if (!profile) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Profile not found" }));
+      // Evaluators can start with an empty profile; create on first view to avoid noisy 404s.
+      const profile = await EvaluatorProfileModel.findOneAndUpdate(
+        { userId },
+        { $setOnInsert: { userId } },
+        { new: true, upsert: true }
+      ).lean();
       const profileCompletion = computeEvaluatorProfileCompletion(profile as any);
       return res.json({ profile, profileCompletion });
     }
