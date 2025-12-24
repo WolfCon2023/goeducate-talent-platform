@@ -11,7 +11,7 @@ export default function PlayerDashboardPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Player dashboard</h1>
             <p className="mt-2 text-sm text-white/80">
-              Manage your athlete profile. Film upload and evaluation status are next.
+              Manage your athlete profile. Submit film and track evaluation status.
             </p>
           </div>
         </div>
