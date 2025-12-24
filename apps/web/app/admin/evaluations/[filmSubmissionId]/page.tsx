@@ -191,6 +191,14 @@ export default function AdminEvaluationDetailPage() {
                       <span className="text-white/60"> · avg {report.overallGradeRaw.toFixed(2)}</span>
                     ) : null}
                     {report.suggestedProjectionLabel ? <span className="text-white/60"> · {report.suggestedProjectionLabel}</span> : null}
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="ml-3 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 print:hidden"
+                      title="Print / Save PDF"
+                    >
+                      Print / PDF
+                    </button>
                   </div>
                 ) : null}
               </div>

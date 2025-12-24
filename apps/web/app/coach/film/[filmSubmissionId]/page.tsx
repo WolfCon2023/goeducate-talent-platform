@@ -166,7 +166,17 @@ export default function CoachFilmDetailPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="text-sm font-semibold">Evaluation</div>
                 {report && !evalLoading ? (
-                  <div className="text-sm text-white/80">Grade: {report.overallGrade}/10</div>
+                  <div className="flex items-center gap-3 text-sm text-white/80">
+                    <div>Grade: {report.overallGrade}/10</div>
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 print:hidden"
+                      title="Print / Save PDF"
+                    >
+                      Print / PDF
+                    </button>
+                  </div>
                 ) : null}
               </div>
 
