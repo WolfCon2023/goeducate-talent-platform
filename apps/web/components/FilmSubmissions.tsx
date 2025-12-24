@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { FieldError, FormErrorSummary } from "@/components/FormErrors";
 import { Button, Card, Input, Label, RefreshIconButton } from "@/components/ui";
+import { toast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { parseApiError, type FieldErrors } from "@/lib/formErrors";
@@ -172,6 +173,7 @@ export function FilmSubmissions() {
     try {
       const nextFieldErrors: FieldErrors = {};
       if (!title.trim()) nextFieldErrors.title = ["Title is required."];
+      if (!videoUrl.trim() && !cloudinaryPublicId) nextFieldErrors.videoUrl = ["Provide a video URL or upload a video file."];
       if (Object.keys(nextFieldErrors).length > 0) {
         setFieldErrors(nextFieldErrors);
         return;
@@ -201,6 +203,7 @@ export function FilmSubmissions() {
       setCloudinaryPublicId(null);
       setNotes("");
       await load();
+      toast({ kind: "success", title: "Film submitted", message: "Your film is in the evaluation queue. We’ll notify you when it’s completed." });
     } catch (err) {
       const parsed = parseApiError(err);
       setFormError(parsed.formError ?? "Failed to create submission");
@@ -239,7 +242,7 @@ export function FilmSubmissions() {
         <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
         <h2 className="text-lg font-semibold">Submit film</h2>
         <p className="mt-1 text-sm text-[color:var(--muted)]">
-          Add game film metadata. You can upload a video file or paste a hosted video URL.
+          Add game film metadata. You must upload a video file or paste a hosted video URL.
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -258,13 +261,14 @@ export function FilmSubmissions() {
             <Input id="gameDate" type="date" value={gameDate} onChange={(e) => setGameDate(e.target.value)} />
           </div>
           <div className="grid gap-2 sm:col-span-2">
-            <Label htmlFor="videoUrl">Video URL (optional)</Label>
+            <Label htmlFor="videoUrl">Video URL</Label>
             <Input
               id="videoUrl"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               placeholder="https://..."
             />
+            <FieldError name="videoUrl" fieldErrors={fieldErrors} />
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <input
                 type="file"

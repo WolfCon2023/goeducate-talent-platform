@@ -27,6 +27,20 @@ filmSubmissionsRouter.post(
     if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 
     try {
+      // Prevent "empty" submissions: require either a hosted URL or an uploaded video (Cloudinary).
+      const hasVideoUrl = Boolean(String(parsed.data.videoUrl ?? "").trim());
+      const hasUpload = Boolean(String(parsed.data.cloudinaryPublicId ?? "").trim());
+      if (!hasVideoUrl && !hasUpload) {
+        return next(
+          new ApiError({
+            status: 400,
+            code: "BAD_REQUEST",
+            message: "Video is required",
+            details: { fieldErrors: { videoUrl: ["Provide a video URL or upload a video file."] } }
+          })
+        );
+      }
+
       const userId = new mongoose.Types.ObjectId(req.user!.id);
       const created = await FilmSubmissionModel.create({
         userId,
