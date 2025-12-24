@@ -52,6 +52,7 @@ export function CoachPlayerProfile(props: { userId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
+  const [playerEmail, setPlayerEmail] = useState<string | null>(null);
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [contactBlocked, setContactBlocked] = useState<"subscription" | "other" | null>(null);
   const [films, setFilms] = useState<FilmSubmission[]>([]);
@@ -68,6 +69,9 @@ export function CoachPlayerProfile(props: { userId: string }) {
 
       const p = await apiFetch<PlayerProfile>(`/player-profiles/player/${encodeURIComponent(props.userId)}`, { token });
       setProfile(p);
+      // Best-effort: we don't currently have a dedicated endpoint to fetch the player's user record,
+      // so keep email optional here. If we later add it, we can wire it in.
+      setPlayerEmail(null);
 
       const filmsRes = await apiFetch<{ results: FilmSubmission[] }>(`/film-submissions/player/${encodeURIComponent(props.userId)}`, { token });
       setFilms(filmsRes.results ?? []);
@@ -132,7 +136,19 @@ export function CoachPlayerProfile(props: { userId: string }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-sm font-semibold text-[color:var(--foreground)]">Player profile</div>
-          <div className="mt-1 text-sm text-[color:var(--muted)]">{props.userId}</div>
+          <div className="mt-1 text-sm text-[color:var(--muted)]">
+            {profile ? (
+              <span className="text-[color:var(--foreground)]">
+                {profile.firstName} {profile.lastName}
+                {playerEmail ? <span className="text-[color:var(--muted)]"> · {playerEmail}</span> : null}
+              </span>
+            ) : loading ? (
+              "Loading…"
+            ) : (
+              "—"
+            )}
+          </div>
+          <div className="mt-1 text-xs text-[color:var(--muted-2)]">ID: {props.userId}</div>
         </div>
         <RefreshIconButton onClick={load} loading={loading} />
       </div>
