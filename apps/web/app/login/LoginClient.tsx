@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
@@ -68,41 +69,102 @@ export function LoginClient() {
   }
 
   return (
-    <div className="mx-auto max-w-md">
-      <Card>
-        <h1 className="text-xl font-semibold">Login</h1>
-        <p className="mt-1 text-sm text-white/80">Sign in to your account.</p>
+    <div className="mx-auto max-w-5xl">
+      <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[color:var(--surface)] shadow-[0_0_0_1px_rgba(255,255,255,0.02),0_18px_60px_rgba(0,0,0,0.45)]">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_circle_at_30%_10%,rgba(99,102,241,0.25),transparent_55%),radial-gradient(700px_circle_at_80%_70%,rgba(16,185,129,0.18),transparent_55%)]"
+        />
 
-        <form onSubmit={onSubmit} className="mt-6 grid gap-4">
-          <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-            <FieldError name="email" fieldErrors={fieldErrors} />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-            <FieldError name="password" fieldErrors={fieldErrors} />
-          </div>
-          <Button type="submit" disabled={loading}>
-            {loading ? "Signing in..." : "Sign in"}
-          </Button>
-        </form>
+        <div className="relative grid gap-0 md:grid-cols-2">
+          <div className="border-b border-white/10 p-8 md:border-b-0 md:border-r md:p-10">
+            <div className="flex items-center gap-3">
+              <Image src="/logo.png" alt="GoEducate Talent" width={36} height={36} className="h-9 w-9" priority />
+              <div>
+                <div className="text-lg font-semibold leading-tight">GoEducate Talent</div>
+                <div className="text-sm text-white/70">Athlete evaluation platform</div>
+              </div>
+            </div>
 
-        <div className="mt-6 text-sm text-white/80">
-          Need access?{" "}
-          <Link href="/request-access" className="text-indigo-300 hover:text-indigo-200 hover:underline">
-            Request access
-          </Link>
+            <h1 className="mt-8 text-2xl font-semibold tracking-tight">Sign in</h1>
+            <p className="mt-2 text-sm text-white/80">
+              Coaches discover talent, players submit film, and evaluators deliver detailed reports — all in one place.
+            </p>
+
+            <div className="mt-6 grid gap-3 text-sm text-white/80">
+              <div className="flex gap-3">
+                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-xs">✓</span>
+                <span>Fast access to submissions, watchlists, and evaluation reports.</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-xs">✓</span>
+                <span>Role-based dashboards for Players, Coaches, Evaluators, and Admin.</span>
+              </div>
+              <div className="flex gap-3">
+                <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-xs">✓</span>
+                <span>Secure, invite-only access for coaches and evaluators.</span>
+              </div>
+            </div>
+
+            <div className="mt-8 text-sm text-white/80">
+              Need access?{" "}
+              <Link href="/request-access" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                Request access
+              </Link>
+              <span className="text-white/50"> · </span>
+              <Link href="/contact" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                Contact support
+              </Link>
+            </div>
+
+            <div className="mt-6 text-xs text-white/55">
+              By signing in, you agree to our{" "}
+              <Link href="/legal/terms" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link href="/legal/privacy" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                Privacy Policy
+              </Link>
+              .
+            </div>
+          </div>
+
+          <div className="p-8 md:p-10">
+            <Card className="border-white/10 bg-black/10">
+              <div className="flex items-baseline justify-between gap-4">
+                <div>
+                  <div className="text-lg font-semibold">Account login</div>
+                  <div className="mt-1 text-sm text-white/80">Use the email and password associated with your account.</div>
+                </div>
+              </div>
+
+              <form onSubmit={onSubmit} className="mt-6 grid gap-4">
+                <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input id="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+                  <FieldError name="email" fieldErrors={fieldErrors} />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                  <FieldError name="password" fieldErrors={fieldErrors} />
+                </div>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Signing in..." : "Sign in"}
+                </Button>
+              </form>
+            </Card>
+          </div>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

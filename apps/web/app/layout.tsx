@@ -18,7 +18,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      <body className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col">
         <ThemeProvider>
           <ToastProvider>
             <ConfirmProvider>
@@ -35,7 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 </div>
               </div>
             </header>
-            <main className="mx-auto max-w-7xl px-6 py-10 sm:px-8">{children}</main>
+            <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-10 sm:px-8">{children}</main>
             <footer className="border-t border-[color:var(--color-border)] py-10 text-sm text-[color:var(--color-text-muted)] print:hidden">
               <div className="mx-auto grid max-w-7xl gap-3 px-6 sm:grid-cols-3 sm:items-center sm:px-8">
                 <div>© 2025 GoEducate, Inc. All rights reserved.</div>
