@@ -14,6 +14,7 @@ import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 import { EvaluationReportModel } from "../models/EvaluationReport.js";
+import { EvaluationFormModel } from "../models/EvaluationForm.js";
 import { WatchlistModel } from "../models/Watchlist.js";
 import { NotificationModel } from "../models/Notification.js";
 import { isInviteEmailConfigured, sendInviteEmail } from "../email/invites.js";
@@ -663,6 +664,59 @@ function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function isProjectionTraitKey(key: string) {
+  return String(key ?? "").toLowerCase().includes("projection");
+}
+
+function computeRubricBreakdown(opts: { rubric: any; form: any }) {
+  const rubric = opts.rubric;
+  const form = opts.form;
+
+  const categoriesDef: any[] = Array.isArray(form?.categories) ? form.categories : [];
+  const categoriesResp: any[] = Array.isArray(rubric?.categories) ? rubric.categories : [];
+  const byKey = new Map(categoriesResp.map((c) => [String(c.key), c]));
+
+  const breakdown = categoriesDef.map((cDef) => {
+    const cKey = String(cDef.key);
+    const cResp = byKey.get(cKey);
+
+    const traitsDef: any[] = Array.isArray(cDef?.traits) ? cDef.traits : [];
+    const traitsResp: any[] = Array.isArray(cResp?.traits) ? cResp.traits : [];
+    const traitsByKey = new Map(traitsResp.map((t) => [String(t.key), t]));
+
+    const traitScores: Array<{ key: string; score?: number }> = [];
+    for (const tDef of traitsDef) {
+      const tKey = String(tDef?.key);
+      if (!tKey) continue;
+      if (isProjectionTraitKey(tKey)) continue;
+      const tResp = traitsByKey.get(tKey);
+      if (!tResp) continue;
+
+      if (tDef.type === "select") {
+        const optVal = String(tResp.valueOption ?? "");
+        const options: any[] = Array.isArray(tDef.options) ? tDef.options : [];
+        const opt = options.find((o) => String(o.value) === optVal);
+        const s = Number(opt?.score);
+        if (Number.isFinite(s)) traitScores.push({ key: tKey, score: s });
+      } else {
+        const n = Number(tResp.valueNumber);
+        if (Number.isFinite(n)) traitScores.push({ key: tKey, score: n });
+      }
+    }
+
+    const scores = traitScores.map((t) => t.score).filter((n): n is number => typeof n === "number" && Number.isFinite(n));
+    const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+    return {
+      key: cKey,
+      label: String(cDef?.label ?? cKey),
+      weight: Number(cDef?.weight) || 0,
+      average: avg != null ? Math.round(avg * 100) / 100 : null
+    };
+  });
+
+  return breakdown;
+}
+
 // Admin-only: list players in a given state (includes latest evaluation grade + contact info)
 adminRouter.get("/admin/players/by-state/:state", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
   try {
@@ -759,6 +813,74 @@ adminRouter.get("/admin/email/config", requireAuth, requireRole([ROLE.ADMIN]), a
       secure: env.SMTP_SECURE ?? (env.SMTP_PORT === 465 ? true : null),
       authMethod: env.SMTP_AUTH_METHOD ?? null,
       webAppUrl: env.WEB_APP_URL ?? null
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: fetch an evaluation detail bundle (film + report + evaluator + form definition)
+// Used by /admin/evaluations/[filmSubmissionId] UI.
+adminRouter.get("/admin/evaluations/film/:filmSubmissionId", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.filmSubmissionId)) {
+      return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
+    }
+    const filmSubmissionId = new mongoose.Types.ObjectId(req.params.filmSubmissionId);
+
+    const film = await FilmSubmissionModel.findById(filmSubmissionId).lean();
+    if (!film) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
+
+    const report = await EvaluationReportModel.findOne({ filmSubmissionId }).lean();
+
+    let evaluator: any = null;
+    let form: any = null;
+    let rubricBreakdown: any[] | null = null;
+
+    if (report) {
+      evaluator = await UserModel.findById((report as any).evaluatorUserId)
+        .select({ _id: 1, email: 1, role: 1, firstName: 1, lastName: 1 })
+        .lean();
+
+      const formId = (report as any).formId ?? (report as any)?.rubric?.formId ?? null;
+      if (formId && mongoose.isValidObjectId(String(formId))) {
+        form = await EvaluationFormModel.findById(String(formId)).lean();
+      }
+      if (!form) {
+        const sport = String((report as any).sport ?? "").trim().toLowerCase();
+        if (sport) {
+          form = await EvaluationFormModel.findOne({ sport, isActive: true }).sort({ updatedAt: -1 }).lean();
+        }
+      }
+
+      if (form && (report as any).rubric) {
+        rubricBreakdown = computeRubricBreakdown({ rubric: (report as any).rubric, form });
+      }
+    }
+
+    return res.json({
+      film: { ...film, _id: String((film as any)._id), userId: String((film as any).userId) },
+      report: report
+        ? {
+            ...report,
+            _id: String((report as any)._id),
+            filmSubmissionId: String((report as any).filmSubmissionId),
+            playerUserId: String((report as any).playerUserId),
+            evaluatorUserId: String((report as any).evaluatorUserId),
+            formId: (report as any).formId ? String((report as any).formId) : null
+          }
+        : null,
+      evaluator: evaluator
+        ? {
+            id: String((evaluator as any)._id),
+            email: (evaluator as any).email ?? null,
+            role: (evaluator as any).role ?? null,
+            firstName: (evaluator as any).firstName ?? null,
+            lastName: (evaluator as any).lastName ?? null
+          }
+        : null,
+      form: form ? { ...form, _id: String((form as any)._id) } : null,
+      rubricBreakdown
     });
   } catch (err) {
     return next(err);
