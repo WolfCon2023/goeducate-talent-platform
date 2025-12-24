@@ -9,7 +9,11 @@ import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
 
 type AdminStatsResponse = {
-  submissions: { total: number; byStatus: Record<string, number> };
+  submissions: {
+    total: number;
+    byStatus: Record<string, number>;
+    queue?: { openTotal: number; overdueHours: number; overdueTotal: number; avgOpenAgeHours: number };
+  };
   evaluations: {
     total: number;
     byGrade: Array<{
@@ -53,6 +57,7 @@ export function AdminStats() {
   useAutoRevalidate(load, { intervalMs: 30_000 });
 
   const byStatus = data?.submissions.byStatus ?? {};
+  const queue = data?.submissions.queue;
 
   return (
     <Card>
@@ -75,6 +80,12 @@ export function AdminStats() {
               submitted: {byStatus.submitted ?? 0} · in_review: {byStatus.in_review ?? 0} · completed:{" "}
               {byStatus.completed ?? 0}
             </div>
+            {queue ? (
+              <div className="mt-2 text-sm text-[color:var(--muted)]">
+                open: {queue.openTotal} · overdue ({queue.overdueHours}h): {queue.overdueTotal} · avg age:{" "}
+                {queue.avgOpenAgeHours}h
+              </div>
+            ) : null}
           </div>
           <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface-soft)] p-4">
             <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Evaluations</div>

@@ -226,6 +226,27 @@ adminRouter.get("/admin/stats", requireAuth, requireRole([ROLE.ADMIN]), async (_
             { $limit: 25 },
             { $project: { _id: 0, position: "$_id", count: 1 } }
         ]);
+        // Queue KPIs (open submissions = not completed)
+        const now = Date.now();
+        const overdueHours = 72; // configurable later
+        const overdueBefore = new Date(now - overdueHours * 60 * 60 * 1000);
+        const openStatuses = [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW, FILM_SUBMISSION_STATUS.NEEDS_CHANGES];
+        const openTotal = await FilmSubmissionModel.countDocuments({ status: { $in: openStatuses } });
+        const overdueTotal = await FilmSubmissionModel.countDocuments({
+            status: { $in: openStatuses },
+            createdAt: { $lt: overdueBefore }
+        });
+        const avgOpenAge = await FilmSubmissionModel.aggregate([
+            { $match: { status: { $in: openStatuses } } },
+            {
+                $project: {
+                    ageHours: {
+                        $cond: [{ $ne: ["$createdAt", null] }, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60] }, null]
+                    }
+                }
+            },
+            { $group: { _id: null, avgAgeHours: { $avg: "$ageHours" } } }
+        ]);
         // Group evaluations by overallGrade, include a few recent examples per grade.
         const evaluationsByGrade = await EvaluationReportModel.aggregate([
             { $sort: { createdAt: -1 } },
@@ -432,7 +453,13 @@ adminRouter.get("/admin/stats", requireAuth, requireRole([ROLE.ADMIN]), async (_
                 total: submissionsTotal,
                 byStatus: submissionCounts,
                 bySport: submissionsBySport,
-                byPosition: submissionsByPosition
+                byPosition: submissionsByPosition,
+                queue: {
+                    openTotal,
+                    overdueHours,
+                    overdueTotal,
+                    avgOpenAgeHours: Math.round(Number(avgOpenAge?.[0]?.avgAgeHours ?? 0) * 100) / 100
+                }
             },
             evaluations: {
                 total: evaluationsTotal,
