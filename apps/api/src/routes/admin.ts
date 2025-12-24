@@ -25,6 +25,7 @@ import { createTransporterOrThrow, isEmailConfigured } from "../email/mailer.js"
 import { sendMailWithAudit } from "../email/audit.js";
 import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 import { AdminAuditLogModel } from "../models/AdminAuditLog.js";
+import { AuditLogModel } from "../models/AuditLog.js";
 
 export const adminRouter = Router();
 
@@ -764,6 +765,28 @@ adminRouter.get("/admin/audit", requireAuth, requireRole([ROLE.ADMIN]), async (r
 
     const total = Number(totalRows?.[0]?.count ?? 0);
     return res.json({ total, results, skip, limit });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Audit logs (profile-related). Admin only.
+// GET /admin/audit-logs?action=PROFILE_VISIBILITY_CHANGED&limit=50
+adminRouter.get("/admin/audit-logs", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const { action, limit } = req.query as Record<string, string | undefined>;
+    const lim = Math.max(1, Math.min(200, limit ? Number(limit) : 50));
+    const q: Record<string, any> = {};
+    if (action) q.action = String(action);
+    const items = await AuditLogModel.find(q).sort({ createdAt: -1 }).limit(lim).lean();
+    return res.json({
+      items: items.map((i: any) => ({
+        ...i,
+        _id: String(i._id),
+        actorUserId: String(i.actorUserId),
+        targetUserId: String(i.targetUserId)
+      }))
+    });
   } catch (err) {
     return next(err);
   }

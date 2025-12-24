@@ -36,6 +36,21 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   }
 }
 
+// Optional auth: attaches req.user if a valid bearer token is present, otherwise continues anonymously.
+export function maybeAuth(req: Request, _res: Response, next: NextFunction) {
+  const header = req.header("authorization");
+  if (!header?.toLowerCase().startsWith("bearer ")) return next();
+  const token = header.slice("bearer ".length).trim();
+  try {
+    const env = getEnv();
+    const payload = verifyAccessToken(token, env.JWT_SECRET);
+    req.user = { id: payload.sub, role: payload.role };
+  } catch {
+    // Ignore invalid tokens for public endpoints; use requireAuth for protected routes.
+  }
+  return next();
+}
+
 export function requireRole(allowed: readonly Role[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.user) {
