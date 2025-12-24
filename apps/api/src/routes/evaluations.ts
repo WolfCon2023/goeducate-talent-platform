@@ -229,7 +229,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
             type: NOTIFICATION_TYPE.WATCHLIST_EVAL_COMPLETED,
             title: "New evaluation posted",
             message: `A new evaluation was posted for ${playerName}.`,
-            href: `/coach/player/${String(playerUserId)}`
+            href: `/coach/film/${String(filmSubmissionId)}?view=evaluation`
           }))
         );
         for (const c of subscribed) publishNotificationsChanged(String(c._id));
@@ -244,7 +244,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
                   subject: "GoEducate Talent – New evaluation for your watchlist",
                   title: "New evaluation posted",
                   message: `A new evaluation was posted for ${playerName}.`,
-                  href: `/coach/player/${String(playerUserId)}`
+                  href: `/coach/film/${String(filmSubmissionId)}?view=evaluation`
                 }).catch(() => {})
               )
           );

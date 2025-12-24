@@ -27,12 +27,32 @@ type ContactInfo = {
   contactPhone: string | null;
 };
 
+type FilmSubmission = {
+  _id: string;
+  title: string;
+  status: string;
+  createdAt?: string;
+};
+
+type EvalSummary = {
+  filmSubmissionId: string;
+  overallGrade: number;
+  createdAt?: string;
+};
+
+function fmtDate(iso?: string) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString();
+}
+
 export function CoachPlayerProfile(props: { userId: string }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [contact, setContact] = useState<ContactInfo | null>(null);
   const [contactBlocked, setContactBlocked] = useState<"subscription" | "other" | null>(null);
+  const [films, setFilms] = useState<FilmSubmission[]>([]);
+  const [evalByFilmId, setEvalByFilmId] = useState<Record<string, EvalSummary | null>>({});
 
   async function load() {
     setError(null);
@@ -44,6 +64,19 @@ export function CoachPlayerProfile(props: { userId: string }) {
 
       const p = await apiFetch<PlayerProfile>(`/player-profiles/player/${encodeURIComponent(props.userId)}`, { token });
       setProfile(p);
+
+      const filmsRes = await apiFetch<{ results: FilmSubmission[] }>(`/film-submissions/player/${encodeURIComponent(props.userId)}`, { token });
+      setFilms(filmsRes.results ?? []);
+
+      // Prefetch evaluation summaries for completed items (cap).
+      const completed = (filmsRes.results ?? []).filter((f) => f.status === "completed").slice(0, 10);
+      await Promise.all(
+        completed.map(async (f) => {
+          if (evalByFilmId[f._id] !== undefined) return;
+          const r = await apiFetch<EvalSummary>(`/evaluations/film/${encodeURIComponent(f._id)}`, { token }).catch(() => null);
+          setEvalByFilmId((prev) => ({ ...prev, [f._id]: r }));
+        })
+      );
 
       try {
         const c = await apiFetch<ContactInfo>(`/contact/player/${encodeURIComponent(props.userId)}`, { token });
@@ -139,6 +172,44 @@ export function CoachPlayerProfile(props: { userId: string }) {
               ) : (
                 <div className="text-[color:var(--muted)]">—</div>
               )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4 lg:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-semibold text-[color:var(--foreground)]">Film & evaluations</div>
+                <div className="mt-1 text-sm text-[color:var(--muted)]">Submissions and completed evaluations for this player.</div>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3">
+              {films.map((f) => (
+                <div key={f._id} className="rounded-xl border border-[color:var(--border)] bg-[var(--surface-soft)] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="font-semibold text-[color:var(--foreground)]">{f.title}</div>
+                      <div className="mt-1 text-sm text-[color:var(--muted)]">
+                        Status: <span className="text-[color:var(--foreground)]">{f.status}</span> · Submitted: {fmtDate(f.createdAt)}
+                      </div>
+                      {f.status === "completed" ? (
+                        <div className="mt-1 text-sm text-[color:var(--muted)]">
+                          Grade:{" "}
+                          <span className="text-[color:var(--foreground)]">
+                            {evalByFilmId[f._id]?.overallGrade != null ? `${evalByFilmId[f._id]!.overallGrade}/10` : "—"}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Link className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline" href={`/coach/film/${encodeURIComponent(f._id)}?view=evaluation`}>
+                        Open
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {films.length === 0 ? <div className="text-sm text-[color:var(--muted)]">No film submissions found.</div> : null}
             </div>
           </div>
         </div>
