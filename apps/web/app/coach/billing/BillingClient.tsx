@@ -126,6 +126,8 @@ export function BillingClient() {
     }
   }
 
+  const subscribed = Boolean(status && (status.hasSubscription || status.status === "active"));
+
   return (
     <div className="mx-auto max-w-3xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -150,7 +152,7 @@ export function BillingClient() {
                     {status.configured ? "Configured" : "Not configured"}
                   </span>
                   {" · "}Status: <span className="text-white/90">{String(status.status ?? "—")}</span>
-                  {status.hasSubscription ? (
+                  {subscribed ? (
                     <>
                       {" · "}Plan:{" "}
                       <span className="text-white/90">
@@ -192,7 +194,7 @@ export function BillingClient() {
           <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
             Billing is not configured right now. Please contact support if you need access to subscription features.
           </div>
-        ) : status?.hasSubscription ? (
+        ) : subscribed ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
             <div className="text-sm text-white/80">
               Manage your existing subscription (payment method, cancel, invoices).

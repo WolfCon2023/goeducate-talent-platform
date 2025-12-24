@@ -94,6 +94,11 @@ billingRouter.get("/billing/status", requireAuth, requireRole([ROLE.COACH]), asy
           // No active Stripe subscription found. Keep stored status if it was manually set.
           if (coach.subscriptionStatus !== COACH_SUBSCRIPTION_STATUS.ACTIVE) {
             effectiveStatus = COACH_SUBSCRIPTION_STATUS.INACTIVE;
+          } else {
+            // Manually toggled active (or legacy state) with no Stripe subscription found.
+            // Treat as subscribed to avoid duplicate billing; plan/renewal may be unknown.
+            effectiveHasSubscription = true;
+            plan = plan ?? "unknown";
           }
         }
       } catch (err) {
@@ -104,6 +109,12 @@ billingRouter.get("/billing/status", requireAuth, requireRole([ROLE.COACH]), asy
       // Manually toggled active with no Stripe record; plan unknown.
         plan = "unknown";
       effectiveHasSubscription = true;
+    }
+
+    // Final safety: if marked active, don't allow the UI to offer "Upgrade" (duplicate billing risk).
+    if (effectiveStatus === COACH_SUBSCRIPTION_STATUS.ACTIVE && !effectiveHasSubscription) {
+      effectiveHasSubscription = true;
+      plan = plan ?? "unknown";
     }
 
     return res.json({
