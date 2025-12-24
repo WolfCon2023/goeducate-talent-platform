@@ -486,11 +486,14 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
     const q = String(req.query.q ?? "").trim();
     const status = String(req.query.status ?? "").trim().toLowerCase();
     const hasEval = String(req.query.hasEval ?? "").trim(); // "1" | "0" | ""
+    const hasAssigned = String(req.query.hasAssigned ?? "").trim(); // "1" | "0" | ""
 
     const match: any = {};
     if (status && Object.values(FILM_SUBMISSION_STATUS).includes(status as any)) {
       match.status = status;
     }
+    if (hasAssigned === "1") match.assignedEvaluatorUserId = { $exists: true, $ne: null };
+    if (hasAssigned === "0") match.$or = [{ assignedEvaluatorUserId: { $exists: false } }, { assignedEvaluatorUserId: null }];
 
     const qRegex = q ? new RegExp(escapeRegex(q), "i") : null;
 
@@ -585,6 +588,10 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
                 updatedAt: 1,
                 assignedAt: 1,
                 assignedEvaluatorUserId: 1,
+                assignedEvaluator: {
+                  id: "$assignedEvaluator._id",
+                  email: "$assignedEvaluator.email"
+                },
                 player: {
                   id: "$playerUser._id",
                   email: "$playerUser.email",
@@ -603,6 +610,10 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
                   evaluatorEmail: {
                     $ifNull: ["$reportEvaluator.email", "$assignedEvaluator.email"]
                   }
+                },
+                reportEvaluator: {
+                  id: "$reportEvaluator._id",
+                  email: "$reportEvaluator.email"
                 }
               }
             }

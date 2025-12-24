@@ -221,7 +221,8 @@ filmSubmissionsRouter.patch("/film-submissions/:id/assignment", requireAuth, req
         }
         const action = String(req.body.action ?? "").trim();
         const force = Boolean(req.body.force);
-        if (action !== "assign_to_me" && action !== "unassign") {
+        const evaluatorUserIdRaw = String(req.body.evaluatorUserId ?? "").trim();
+        if (action !== "assign_to_me" && action !== "unassign" && action !== "assign") {
             return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid action" }));
         }
         const _id = new mongoose.Types.ObjectId(req.params.id);
@@ -232,6 +233,52 @@ filmSubmissionsRouter.patch("/film-submissions/:id/assignment", requireAuth, req
             return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
         if (film.status === FILM_SUBMISSION_STATUS.COMPLETED) {
             return next(new ApiError({ status: 409, code: "CANNOT_ASSIGN", message: "Cannot assign a completed submission" }));
+        }
+        if (action === "assign") {
+            if (!isAdmin) {
+                return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Insufficient permissions" }));
+            }
+            if (!mongoose.isValidObjectId(evaluatorUserIdRaw)) {
+                return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid evaluatorUserId is required" }));
+            }
+            const targetId = new mongoose.Types.ObjectId(evaluatorUserIdRaw);
+            const target = await UserModel.findById(targetId).select({ _id: 1, role: 1, email: 1 }).lean();
+            if (!target || target.role !== ROLE.EVALUATOR) {
+                return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "evaluatorUserId must be an evaluator" }));
+            }
+            const prevStatus = film.status;
+            if (film.assignedEvaluatorUserId && String(film.assignedEvaluatorUserId) !== String(targetId)) {
+                if (!force) {
+                    return next(new ApiError({
+                        status: 409,
+                        code: "ALREADY_ASSIGNED",
+                        message: "Already assigned to another evaluator"
+                    }));
+                }
+            }
+            film.assignedEvaluatorUserId = targetId;
+            film.assignedAt = new Date();
+            if (film.status === FILM_SUBMISSION_STATUS.SUBMITTED) {
+                film.status = FILM_SUBMISSION_STATUS.IN_REVIEW;
+            }
+            film.history = film.history ?? [];
+            film.history.push({
+                at: new Date(),
+                byUserId: new mongoose.Types.ObjectId(req.user.id),
+                action: "assigned",
+                note: `assigned_to:${String(targetId)}`
+            });
+            if (prevStatus !== film.status) {
+                film.history.push({
+                    at: new Date(),
+                    byUserId: new mongoose.Types.ObjectId(req.user.id),
+                    action: "status_changed",
+                    fromStatus: prevStatus,
+                    toStatus: film.status
+                });
+            }
+            await film.save();
+            return res.json(film);
         }
         if (action === "assign_to_me") {
             const prevStatus = film.status;
