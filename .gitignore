@@ -8,5 +8,11 @@ node_modules
 dist/
 **/dist/
 
+# Railway stability: commit built output for these two packages only
+!apps/api/dist/
+!apps/api/dist/**
+!packages/shared/dist/
+!packages/shared/dist/**
+
 # TypeScript incremental build info
 *.tsbuildinfo

@@ -1,0 +1,68 @@
+import type { Role } from "../types/roles.js";
+import type { CoachProfile } from "../schemas/coachProfile.js";
+import type { EvaluatorProfile } from "../schemas/evaluatorProfile.js";
+import type { PlayerProfile } from "../schemas/playerProfile.js";
+export type PublicProfileRequester = {
+    id: string;
+    role: Role;
+    subscriptionStatus?: string | null;
+} | null;
+export declare function buildPublicPlayerProfile(profile: PlayerProfile, requester: PublicProfileRequester): {
+    userId: string;
+    firstName: string;
+    lastName: string;
+    position: string;
+    gradYear: number;
+    state: string;
+    city: string;
+    _id?: string;
+    isProfilePublic?: boolean;
+    isContactVisibleToSubscribedCoaches?: boolean;
+    sport?: "football" | "basketball" | "volleyball" | "soccer" | "track" | "other";
+    school?: string;
+    heightIn?: number;
+    weightLb?: number;
+    heightInInches?: number;
+    weightLbs?: number;
+    fortyTime?: number;
+    verticalInches?: number;
+    gpa?: number;
+    highlightPhotoUrl?: string;
+    jerseyNumber?: number;
+    contactEmail?: string;
+    contactPhone?: string;
+    hudlLink?: string;
+    createdAt?: string;
+    updatedAt?: string;
+};
+export declare function buildPublicCoachProfile(profile: CoachProfile, requester: PublicProfileRequester): {
+    userId: string;
+    _id?: string;
+    isProfilePublic?: boolean;
+    firstName?: string;
+    lastName?: string;
+    title?: string;
+    institutionName?: string;
+    programLevel?: string;
+    institutionLocation?: string;
+    positionsOfInterest?: string[];
+    gradYears?: number[];
+    regions?: string[];
+    createdAt?: string;
+    updatedAt?: string;
+};
+export declare function buildPublicEvaluatorProfile(profile: EvaluatorProfile, requester: PublicProfileRequester): {
+    userId: string;
+    _id?: string;
+    isProfilePublic?: boolean;
+    firstName?: string;
+    lastName?: string;
+    title?: string;
+    bio?: string;
+    experienceYears?: number;
+    credentials?: string[];
+    specialties?: string[];
+    createdAt?: string;
+    updatedAt?: string;
+};
+//# sourceMappingURL=publicProfiles.d.ts.map

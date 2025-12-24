@@ -1,0 +1,41 @@
+import { z } from "zod";
+export declare const EvaluatorProfileSchema: z.ZodObject<{
+    _id: z.ZodOptional<z.ZodString>;
+    userId: z.ZodString;
+    isProfilePublic: z.ZodOptional<z.ZodBoolean>;
+    firstName: z.ZodOptional<z.ZodString>;
+    lastName: z.ZodOptional<z.ZodString>;
+    title: z.ZodOptional<z.ZodString>;
+    bio: z.ZodOptional<z.ZodString>;
+    experienceYears: z.ZodOptional<z.ZodNumber>;
+    credentials: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    specialties: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    createdAt: z.ZodOptional<z.ZodString>;
+    updatedAt: z.ZodOptional<z.ZodString>;
+}, z.core.$strip>;
+export type EvaluatorProfile = z.infer<typeof EvaluatorProfileSchema>;
+export declare const EvaluatorProfileCreateSchema: z.ZodObject<{
+    isProfilePublic: z.ZodOptional<z.ZodBoolean>;
+    firstName: z.ZodOptional<z.ZodString>;
+    lastName: z.ZodOptional<z.ZodString>;
+    title: z.ZodOptional<z.ZodString>;
+    userId: z.ZodString;
+    bio: z.ZodOptional<z.ZodString>;
+    experienceYears: z.ZodOptional<z.ZodNumber>;
+    credentials: z.ZodOptional<z.ZodArray<z.ZodString>>;
+    specialties: z.ZodOptional<z.ZodArray<z.ZodString>>;
+}, z.core.$strip>;
+export type EvaluatorProfileCreateInput = z.infer<typeof EvaluatorProfileCreateSchema>;
+export declare const EvaluatorProfileUpdateSchema: z.ZodObject<{
+    isProfilePublic: z.ZodOptional<z.ZodOptional<z.ZodBoolean>>;
+    firstName: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    lastName: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    title: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    userId: z.ZodOptional<z.ZodString>;
+    bio: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    experienceYears: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
+    credentials: z.ZodOptional<z.ZodOptional<z.ZodArray<z.ZodString>>>;
+    specialties: z.ZodOptional<z.ZodOptional<z.ZodArray<z.ZodString>>>;
+}, z.core.$strip>;
+export type EvaluatorProfileUpdateInput = z.infer<typeof EvaluatorProfileUpdateSchema>;
+//# sourceMappingURL=evaluatorProfile.d.ts.map
