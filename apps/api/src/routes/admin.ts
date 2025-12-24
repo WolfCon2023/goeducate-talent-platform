@@ -1,7 +1,7 @@
 import { Router } from "express";
 import mongoose from "mongoose";
 
-import { RegisterSchema, ROLE } from "@goeducate/shared";
+import { FILM_SUBMISSION_STATUS, RegisterSchema, ROLE } from "@goeducate/shared";
 
 import { signAccessToken } from "../auth/jwt.js";
 import { hashPassword } from "../auth/password.js";
@@ -468,6 +468,156 @@ adminRouter.get("/admin/stats", requireAuth, requireRole([ROLE.ADMIN]), async (_
         evaluators: evaluatorPerformance
       }
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: list film submissions + evaluation status (search + filter + pagination)
+// This powers the Admin "Evaluations" table and allows admins to pull up any evaluation (even if not completed).
+adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const limitRaw = Number(req.query.limit ?? 25);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, limitRaw)) : 25;
+    const skipRaw = Number(req.query.skip ?? 0);
+    const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.min(200_000, skipRaw)) : 0;
+
+    const q = String(req.query.q ?? "").trim();
+    const status = String(req.query.status ?? "").trim().toLowerCase();
+    const hasEval = String(req.query.hasEval ?? "").trim(); // "1" | "0" | ""
+
+    const match: any = {};
+    if (status && Object.values(FILM_SUBMISSION_STATUS).includes(status as any)) {
+      match.status = status;
+    }
+
+    const qRegex = q ? new RegExp(escapeRegex(q), "i") : null;
+
+    const base: any[] = [
+      { $match: match },
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: EvaluationReportModel.collection.name,
+          localField: "_id",
+          foreignField: "filmSubmissionId",
+          as: "eval"
+        }
+      },
+      { $addFields: { eval: { $arrayElemAt: ["$eval", 0] } } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "userId",
+          foreignField: "_id",
+          as: "playerUser"
+        }
+      },
+      { $addFields: { playerUser: { $arrayElemAt: ["$playerUser", 0] } } },
+      {
+        $lookup: {
+          from: "playerprofiles",
+          localField: "userId",
+          foreignField: "userId",
+          as: "playerProfile"
+        }
+      },
+      { $addFields: { playerProfile: { $arrayElemAt: ["$playerProfile", 0] } } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "assignedEvaluatorUserId",
+          foreignField: "_id",
+          as: "assignedEvaluator"
+        }
+      },
+      { $addFields: { assignedEvaluator: { $arrayElemAt: ["$assignedEvaluator", 0] } } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "eval.evaluatorUserId",
+          foreignField: "_id",
+          as: "reportEvaluator"
+        }
+      },
+      { $addFields: { reportEvaluator: { $arrayElemAt: ["$reportEvaluator", 0] } } }
+    ];
+
+    // Filter by whether an evaluation report exists.
+    if (hasEval === "1") base.push({ $match: { eval: { $ne: null } } });
+    if (hasEval === "0") base.push({ $match: { eval: null } });
+
+    // Search across film title, player name/email, evaluator email.
+    if (qRegex) {
+      base.push({
+        $match: {
+          $or: [
+            { title: qRegex },
+            { "playerUser.email": qRegex },
+            { "playerProfile.firstName": qRegex },
+            { "playerProfile.lastName": qRegex },
+            { "assignedEvaluator.email": qRegex },
+            { "reportEvaluator.email": qRegex }
+          ]
+        }
+      });
+    }
+
+    // Build results + count in one query.
+    const rows = await FilmSubmissionModel.aggregate([
+      ...base,
+      {
+        $facet: {
+          totalRows: [{ $count: "count" }],
+          results: [
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                _id: 1,
+                userId: 1,
+                title: 1,
+                opponent: 1,
+                gameDate: 1,
+                status: 1,
+                createdAt: 1,
+                updatedAt: 1,
+                assignedAt: 1,
+                assignedEvaluatorUserId: 1,
+                player: {
+                  id: "$playerUser._id",
+                  email: "$playerUser.email",
+                  firstName: "$playerProfile.firstName",
+                  lastName: "$playerProfile.lastName",
+                  sport: "$playerProfile.sport",
+                  position: "$playerProfile.position"
+                },
+                evaluation: {
+                  id: "$eval._id",
+                  createdAt: "$eval.createdAt",
+                  overallGrade: "$eval.overallGrade",
+                  sport: "$eval.sport",
+                  position: "$eval.position",
+                  evaluatorUserId: "$eval.evaluatorUserId",
+                  evaluatorEmail: {
+                    $ifNull: ["$reportEvaluator.email", "$assignedEvaluator.email"]
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]);
+
+    const total = Number(rows?.[0]?.totalRows?.[0]?.count ?? 0);
+    const results = (rows?.[0]?.results ?? []).map((r: any) => ({
+      ...r,
+      _id: String(r._id),
+      userId: String(r.userId)
+    }));
+
+    return res.json({ total, results, skip, limit });
   } catch (err) {
     return next(err);
   }

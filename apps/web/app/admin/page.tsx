@@ -11,6 +11,7 @@ import { AdminShowcaseRegistrations } from "@/components/AdminShowcaseRegistrati
 import { AdminNotificationQueue } from "@/components/AdminNotificationQueue";
 import { AdminEvaluationTemplates } from "@/components/AdminEvaluationTemplates";
 import { AdminEvaluationForms } from "@/components/AdminEvaluationForms";
+import { AdminEvaluations } from "@/components/AdminEvaluations";
 import { AdminAccessRequests } from "@/components/AdminAccessRequests";
 import { AdminEmailDiagnostics } from "@/components/AdminEmailDiagnostics";
 import { AdminAuditLog } from "@/components/AdminAuditLog";
@@ -51,6 +52,9 @@ export default function AdminPage() {
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-email">
                 Email
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-evaluations">
+                Evaluations
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-audit">
                 Audit log
@@ -99,6 +103,10 @@ export default function AdminPage() {
 
         <section id="admin-email" className="scroll-mt-28">
           <AdminEmailDiagnostics />
+        </section>
+
+        <section id="admin-evaluations" className="scroll-mt-28">
+          <AdminEvaluations />
         </section>
 
         <section id="admin-audit" className="scroll-mt-28">
