@@ -249,6 +249,8 @@ export function PlayerProfileForm(props: { initial?: Partial<Profile> }) {
         })
       });
       setStatus("Saved.");
+      // Let other UI (profile visibility/settings) refresh immediately.
+      if (typeof window !== "undefined") window.dispatchEvent(new Event("goeducate:profile-saved"));
     } catch (err) {
       const parsed = parseApiError(err);
       setFormError(parsed.formError ?? "Save failed");

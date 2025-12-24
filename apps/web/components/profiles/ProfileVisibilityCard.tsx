@@ -30,12 +30,27 @@ export function ProfileVisibilityCard(props: {
     try {
       const token = getAccessToken();
       if (!token) throw new Error("Please login first.");
+
+      // Player profiles have required fields and are created via the existing Player profile form.
+      // Avoid calling /profiles/me before the player profile exists to prevent noisy 404s.
+      if (role === "player") {
+        try {
+          await apiFetch("/player-profiles/me", { token });
+        } catch (err) {
+          if (err instanceof ApiFetchError && err.status === 404) {
+            setData(null);
+            setError("Save your player profile below to enable visibility and contact settings.");
+            return;
+          }
+        }
+      }
+
       const res = await apiFetch<ProfileMeResponse>("/profiles/me", { token });
       setData(res);
     } catch (err) {
       if (err instanceof ApiFetchError && err.status === 404) {
         setData(null);
-        setError("No profile found yet. Please complete your profile first.");
+        setError("No profile found yet. Please complete and save your profile first.");
       } else {
         setError(err instanceof Error ? err.message : "Failed to load profile settings");
       }
@@ -46,7 +61,10 @@ export function ProfileVisibilityCard(props: {
 
   React.useEffect(() => {
     void load();
+    const onSaved = () => void load();
+    window.addEventListener("goeducate:profile-saved", onSaved);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => window.removeEventListener("goeducate:profile-saved", onSaved);
   }, []);
 
   async function savePatch(patch: Record<string, unknown>) {
