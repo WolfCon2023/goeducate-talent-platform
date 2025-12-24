@@ -129,7 +129,32 @@ export function EvaluatorNotesTool() {
   const [cloudStatus, setCloudStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
   const [cloudSavedAt, setCloudSavedAt] = React.useState<string | null>(null);
 
-  const key = React.useMemo(() => draftKey({ sport, filmSubmissionId }), [sport, filmSubmissionId]);
+  const autoKey = React.useMemo(() => draftKey({ sport, filmSubmissionId }), [sport, filmSubmissionId]);
+  const [keyMode, setKeyMode] = React.useState<"auto" | "named">("auto");
+  const [activeKey, setActiveKey] = React.useState<string>(autoKey);
+  const [activeTitle, setActiveTitle] = React.useState<string | null>(null);
+  const key = keyMode === "auto" ? autoKey : activeKey;
+
+  // Keep active key aligned when using autosave mode.
+  React.useEffect(() => {
+    if (keyMode === "auto") {
+      setActiveKey(autoKey);
+      setActiveTitle(null);
+    }
+  }, [autoKey, keyMode]);
+
+  type DraftItem = {
+    key: string;
+    title: string | null;
+    sport: string;
+    filmSubmissionId: string | null;
+    formId: string | null;
+    payload: Draft;
+    updatedAt: string;
+  };
+  const [draftsLoading, setDraftsLoading] = React.useState(false);
+  const [drafts, setDrafts] = React.useState<DraftItem[]>([]);
+  const [draftSearch, setDraftSearch] = React.useState("");
 
   async function loadForm(nextSport: Sport) {
     setError(null);
@@ -180,6 +205,28 @@ export function EvaluatorNotesTool() {
     }
   }, [key]);
 
+  async function loadDraftList() {
+    try {
+      setDraftsLoading(true);
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) return;
+      if (role !== "evaluator" && role !== "admin") return;
+      const qs = new URLSearchParams();
+      qs.set("limit", "25");
+      if (draftSearch.trim()) qs.set("q", draftSearch.trim());
+      const res = await apiFetch<{ items: DraftItem[] }>(`/evaluator/notes/drafts?${qs.toString()}`, { token });
+      setDrafts(res.items ?? []);
+    } finally {
+      setDraftsLoading(false);
+    }
+  }
+
+  React.useEffect(() => {
+    void loadDraftList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Load draft from server (per evaluator account) and merge with local (newest wins).
   React.useEffect(() => {
     async function loadRemote() {
@@ -189,7 +236,7 @@ export function EvaluatorNotesTool() {
         if (!token) return;
         if (role !== "evaluator" && role !== "admin") return;
 
-        const res = await apiFetch<{ items: Array<{ payload: Draft; updatedAt: string }> }>(
+        const res = await apiFetch<{ items: Array<{ payload: Draft; updatedAt: string; title?: string | null }> }>(
           `/evaluator/notes/drafts?key=${encodeURIComponent(key)}&limit=1`,
           { token }
         );
@@ -212,6 +259,7 @@ export function EvaluatorNotesTool() {
           if (typeof window !== "undefined") window.localStorage.setItem(key, JSON.stringify(remoteDraft));
         }
         setCloudSavedAt(remoteDraft.updatedAt ?? null);
+        if (item && "title" in item && item.title) setActiveTitle(String(item.title));
         setCloudStatus("saved");
       } catch {
         // Non-fatal. Local draft is still available.
@@ -351,6 +399,78 @@ export function EvaluatorNotesTool() {
     toast({ kind: "info", title: "Cleared", message: "Draft cleared." });
   }
 
+  async function saveAs() {
+    const title = window.prompt("Name this draft (so you can return to it later):", activeTitle ?? "");
+    if (!title || !title.trim()) return;
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "evaluator" && role !== "admin") throw new Error("Evaluator only.");
+      const d: Draft = {
+        version: 1,
+        sport,
+        formId: formDef?._id,
+        filmSubmissionId: filmSubmissionId ?? undefined,
+        rubric,
+        strengths,
+        improvements,
+        notes,
+        updatedAt: new Date().toISOString()
+      };
+      const created = await apiFetch<{ key: string; title: string | null }>(`/evaluator/notes/drafts/save-as`, {
+        method: "POST",
+        token,
+        body: JSON.stringify({
+          title: title.trim(),
+          sport,
+          filmSubmissionId: filmSubmissionId ?? undefined,
+          formId: formDef?._id,
+          payload: d
+        })
+      });
+      setKeyMode("named");
+      setActiveKey(created.key);
+      setActiveTitle(created.title ?? title.trim());
+      if (typeof window !== "undefined") window.localStorage.setItem(created.key, JSON.stringify(d));
+      toast({ kind: "success", title: "Saved as", message: "Draft saved to your account." });
+      await loadDraftList();
+    } catch (err) {
+      toast({ kind: "error", title: "Save failed", message: err instanceof Error ? err.message : "Could not save draft." });
+    }
+  }
+
+  async function openDraft(it: DraftItem) {
+    setKeyMode("named");
+    setActiveKey(it.key);
+    setActiveTitle(it.title ?? null);
+    const d = it.payload;
+    if (d?.sport) setSport(d.sport);
+    setRubric(d?.rubric ?? {});
+    setStrengths(d?.strengths ?? "");
+    setImprovements(d?.improvements ?? "");
+    setNotes(d?.notes ?? "");
+    if (typeof window !== "undefined") window.localStorage.setItem(it.key, JSON.stringify(d));
+    toast({ kind: "info", title: "Draft opened", message: it.title ? `Opened "${it.title}".` : "Opened draft." });
+  }
+
+  async function deleteDraft(it: DraftItem) {
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login first.");
+      await apiFetch(`/evaluator/notes/drafts?key=${encodeURIComponent(it.key)}`, { method: "DELETE", token });
+      if (typeof window !== "undefined") window.localStorage.removeItem(it.key);
+      if (keyMode === "named" && activeKey === it.key) {
+        setKeyMode("auto");
+        setActiveTitle(null);
+      }
+      toast({ kind: "success", title: "Deleted", message: "Draft deleted." });
+      await loadDraftList();
+    } catch (err) {
+      toast({ kind: "error", title: "Delete failed", message: err instanceof Error ? err.message : "Could not delete draft." });
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <Card>
@@ -371,6 +491,9 @@ export function EvaluatorNotesTool() {
             ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={saveAs}>
+              Save as…
+            </Button>
             <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={copyRubricJson} disabled={!formDef}>
               Copy rubric JSON
             </Button>
@@ -387,7 +510,24 @@ export function EvaluatorNotesTool() {
         </div>
 
         <div className="mt-4 text-xs text-white/60">
-          Draft status: <span className="text-white/80">Autosaved locally</span>
+          Draft:{" "}
+          <span className="text-white/80">
+            {keyMode === "named" ? (activeTitle ? `"${activeTitle}"` : "Named draft") : "Autosave"}
+          </span>
+          {keyMode === "named" ? (
+            <>
+              {" · "}
+              <button
+                type="button"
+                onClick={() => setKeyMode("auto")}
+                className="text-indigo-300 hover:text-indigo-200 hover:underline"
+              >
+                Back to autosave
+              </button>
+            </>
+          ) : null}
+          {" · "}
+          <span className="text-white/80">Autosaved locally</span>
           {" · "}
           <span className={cloudStatus === "error" ? "text-red-300" : cloudStatus === "saving" ? "text-amber-200" : "text-emerald-200"}>
             {cloudStatus === "saving"
@@ -561,6 +701,57 @@ export function EvaluatorNotesTool() {
               placeholder="Optional additional context, caveats, or timecodes..."
             />
           </div>
+        </div>
+      </Card>
+
+      <Card>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="text-sm font-semibold text-white">My drafts</div>
+            <div className="mt-1 text-sm text-white/80">Save multiple drafts during events and resume later.</div>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="grid gap-2">
+              <Label htmlFor="draftSearch">Search drafts</Label>
+              <Input id="draftSearch" value={draftSearch} onChange={(e) => setDraftSearch(e.target.value)} placeholder="Name or key..." />
+            </div>
+            <Button
+              type="button"
+              className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+              onClick={loadDraftList}
+              disabled={draftsLoading}
+            >
+              {draftsLoading ? "Loading…" : "Refresh list"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-3">
+          {drafts.length === 0 ? <div className="text-sm text-white/70">No drafts yet. Use “Save as…” to create one.</div> : null}
+          {drafts.map((d) => (
+            <div key={d.key} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
+              <div className="min-w-0">
+                <div className="truncate font-semibold text-white">{d.title ?? "Untitled draft"}</div>
+                <div className="mt-1 text-xs text-white/60">
+                  {d.sport}
+                  {d.filmSubmissionId ? ` · film:${d.filmSubmissionId}` : ""}
+                  {" · "}updated {new Date(d.updatedAt).toLocaleString()}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => void openDraft(d)}>
+                  Open
+                </Button>
+                <Button
+                  type="button"
+                  className="border border-red-500/30 bg-red-500/10 text-red-100 hover:bg-red-500/20"
+                  onClick={() => void deleteDraft(d)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       </Card>
     </div>

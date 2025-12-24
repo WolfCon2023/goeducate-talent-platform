@@ -6,6 +6,7 @@ export type EvaluatorNotesDraftDoc = {
   // - "film:<filmSubmissionId>"
   // - "sport:football"
   key: string;
+  title?: string;
   sport: string;
   filmSubmissionId?: mongoose.Types.ObjectId;
   formId?: mongoose.Types.ObjectId;
@@ -18,6 +19,7 @@ const EvaluatorNotesDraftSchema = new Schema<EvaluatorNotesDraftDoc>(
   {
     evaluatorUserId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     key: { type: String, required: true, trim: true },
+    title: { type: String, trim: true },
     sport: { type: String, required: true, trim: true, index: true },
     filmSubmissionId: { type: Schema.Types.ObjectId, ref: "FilmSubmission" },
     formId: { type: Schema.Types.ObjectId, ref: "EvaluationForm" },
@@ -28,6 +30,7 @@ const EvaluatorNotesDraftSchema = new Schema<EvaluatorNotesDraftDoc>(
 
 EvaluatorNotesDraftSchema.index({ evaluatorUserId: 1, key: 1 }, { unique: true });
 EvaluatorNotesDraftSchema.index({ evaluatorUserId: 1, updatedAt: -1 });
+EvaluatorNotesDraftSchema.index({ evaluatorUserId: 1, title: 1, updatedAt: -1 });
 
 export const EvaluatorNotesDraftModel =
   (mongoose.models.EvaluatorNotesDraft as mongoose.Model<EvaluatorNotesDraftDoc> | undefined) ??
