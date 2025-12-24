@@ -7,7 +7,7 @@ import * as React from "react";
 import { Card, Button } from "@/components/ui";
 import { toast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
-import { getAccessToken } from "@/lib/auth";
+import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { useConfirm } from "@/components/ConfirmDialog";
 
 type BillingStatus = {
@@ -126,6 +126,9 @@ export function BillingClient() {
     }
   }
 
+  const token = getAccessToken();
+  const role = getTokenRole(token);
+  const isAdmin = role === "admin";
   const subscribed = Boolean(status && (status.hasSubscription || status.status === "active"));
 
   return (
@@ -147,11 +150,18 @@ export function BillingClient() {
             <div className="mt-1 text-sm text-white/80">
               {status ? (
                 <>
-                  Stripe:{" "}
-                  <span className={status.configured ? "text-emerald-300" : "text-amber-300"}>
-                    {status.configured ? "Configured" : "Not configured"}
+                  Status:{" "}
+                  <span className={String(status.status) === "active" ? "text-emerald-300" : "text-white/90"}>
+                    {String(status.status ?? "—")}
                   </span>
-                  {" · "}Status: <span className="text-white/90">{String(status.status ?? "—")}</span>
+                  {isAdmin ? (
+                    <>
+                      {" · "}Stripe:{" "}
+                      <span className={status.configured ? "text-emerald-300" : "text-amber-300"}>
+                        {status.configured ? "Configured" : "Not configured"}
+                      </span>
+                    </>
+                  ) : null}
                   {subscribed ? (
                     <>
                       {" · "}Plan:{" "}
@@ -192,7 +202,12 @@ export function BillingClient() {
 
         {!status?.configured ? (
           <div className="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
-            Billing is not configured right now. Please contact support if you need access to subscription features.
+            Billing is temporarily unavailable. Please contact support if you need access to subscription features.
+            {isAdmin ? (
+              <div className="mt-2 text-xs text-amber-100/80">
+                Admin note: Stripe is not configured (missing required environment variables).
+              </div>
+            ) : null}
           </div>
         ) : subscribed ? (
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">

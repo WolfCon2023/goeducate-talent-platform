@@ -115,6 +115,15 @@ export function LoginClient() {
               <Link href="/contact" className="text-indigo-300 hover:text-indigo-200 hover:underline">
                 Contact support
               </Link>
+              <span className="text-white/50"> · </span>
+              <a
+                href="https://www.goeducateinc.org"
+                target="_blank"
+                rel="noreferrer"
+                className="text-indigo-300 hover:text-indigo-200 hover:underline"
+              >
+                Visit GoEducateInc.org
+              </a>
             </div>
 
             <div className="mt-6 text-xs text-white/55">
