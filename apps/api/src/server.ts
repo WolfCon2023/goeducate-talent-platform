@@ -86,9 +86,14 @@ async function main() {
   app.use(express.json({ limit: "2mb" }));
 
   // Static uploads (profile photos, etc.). Use a persistent volume in production.
+  // IMPORTANT: Some platforms/volumes can be read-only or misconfigured at boot; don't crash the whole API.
   const uploadsRoot = env.UPLOADS_DIR ? path.resolve(env.UPLOADS_DIR) : path.resolve(process.cwd(), "uploads");
-  fs.mkdirSync(uploadsRoot, { recursive: true });
-  app.use("/uploads", express.static(uploadsRoot, { maxAge: env.NODE_ENV === "production" ? "7d" : 0 }));
+  try {
+    fs.mkdirSync(uploadsRoot, { recursive: true });
+    app.use("/uploads", express.static(uploadsRoot, { maxAge: env.NODE_ENV === "production" ? "7d" : 0 }));
+  } catch (err) {
+    console.error("[api] uploads directory is not writable; uploads disabled", { uploadsRoot, err });
+  }
 
   app.use(healthRouter);
   app.use(authRouter);
@@ -113,7 +118,9 @@ async function main() {
 
   // Railway expects the process to bind to the injected PORT and listen on 0.0.0.0.
   const injectedPort = process.env.PORT;
-  const port = Number(injectedPort ?? env.PORT);
+  const parsedInjected = injectedPort != null ? Number(injectedPort) : NaN;
+  const port =
+    Number.isFinite(parsedInjected) && parsedInjected > 0 && parsedInjected < 65536 ? parsedInjected : Number(env.PORT);
   const host = "0.0.0.0";
   console.log(`[api] env.PORT=${env.PORT} process.env.PORT=${injectedPort ?? "<unset>"} chosenPort=${port}`);
   const server = app.listen(port, host, () => {
