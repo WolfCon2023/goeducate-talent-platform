@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "tsx src/server.ts",
     "build": "tsc -p tsconfig.json",
+    "prestart": "tsc -p tsconfig.json",
     "start": "node dist/server.js"
   },
   "dependencies": {
