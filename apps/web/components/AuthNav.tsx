@@ -286,6 +286,16 @@ export function AuthNav() {
                     Edit profile
                   </Link>
                 ) : null}
+                {role === "evaluator" || role === "admin" ? (
+                  <Link
+                    href="/evaluator/notes"
+                    role="menuitem"
+                    className="block px-4 py-2.5 text-sm text-white/90 hover:bg-white/5"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Notes tool
+                  </Link>
+                ) : null}
                 <Link
                   href={dashboardHref}
                   role="menuitem"

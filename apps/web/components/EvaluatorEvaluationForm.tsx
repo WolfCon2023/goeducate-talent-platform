@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button, Card, Input, Label } from "@/components/ui";
 import { useConfirm } from "@/components/ConfirmDialog";
+import Link from "next/link";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 
@@ -584,6 +585,12 @@ export function EvaluatorEvaluationForm(props: { filmSubmissionId: string }) {
           <Button type="button" onClick={loadMeta} disabled={loadingMeta}>
             {loadingMeta ? "Loading details..." : film ? "Reload details" : "Load details"}
           </Button>
+          <Link
+            href={`/evaluator/notes?filmSubmissionId=${encodeURIComponent(props.filmSubmissionId)}&sport=${encodeURIComponent(sport)}`}
+            className="rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold text-white/90 hover:bg-white/10"
+          >
+            Open notes tool
+          </Link>
           <span className="text-xs text-white/60">We fetch this from the API so it stays correct and secure.</span>
         </div>
       </div>
