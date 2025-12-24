@@ -126,6 +126,8 @@ export function EvaluatorNotesTool() {
   const [strengths, setStrengths] = React.useState("");
   const [improvements, setImprovements] = React.useState("");
   const [notes, setNotes] = React.useState("");
+  const [cloudStatus, setCloudStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [cloudSavedAt, setCloudSavedAt] = React.useState<string | null>(null);
 
   const key = React.useMemo(() => draftKey({ sport, filmSubmissionId }), [sport, filmSubmissionId]);
 
@@ -178,6 +180,47 @@ export function EvaluatorNotesTool() {
     }
   }, [key]);
 
+  // Load draft from server (per evaluator account) and merge with local (newest wins).
+  React.useEffect(() => {
+    async function loadRemote() {
+      try {
+        const token = getAccessToken();
+        const role = getTokenRole(token);
+        if (!token) return;
+        if (role !== "evaluator" && role !== "admin") return;
+
+        const res = await apiFetch<{ items: Array<{ payload: Draft; updatedAt: string }> }>(
+          `/evaluator/notes/drafts?key=${encodeURIComponent(key)}&limit=1`,
+          { token }
+        );
+        const item = res.items?.[0];
+        if (!item?.payload) return;
+
+        const remoteDraft = item.payload;
+        if (!remoteDraft || remoteDraft.version !== 1) return;
+
+        const rawLocal = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+        const localDraft = safeJsonParse<Draft>(rawLocal);
+        const localTs = localDraft?.updatedAt ? Date.parse(localDraft.updatedAt) : 0;
+        const remoteTs = remoteDraft.updatedAt ? Date.parse(remoteDraft.updatedAt) : 0;
+
+        if (remoteTs > localTs) {
+          setRubric(remoteDraft.rubric ?? {});
+          setStrengths(remoteDraft.strengths ?? "");
+          setImprovements(remoteDraft.improvements ?? "");
+          setNotes(remoteDraft.notes ?? "");
+          if (typeof window !== "undefined") window.localStorage.setItem(key, JSON.stringify(remoteDraft));
+        }
+        setCloudSavedAt(remoteDraft.updatedAt ?? null);
+        setCloudStatus("saved");
+      } catch {
+        // Non-fatal. Local draft is still available.
+      }
+    }
+    void loadRemote();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
   // Autosave draft.
   React.useEffect(() => {
     const handle = setTimeout(() => {
@@ -197,6 +240,51 @@ export function EvaluatorNotesTool() {
     }, 350);
     return () => clearTimeout(handle);
   }, [sport, formDef?._id, filmSubmissionId, rubric, strengths, improvements, notes, key]);
+
+  // Autosave to server (debounced). This enables returning to drafts across devices.
+  React.useEffect(() => {
+    async function saveRemote(d: Draft) {
+      try {
+        const token = getAccessToken();
+        const role = getTokenRole(token);
+        if (!token) return;
+        if (role !== "evaluator" && role !== "admin") return;
+        setCloudStatus("saving");
+        const res = await apiFetch<{ updatedAt: string }>(`/evaluator/notes/drafts`, {
+          method: "PUT",
+          token,
+          body: JSON.stringify({
+            key,
+            sport,
+            filmSubmissionId: filmSubmissionId ?? undefined,
+            formId: formDef?._id,
+            payload: d
+          })
+        });
+        setCloudSavedAt((res as any).updatedAt ?? new Date().toISOString());
+        setCloudStatus("saved");
+      } catch {
+        setCloudStatus("error");
+      }
+    }
+
+    const handle = setTimeout(() => {
+      const d: Draft = {
+        version: 1,
+        sport,
+        formId: formDef?._id,
+        filmSubmissionId: filmSubmissionId ?? undefined,
+        rubric,
+        strengths,
+        improvements,
+        notes,
+        updatedAt: new Date().toISOString()
+      };
+      void saveRemote(d);
+    }, 1500);
+
+    return () => clearTimeout(handle);
+  }, [key, sport, filmSubmissionId, formDef?._id, rubric, strengths, improvements, notes]);
 
   const requiredMissing = React.useMemo(() => {
     if (!formDef) return [];
@@ -296,6 +384,20 @@ export function EvaluatorNotesTool() {
               Clear
             </Button>
           </div>
+        </div>
+
+        <div className="mt-4 text-xs text-white/60">
+          Draft status: <span className="text-white/80">Autosaved locally</span>
+          {" · "}
+          <span className={cloudStatus === "error" ? "text-red-300" : cloudStatus === "saving" ? "text-amber-200" : "text-emerald-200"}>
+            {cloudStatus === "saving"
+              ? "Saving to your account…"
+              : cloudStatus === "saved"
+                ? `Saved to your account${cloudSavedAt ? ` (${new Date(cloudSavedAt).toLocaleString()})` : ""}`
+                : cloudStatus === "error"
+                  ? "Could not save to your account (local draft is safe)."
+                  : "Not saved to your account yet."}
+          </span>
         </div>
 
         {error ? <div className="mt-4 text-sm text-red-300">{error}</div> : null}

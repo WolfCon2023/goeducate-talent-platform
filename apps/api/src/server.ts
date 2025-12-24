@@ -28,6 +28,7 @@ import { showcasesRouter } from "./routes/showcases.js";
 import { savedSearchesRouter } from "./routes/savedSearches.js";
 import { profilesRouter } from "./routes/profiles.js";
 import { searchRouter } from "./routes/search.js";
+import { evaluatorNotesRouter } from "./routes/evaluatorNotes.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -117,6 +118,7 @@ async function main() {
   app.use(savedSearchesRouter);
   app.use(profilesRouter);
   app.use(searchRouter);
+  app.use(evaluatorNotesRouter);
 
   app.use(errorHandler);
 
