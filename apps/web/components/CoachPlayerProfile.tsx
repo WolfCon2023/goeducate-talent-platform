@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { Card, RefreshIconButton } from "@/components/ui";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { toast } from "@/components/ToastProvider";
+import { Button, Card, RefreshIconButton } from "@/components/ui";
 import { apiFetch, ApiFetchError } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 
@@ -46,6 +48,7 @@ function fmtDate(iso?: string) {
 }
 
 export function CoachPlayerProfile(props: { userId: string }) {
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
@@ -53,6 +56,7 @@ export function CoachPlayerProfile(props: { userId: string }) {
   const [contactBlocked, setContactBlocked] = useState<"subscription" | "other" | null>(null);
   const [films, setFilms] = useState<FilmSubmission[]>([]);
   const [evalByFilmId, setEvalByFilmId] = useState<Record<string, EvalSummary | null>>({});
+  const [requesting, setRequesting] = useState(false);
 
   async function load() {
     setError(null);
@@ -99,6 +103,29 @@ export function CoachPlayerProfile(props: { userId: string }) {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.userId]);
+
+  async function requestContact() {
+    try {
+      const ok = await confirm({
+        title: "Request contact?",
+        message:
+          "We will notify the player that you want to connect, including your coach account email so they can reach you.",
+        confirmText: "Send request",
+        cancelText: "Cancel"
+      });
+      if (!ok) return;
+
+      setRequesting(true);
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+      await apiFetch(`/contact/player/${encodeURIComponent(props.userId)}/request`, { method: "POST", token });
+      toast({ kind: "success", title: "Request sent", message: "The player has been notified." });
+    } catch (err) {
+      toast({ kind: "error", title: "Request failed", message: err instanceof Error ? err.message : "Could not send request." });
+    } finally {
+      setRequesting(false);
+    }
+  }
 
   return (
     <Card>
@@ -166,6 +193,14 @@ export function CoachPlayerProfile(props: { userId: string }) {
                   <Link className="text-indigo-300 hover:text-indigo-200 hover:underline" href="/coach/billing">
                     Manage / Upgrade
                   </Link>
+                  <div className="mt-3">
+                    <Button type="button" onClick={() => void requestContact()} disabled={requesting}>
+                      {requesting ? "Sending..." : "Request contact from player"}
+                    </Button>
+                    <div className="mt-2 text-xs text-[color:var(--muted-2)]">
+                      We’ll send the player a notification with your coach email so they can reach out if they choose.
+                    </div>
+                  </div>
                 </div>
               ) : contactBlocked === "other" ? (
                 <div>Contact info unavailable.</div>
