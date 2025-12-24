@@ -1,10 +1,9 @@
-import Link from "next/link";
-
 import { CoachSearch } from "@/components/CoachSearch";
 import { CoachWatchlist } from "@/components/CoachWatchlist";
 import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
 import { Card } from "@/components/ui";
 import { CoachGuard } from "./Guard";
+import Link from "next/link";
 
 export default function CoachDashboardPage() {
   return (
@@ -16,14 +15,6 @@ export default function CoachDashboardPage() {
             <p className="mt-2 text-sm text-white/80">
               Search players and view profiles. Upgrade your subscription to unlock contact info.
             </p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link href="/showcases" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
-              Showcases
-            </Link>
-            <Link href="/" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
-              Home
-            </Link>
           </div>
         </div>
 
