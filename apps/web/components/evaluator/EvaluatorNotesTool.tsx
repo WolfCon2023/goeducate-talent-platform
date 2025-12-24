@@ -141,6 +141,7 @@ export function EvaluatorNotesTool() {
   const [activeKey, setActiveKey] = React.useState<string>(autoKey);
   const [activeTitle, setActiveTitle] = React.useState<string | null>(null);
   const key = keyMode === "auto" ? autoKey : activeKey;
+  const effectiveTitle = keyMode === "named" ? (activeTitle?.trim() ? activeTitle.trim() : null) : null;
 
   // Keep active key aligned when using autosave mode.
   React.useEffect(() => {
@@ -223,7 +224,12 @@ export function EvaluatorNotesTool() {
       qs.set("limit", "25");
       if (draftSearch.trim()) qs.set("q", draftSearch.trim());
       const res = await apiFetch<{ items: DraftItem[] }>(`/evaluator/notes/drafts?${qs.toString()}`, { token });
-      setDrafts(res.items ?? []);
+      // Backwards compatible: if API doesn't return a top-level title yet, use payload.title.
+      const items = (res.items ?? []).map((d) => ({
+        ...d,
+        title: d.title ?? (d.payload as any)?.title ?? null
+      }));
+      setDrafts(items);
     } finally {
       setDraftsLoading(false);
     }
@@ -286,6 +292,7 @@ export function EvaluatorNotesTool() {
         sport,
         formId: formDef?._id,
         filmSubmissionId: filmSubmissionId ?? undefined,
+        title: effectiveTitle ?? undefined,
         rubric,
         strengths,
         improvements,
@@ -295,7 +302,7 @@ export function EvaluatorNotesTool() {
       window.localStorage.setItem(key, JSON.stringify(draft));
     }, 350);
     return () => clearTimeout(handle);
-  }, [sport, formDef?._id, filmSubmissionId, rubric, strengths, improvements, notes, key]);
+  }, [sport, formDef?._id, filmSubmissionId, rubric, strengths, improvements, notes, key, effectiveTitle]);
 
   // Autosave to server (debounced). This enables returning to drafts across devices.
   React.useEffect(() => {
@@ -331,6 +338,7 @@ export function EvaluatorNotesTool() {
         sport,
         formId: formDef?._id,
         filmSubmissionId: filmSubmissionId ?? undefined,
+        title: effectiveTitle ?? undefined,
         rubric,
         strengths,
         improvements,
@@ -341,7 +349,7 @@ export function EvaluatorNotesTool() {
     }, 1500);
 
     return () => clearTimeout(handle);
-  }, [key, sport, filmSubmissionId, formDef?._id, rubric, strengths, improvements, notes]);
+  }, [key, sport, filmSubmissionId, formDef?._id, rubric, strengths, improvements, notes, effectiveTitle, activeTitle]);
 
   const requiredMissing = React.useMemo(() => {
     if (!formDef) return [];
@@ -453,6 +461,52 @@ export function EvaluatorNotesTool() {
     }
   }
 
+  async function saveNow() {
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "evaluator" && role !== "admin") throw new Error("Evaluator only.");
+      if (keyMode !== "named") throw new Error("Save now is only available for named drafts.");
+      if (!effectiveTitle) throw new Error("Please name this draft first (use Save as…).");
+
+      const d: Draft = {
+        version: 1,
+        sport,
+        formId: formDef?._id,
+        filmSubmissionId: filmSubmissionId ?? undefined,
+        title: effectiveTitle,
+        rubric,
+        strengths,
+        improvements,
+        notes,
+        updatedAt: new Date().toISOString()
+      };
+
+      setCloudStatus("saving");
+      await apiFetch(`/evaluator/notes/drafts`, {
+        method: "PUT",
+        token,
+        body: JSON.stringify({
+          key,
+          title: effectiveTitle,
+          sport,
+          filmSubmissionId: filmSubmissionId ?? undefined,
+          formId: formDef?._id,
+          payload: d
+        })
+      });
+      setCloudSavedAt(d.updatedAt);
+      setCloudStatus("saved");
+      if (typeof window !== "undefined") window.localStorage.setItem(key, JSON.stringify(d));
+      toast({ kind: "success", title: "Saved", message: "Draft updated." });
+      await loadDraftList();
+    } catch (err) {
+      setCloudStatus("error");
+      toast({ kind: "error", title: "Save failed", message: err instanceof Error ? err.message : "Could not save updates." });
+    }
+  }
+
   async function openDraft(it: DraftItem) {
     setKeyMode("named");
     setActiveKey(it.key);
@@ -508,6 +562,11 @@ export function EvaluatorNotesTool() {
             <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={saveAs}>
               Save as…
             </Button>
+            {keyMode === "named" ? (
+              <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={saveNow}>
+                Save now
+              </Button>
+            ) : null}
             <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={copyRubricJson} disabled={!formDef}>
               Copy rubric JSON
             </Button>
