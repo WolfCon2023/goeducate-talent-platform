@@ -213,11 +213,6 @@ export function AuthNav() {
               Evaluator
             </Link>
           ) : null}
-          {role === "admin" ? (
-            <Link href="/admin/evaluations" className={navItem("/admin/evaluations")}>
-              Evaluations queue
-            </Link>
-          ) : null}
           <Link href="/showcases" className={navItem("/showcases")}>
             Showcases
           </Link>

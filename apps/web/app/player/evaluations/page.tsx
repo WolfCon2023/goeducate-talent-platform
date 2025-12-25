@@ -117,7 +117,6 @@ export default function PlayerEvaluationsPage() {
                   <tr key={r.filmId}>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-white">{r.title}</div>
-                      <div className="mt-1 text-xs text-white/50">{r.filmId}</div>
                     </td>
                     <td className="px-4 py-3 text-white/80">{r.filmStatus}</td>
                     <td className="px-4 py-3 text-white/70">{fmtDate(r.submittedAt)}</td>
