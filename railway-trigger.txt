@@ -16,4 +16,5 @@ trigger: deploy admin coach map endpoints 2025-12-25T00:15:00Z
 trigger: redeploy api (coach map 404) 2025-12-25T00:27:00Z
 trigger: redeploy api (port empty-string hardening) 2025-12-25T01:35:30Z
 trigger: redeploy api (evaluator map endpoints) 2025-12-25T01:55:00Z
+trigger: redeploy api (evaluator map 404 hotfix) 2025-12-25T02:10:00Z
 
