@@ -129,7 +129,13 @@ export function AdminUserManager() {
       };
       if (editForm.role === "coach") payload.subscriptionStatus = editForm.subscriptionStatus || "inactive";
 
-      await apiFetch(`/admin/users/${encodeURIComponent(u.id)}`, { method: "PATCH", token, body: JSON.stringify(payload) });
+      await apiFetch(`/admin/users/${encodeURIComponent(u.id)}`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify(payload),
+        retries: 4,
+        retryOn404: true
+      });
       toast({ kind: "success", title: "Saved", message: "User updated." });
       setEditId(null);
       await load();
