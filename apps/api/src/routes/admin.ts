@@ -2,6 +2,7 @@ import { Router } from "express";
 import mongoose from "mongoose";
 
 import { FILM_SUBMISSION_STATUS, RegisterSchema, ROLE } from "@goeducate/shared";
+import { z } from "zod";
 
 import { signAccessToken } from "../auth/jwt.js";
 import { hashPassword } from "../auth/password.js";
@@ -1802,6 +1803,111 @@ adminRouter.get("/admin/users", requireAuth, requireRole([ROLE.ADMIN]), async (r
         subscriptionStatus: u.subscriptionStatus,
         createdAt: u.createdAt?.toISOString?.() ?? undefined
       }))
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+const AdminUserUpdateSchema = z.object({
+  role: z.enum([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]).optional(),
+  firstName: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim() : v),
+    z.string().min(1).max(60)
+  ).optional(),
+  lastName: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim() : v),
+    z.string().min(1).max(60)
+  ).optional(),
+  subscriptionStatus: z.enum([COACH_SUBSCRIPTION_STATUS.INACTIVE, COACH_SUBSCRIPTION_STATUS.ACTIVE]).optional()
+});
+
+// Admin-only: update a user (role/name/subscription status).
+adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  const parsed = AdminUserUpdateSchema.safeParse(req.body);
+  if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
+
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+    }
+    const _id = new mongoose.Types.ObjectId(req.params.id);
+    const actorId = String(req.user!.id);
+
+    const user = await UserModel.findById(_id);
+    if (!user) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+
+    // Prevent locking yourself out.
+    if (String(_id) === actorId && parsed.data.role && parsed.data.role !== ROLE.ADMIN) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "You cannot change your own role" }));
+    }
+
+    const before = { email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, subscriptionStatus: user.subscriptionStatus };
+
+    const nextRole = parsed.data.role ?? user.role;
+
+    // Prevent removing the last admin.
+    if (user.role === ROLE.ADMIN && nextRole !== ROLE.ADMIN) {
+      const adminCount = await UserModel.countDocuments({ role: ROLE.ADMIN });
+      if (adminCount <= 1) {
+        return next(new ApiError({ status: 409, code: "CANNOT_UPDATE", message: "Cannot remove the last admin" }));
+      }
+    }
+
+    // If converting to coach, ensure we have names.
+    const nextFirst = parsed.data.firstName ?? user.firstName;
+    const nextLast = parsed.data.lastName ?? user.lastName;
+    if (nextRole === ROLE.COACH && (!nextFirst || !nextLast)) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Coach first and last name are required" }));
+    }
+
+    user.role = nextRole as any;
+    if (parsed.data.firstName) user.firstName = parsed.data.firstName;
+    if (parsed.data.lastName) user.lastName = parsed.data.lastName;
+
+    if (nextRole === ROLE.COACH) {
+      user.subscriptionStatus = parsed.data.subscriptionStatus ?? user.subscriptionStatus ?? COACH_SUBSCRIPTION_STATUS.INACTIVE;
+    } else {
+      user.subscriptionStatus = undefined;
+    }
+
+    await user.save();
+
+    // Keep coach/evaluator profile names in sync (best-effort).
+    if (nextRole === ROLE.COACH) {
+      await CoachProfileModel.updateOne(
+        { userId: _id },
+        { $set: { firstName: user.firstName, lastName: user.lastName }, $setOnInsert: { userId: _id, isProfilePublic: true } },
+        { upsert: true }
+      );
+    }
+    if (nextRole === ROLE.EVALUATOR) {
+      await EvaluatorProfileModel.updateOne(
+        { userId: _id },
+        { $set: { firstName: user.firstName, lastName: user.lastName }, $setOnInsert: { userId: _id, isProfilePublic: true } },
+        { upsert: true }
+      );
+    }
+
+    const after = { email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, subscriptionStatus: user.subscriptionStatus };
+    void logAdminAction({
+      req,
+      actorUserId: actorId,
+      action: "admin.users.update",
+      targetType: "User",
+      targetId: String(_id),
+      meta: { before, after }
+    });
+
+    return res.json({
+      user: {
+        id: String(user._id),
+        email: user.email,
+        role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        subscriptionStatus: user.subscriptionStatus
+      }
     });
   } catch (err) {
     return next(err);

@@ -8,6 +8,7 @@ import { Button, Card, Input, Label, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { parseApiError, type FieldErrors } from "@/lib/formErrors";
+import { toast } from "@/components/ToastProvider";
 
 type Role = "player" | "coach" | "evaluator" | "admin";
 
@@ -37,6 +38,15 @@ export function AdminUserManager() {
   const [inviteFormError, setInviteFormError] = useState<string | null>(null);
   const [inviteFieldErrors, setInviteFieldErrors] = useState<FieldErrors | undefined>(undefined);
   const [creatingInvite, setCreatingInvite] = useState(false);
+
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ role: Role; firstName: string; lastName: string; subscriptionStatus: string }>({
+    role: "coach",
+    firstName: "",
+    lastName: "",
+    subscriptionStatus: "inactive"
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -90,6 +100,44 @@ export function AdminUserManager() {
     } catch (err) {
       const parsed = parseApiError(err);
       setFormError(parsed.formError ?? "Failed to delete user");
+    }
+  }
+
+  function startEdit(u: UserRow) {
+    setEditId(u.id);
+    setEditForm({
+      role: u.role,
+      firstName: u.firstName ?? "",
+      lastName: u.lastName ?? "",
+      subscriptionStatus: u.subscriptionStatus ?? "inactive"
+    });
+  }
+
+  async function saveEdit(u: UserRow) {
+    setFormError(null);
+    setSavingEdit(true);
+    try {
+      const token = getAccessToken();
+      const tokenRole = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (tokenRole !== "admin") throw new Error("Insufficient permissions.");
+
+      const payload: any = {
+        role: editForm.role,
+        firstName: editForm.firstName.trim() || undefined,
+        lastName: editForm.lastName.trim() || undefined
+      };
+      if (editForm.role === "coach") payload.subscriptionStatus = editForm.subscriptionStatus || "inactive";
+
+      await apiFetch(`/admin/users/${encodeURIComponent(u.id)}`, { method: "PATCH", token, body: JSON.stringify(payload) });
+      toast({ kind: "success", title: "Saved", message: "User updated." });
+      setEditId(null);
+      await load();
+    } catch (err) {
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Failed to update user");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -187,6 +235,7 @@ export function AdminUserManager() {
                 <th className="py-2 pr-4">Email</th>
                 <th className="py-2 pr-4">Role</th>
                 <th className="py-2 pr-4">Name</th>
+                <th className="py-2 pr-4">Subscription</th>
                 <th className="py-2 pr-4">Created</th>
                 <th className="py-2 pr-4">Actions</th>
               </tr>
@@ -195,23 +244,89 @@ export function AdminUserManager() {
               {results.map((u) => (
                 <tr key={u.id} className="border-b border-[color:var(--border)]">
                   <td className="py-2 pr-4">{u.email}</td>
-                  <td className="py-2 pr-4">{u.role}</td>
-                  <td className="py-2 pr-4">{u.firstName || u.lastName ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() : "-"}</td>
+                  <td className="py-2 pr-4">
+                    {editId === u.id ? (
+                      <select
+                        className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-2 py-1 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+                        value={editForm.role}
+                        onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as Role }))}
+                      >
+                        <option value="player">player</option>
+                        <option value="coach">coach</option>
+                        <option value="evaluator">evaluator</option>
+                        <option value="admin">admin</option>
+                      </select>
+                    ) : (
+                      u.role
+                    )}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {editId === u.id ? (
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Input value={editForm.firstName} onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))} placeholder="First" />
+                        <Input value={editForm.lastName} onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))} placeholder="Last" />
+                      </div>
+                    ) : u.firstName || u.lastName ? (
+                      `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()
+                    ) : (
+                      "-"
+                    )}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {editId === u.id ? (
+                      editForm.role === "coach" ? (
+                        <select
+                          className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-2 py-1 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+                          value={editForm.subscriptionStatus}
+                          onChange={(e) => setEditForm((f) => ({ ...f, subscriptionStatus: e.target.value }))}
+                        >
+                          <option value="inactive">inactive</option>
+                          <option value="active">active</option>
+                        </select>
+                      ) : (
+                        <span className="text-[color:var(--color-text-muted)]">—</span>
+                      )
+                    ) : (
+                      u.role === "coach" ? u.subscriptionStatus ?? "inactive" : "—"
+                    )}
+                  </td>
                   <td className="py-2 pr-4">{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
                   <td className="py-2 pr-4">
-                    <Button
-                      type="button"
-                      className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
-                      onClick={() => deleteUser(u)}
-                    >
-                      Delete
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      {editId === u.id ? (
+                        <>
+                          <Button type="button" onClick={() => saveEdit(u)} disabled={savingEdit}>
+                            {savingEdit ? "Saving…" : "Save"}
+                          </Button>
+                          <Button
+                            type="button"
+                            className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                            onClick={() => setEditId(null)}
+                            disabled={savingEdit}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => startEdit(u)}>
+                          Edit
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                        onClick={() => deleteUser(u)}
+                        disabled={savingEdit && editId === u.id}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
               {results.length === 0 ? (
                 <tr>
-                  <td className="py-4 text-[color:var(--color-text-muted)]" colSpan={5}>
+                  <td className="py-4 text-[color:var(--color-text-muted)]" colSpan={6}>
                     No users found.
                   </td>
                 </tr>
