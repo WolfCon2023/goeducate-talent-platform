@@ -198,6 +198,11 @@ export function AuthNav() {
               Film
             </Link>
           ) : null}
+          {role === "player" ? (
+            <Link href="/player/evaluations" className={navItem("/player/evaluations")}>
+              Evaluations
+            </Link>
+          ) : null}
           {role === "coach" || role === "admin" ? (
             <Link href="/coach" className={navItem("/coach")}>
               Coach
@@ -206,6 +211,11 @@ export function AuthNav() {
           {role === "evaluator" || role === "admin" ? (
             <Link href="/evaluator" className={navItem("/evaluator")}>
               Evaluator
+            </Link>
+          ) : null}
+          {role === "admin" ? (
+            <Link href="/admin/evaluations" className={navItem("/admin/evaluations")}>
+              Evaluations queue
             </Link>
           ) : null}
           <Link href="/showcases" className={navItem("/showcases")}>
