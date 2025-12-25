@@ -33,6 +33,8 @@ type RecipientOption = {
   extra?: string | null;
 };
 
+type RecipientRole = "player" | "coach" | "evaluator";
+
 function fmtDate(iso?: string | null) {
   if (!iso) return "";
   try {
@@ -56,10 +58,21 @@ export function MessagesClient() {
   const [status, setStatus] = React.useState<ConversationRow["status"] | null>(null);
   const [composer, setComposer] = React.useState("");
 
-  const [recipientQuery, setRecipientQuery] = React.useState("");
-  const [recipientLoading, setRecipientLoading] = React.useState(false);
-  const [recipientOptions, setRecipientOptions] = React.useState<RecipientOption[]>([]);
-  const [recipientOpen, setRecipientOpen] = React.useState(false);
+  const [playerQuery, setPlayerQuery] = React.useState("");
+  const [playerLoading, setPlayerLoading] = React.useState(false);
+  const [playerOptions, setPlayerOptions] = React.useState<RecipientOption[]>([]);
+  const [playerOpen, setPlayerOpen] = React.useState(false);
+
+  const [coachQuery, setCoachQuery] = React.useState("");
+  const [coachLoading, setCoachLoading] = React.useState(false);
+  const [coachOptions, setCoachOptions] = React.useState<RecipientOption[]>([]);
+  const [coachOpen, setCoachOpen] = React.useState(false);
+
+  const [evaluatorQuery, setEvaluatorQuery] = React.useState("");
+  const [evaluatorLoading, setEvaluatorLoading] = React.useState(false);
+  const [evaluatorOptions, setEvaluatorOptions] = React.useState<RecipientOption[]>([]);
+  const [evaluatorOpen, setEvaluatorOpen] = React.useState(false);
+
   const [selectedRecipient, setSelectedRecipient] = React.useState<RecipientOption | null>(null);
   const [newBody, setNewBody] = React.useState("");
   const [creating, setCreating] = React.useState(false);
@@ -109,35 +122,110 @@ export function MessagesClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
+  async function fetchRecipients(input: { role: RecipientRole; q?: string; prefill?: boolean }) {
+    const token = getAccessToken();
+    if (!token) return [];
+    const qs = new URLSearchParams();
+    qs.set("role", input.role);
+    qs.set("limit", "10");
+    if (input.prefill) qs.set("prefill", "1");
+    if (input.q) qs.set("q", input.q);
+    const res = await apiFetch<{ results: RecipientOption[] }>(`/messages/recipients?${qs.toString()}`, { token, retries: 2, retryOn404: true });
+    return res.results ?? [];
+  }
+
   React.useEffect(() => {
-    const q = recipientQuery.trim();
-    if (!q || q.length < 2 || selectedRecipient) {
-      setRecipientOptions([]);
+    const q = playerQuery.trim();
+    if (selectedRecipient) {
+      setPlayerOptions([]);
+      return;
+    }
+    if (!q || q.length < 2) {
+      setPlayerOptions([]);
       return;
     }
     let cancelled = false;
     const t = setTimeout(async () => {
-      setRecipientLoading(true);
+      setPlayerLoading(true);
       try {
-        const token = getAccessToken();
-        if (!token) return;
-        const qs = new URLSearchParams({ q, limit: "10" });
-        const res = await apiFetch<{ results: RecipientOption[] }>(`/messages/recipients?${qs.toString()}`, { token, retries: 2, retryOn404: true });
+        const results = await fetchRecipients({ role: "player", q });
         if (!cancelled) {
-          setRecipientOptions(res.results ?? []);
-          setRecipientOpen(true);
+          setPlayerOptions(results);
+          setPlayerOpen(true);
         }
       } catch {
-        if (!cancelled) setRecipientOptions([]);
+        if (!cancelled) setPlayerOptions([]);
       } finally {
-        if (!cancelled) setRecipientLoading(false);
+        if (!cancelled) setPlayerLoading(false);
       }
     }, 250);
     return () => {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [recipientQuery, selectedRecipient]);
+  }, [playerQuery, selectedRecipient]);
+
+  React.useEffect(() => {
+    const q = coachQuery.trim();
+    if (selectedRecipient) {
+      setCoachOptions([]);
+      return;
+    }
+    if (!q || q.length < 2) {
+      setCoachOptions([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setCoachLoading(true);
+      try {
+        const results = await fetchRecipients({ role: "coach", q });
+        if (!cancelled) {
+          setCoachOptions(results);
+          setCoachOpen(true);
+        }
+      } catch {
+        if (!cancelled) setCoachOptions([]);
+      } finally {
+        if (!cancelled) setCoachLoading(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [coachQuery, selectedRecipient]);
+
+  React.useEffect(() => {
+    const q = evaluatorQuery.trim();
+    if (selectedRecipient) {
+      setEvaluatorOptions([]);
+      return;
+    }
+    if (!q || q.length < 2) {
+      setEvaluatorOptions([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setEvaluatorLoading(true);
+      try {
+        const results = await fetchRecipients({ role: "evaluator", q });
+        if (!cancelled) {
+          setEvaluatorOptions(results);
+          setEvaluatorOpen(true);
+        }
+      } catch {
+        if (!cancelled) setEvaluatorOptions([]);
+      } finally {
+        if (!cancelled) setEvaluatorLoading(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [evaluatorQuery, selectedRecipient]);
 
   async function accept() {
     if (!selectedId) return;
@@ -188,7 +276,11 @@ export function MessagesClient() {
   async function createConversation() {
     const recipientUserId = selectedRecipient?.userId ?? "";
     const message = newBody.trim();
-    if (!recipientUserId || !message) return;
+    if (!recipientUserId) {
+      toast({ kind: "error", title: "Pick a recipient", message: "Select a player, coach, or evaluator first." });
+      return;
+    }
+    if (!message) return;
     setCreating(true);
     try {
       const token = getAccessToken();
@@ -198,8 +290,16 @@ export function MessagesClient() {
         token,
         body: JSON.stringify({ recipientUserId, message })
       });
-      setRecipientQuery("");
       setSelectedRecipient(null);
+      setPlayerQuery("");
+      setCoachQuery("");
+      setEvaluatorQuery("");
+      setPlayerOptions([]);
+      setCoachOptions([]);
+      setEvaluatorOptions([]);
+      setPlayerOpen(false);
+      setCoachOpen(false);
+      setEvaluatorOpen(false);
       setNewBody("");
       toast({ kind: "success", title: "Sent", message: "Message request sent." });
       await loadInbox();
@@ -260,67 +360,214 @@ export function MessagesClient() {
             <div className="text-sm font-semibold">Start a new conversation</div>
             <div className="mt-3 grid gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="msgTo">Recipient</Label>
-                <div className="relative">
-                  <Input
-                    id="msgTo"
-                    value={recipientQuery}
-                    onChange={(e) => {
-                      setRecipientQuery(e.target.value);
-                      setSelectedRecipient(null);
-                      setRecipientOpen(true);
-                    }}
-                    onFocus={() => setRecipientOpen(true)}
-                    placeholder="Start typing a name or email…"
-                  />
-                  {selectedRecipient ? (
+                <Label>Recipient</Label>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-1.5">
+                    <div className="text-xs font-semibold text-[color:var(--muted)]">Player</div>
+                    <div className="relative">
+                      <Input
+                        value={selectedRecipient?.role === "player" ? selectedRecipient.displayName || selectedRecipient.email : playerQuery}
+                        onChange={(e) => {
+                          setSelectedRecipient(null);
+                          setCoachQuery("");
+                          setEvaluatorQuery("");
+                          setPlayerQuery(e.target.value);
+                          setPlayerOpen(true);
+                        }}
+                        onFocus={async () => {
+                          setPlayerOpen(true);
+                          if (selectedRecipient) return;
+                          if (!playerQuery.trim()) {
+                            try {
+                              setPlayerLoading(true);
+                              setPlayerOptions(await fetchRecipients({ role: "player", prefill: true }));
+                            } finally {
+                              setPlayerLoading(false);
+                            }
+                          }
+                        }}
+                        placeholder="Search players…"
+                        disabled={!!selectedRecipient && selectedRecipient.role !== "player"}
+                      />
+                      {playerLoading && !selectedRecipient ? (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[color:var(--muted)]">…</div>
+                      ) : null}
+                      {playerOpen && !selectedRecipient && playerOptions.length ? (
+                        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)] shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+                          {playerOptions.map((opt) => {
+                            const sub = [opt.email, opt.role, opt.extra].filter(Boolean).join(" · ");
+                            return (
+                              <button
+                                key={opt.userId}
+                                type="button"
+                                className="block w-full px-4 py-2.5 text-left hover:bg-white/5"
+                                onClick={() => {
+                                  setSelectedRecipient(opt);
+                                  setPlayerOpen(false);
+                                  setCoachOpen(false);
+                                  setEvaluatorOpen(false);
+                                  setPlayerQuery("");
+                                  setCoachQuery("");
+                                  setEvaluatorQuery("");
+                                }}
+                              >
+                                <div className="text-sm font-semibold text-white/90">{opt.displayName || opt.email}</div>
+                                <div className="mt-0.5 text-xs text-[color:var(--muted)]">{sub}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <div className="text-xs font-semibold text-[color:var(--muted)]">Coach</div>
+                    <div className="relative">
+                      <Input
+                        value={selectedRecipient?.role === "coach" ? selectedRecipient.displayName || selectedRecipient.email : coachQuery}
+                        onChange={(e) => {
+                          setSelectedRecipient(null);
+                          setPlayerQuery("");
+                          setEvaluatorQuery("");
+                          setCoachQuery(e.target.value);
+                          setCoachOpen(true);
+                        }}
+                        onFocus={async () => {
+                          setCoachOpen(true);
+                          if (selectedRecipient) return;
+                          if (!coachQuery.trim()) {
+                            try {
+                              setCoachLoading(true);
+                              setCoachOptions(await fetchRecipients({ role: "coach", prefill: true }));
+                            } finally {
+                              setCoachLoading(false);
+                            }
+                          }
+                        }}
+                        placeholder="Search coaches…"
+                        disabled={!!selectedRecipient && selectedRecipient.role !== "coach"}
+                      />
+                      {coachLoading && !selectedRecipient ? (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[color:var(--muted)]">…</div>
+                      ) : null}
+                      {coachOpen && !selectedRecipient && coachOptions.length ? (
+                        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)] shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+                          {coachOptions.map((opt) => {
+                            const sub = [opt.email, opt.role, opt.extra].filter(Boolean).join(" · ");
+                            return (
+                              <button
+                                key={opt.userId}
+                                type="button"
+                                className="block w-full px-4 py-2.5 text-left hover:bg-white/5"
+                                onClick={() => {
+                                  setSelectedRecipient(opt);
+                                  setPlayerOpen(false);
+                                  setCoachOpen(false);
+                                  setEvaluatorOpen(false);
+                                  setPlayerQuery("");
+                                  setCoachQuery("");
+                                  setEvaluatorQuery("");
+                                }}
+                              >
+                                <div className="text-sm font-semibold text-white/90">{opt.displayName || opt.email}</div>
+                                <div className="mt-0.5 text-xs text-[color:var(--muted)]">{sub}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-1.5">
+                    <div className="text-xs font-semibold text-[color:var(--muted)]">Evaluator</div>
+                    <div className="relative">
+                      <Input
+                        value={selectedRecipient?.role === "evaluator" ? selectedRecipient.displayName || selectedRecipient.email : evaluatorQuery}
+                        onChange={(e) => {
+                          setSelectedRecipient(null);
+                          setPlayerQuery("");
+                          setCoachQuery("");
+                          setEvaluatorQuery(e.target.value);
+                          setEvaluatorOpen(true);
+                        }}
+                        onFocus={async () => {
+                          setEvaluatorOpen(true);
+                          if (selectedRecipient) return;
+                          if (!evaluatorQuery.trim()) {
+                            try {
+                              setEvaluatorLoading(true);
+                              setEvaluatorOptions(await fetchRecipients({ role: "evaluator", prefill: true }));
+                            } finally {
+                              setEvaluatorLoading(false);
+                            }
+                          }
+                        }}
+                        placeholder="Search evaluators…"
+                        disabled={!!selectedRecipient && selectedRecipient.role !== "evaluator"}
+                      />
+                      {evaluatorLoading && !selectedRecipient ? (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[color:var(--muted)]">…</div>
+                      ) : null}
+                      {evaluatorOpen && !selectedRecipient && evaluatorOptions.length ? (
+                        <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)] shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+                          {evaluatorOptions.map((opt) => {
+                            const sub = [opt.email, opt.role, opt.extra].filter(Boolean).join(" · ");
+                            return (
+                              <button
+                                key={opt.userId}
+                                type="button"
+                                className="block w-full px-4 py-2.5 text-left hover:bg-white/5"
+                                onClick={() => {
+                                  setSelectedRecipient(opt);
+                                  setPlayerOpen(false);
+                                  setCoachOpen(false);
+                                  setEvaluatorOpen(false);
+                                  setPlayerQuery("");
+                                  setCoachQuery("");
+                                  setEvaluatorQuery("");
+                                }}
+                              >
+                                <div className="text-sm font-semibold text-white/90">{opt.displayName || opt.email}</div>
+                                <div className="mt-0.5 text-xs text-[color:var(--muted)]">{sub}</div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                {selectedRecipient ? (
+                  <div className="flex items-center justify-between gap-2 text-xs text-[color:var(--muted)]">
+                    <div>
+                      Selected: <span className="text-white/90 font-semibold">{selectedRecipient.displayName || selectedRecipient.email}</span>
+                    </div>
                     <button
                       type="button"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[color:var(--muted)] hover:text-[color:var(--foreground)]"
+                      className="text-xs text-[color:var(--muted)] hover:text-[color:var(--foreground)]"
                       onClick={() => {
                         setSelectedRecipient(null);
-                        setRecipientQuery("");
-                        setRecipientOptions([]);
-                        setRecipientOpen(false);
+                        setPlayerQuery("");
+                        setCoachQuery("");
+                        setEvaluatorQuery("");
+                        setPlayerOptions([]);
+                        setCoachOptions([]);
+                        setEvaluatorOptions([]);
+                        setPlayerOpen(false);
+                        setCoachOpen(false);
+                        setEvaluatorOpen(false);
                       }}
                       aria-label="Clear recipient"
                       title="Clear"
                     >
                       Clear
                     </button>
-                  ) : recipientLoading ? (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[color:var(--muted)]">…</div>
-                  ) : null}
-
-                  {recipientOpen && !selectedRecipient && recipientOptions.length ? (
-                    <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)] shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
-                      {recipientOptions.map((opt) => {
-                        const sub = [opt.email, opt.role, opt.extra].filter(Boolean).join(" · ");
-                        return (
-                          <button
-                            key={opt.userId}
-                            type="button"
-                            className="block w-full px-4 py-2.5 text-left hover:bg-white/5"
-                            onClick={() => {
-                              setSelectedRecipient(opt);
-                              setRecipientQuery(opt.displayName || opt.email);
-                              setRecipientOpen(false);
-                            }}
-                          >
-                            <div className="text-sm font-semibold text-white/90">{opt.displayName || opt.email}</div>
-                            <div className="mt-0.5 text-xs text-[color:var(--muted)]">{sub}</div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </div>
-                {selectedRecipient ? (
-                  <div className="text-xs text-[color:var(--muted)]">
-                    Selected: <span className="text-white/90 font-semibold">{selectedRecipient.displayName || selectedRecipient.email}</span>
                   </div>
                 ) : (
-                  <div className="text-xs text-[color:var(--muted)]">Pick a user from the dropdown.</div>
+                  <div className="text-xs text-[color:var(--muted)]">Pick a user from one of the three dropdowns.</div>
                 )}
               </div>
               <div className="grid gap-2">

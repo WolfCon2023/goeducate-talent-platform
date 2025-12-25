@@ -11,6 +11,7 @@ import { MessageModel } from "../models/Message.js";
 import { UserModel } from "../models/User.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { CoachProfileModel } from "../models/CoachProfile.js";
+import { EvaluatorProfileModel } from "../models/EvaluatorProfile.js";
 
 export const messagesRouter = Router();
 
@@ -31,47 +32,85 @@ function escapeRegex(s: string) {
 
 // Recipient search (typeahead)
 // Returns userIds + display labels so UI never needs raw Mongo IDs.
-messagesRouter.get("/messages/recipients", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH]), async (req, res, next) => {
+messagesRouter.get(
+  "/messages/recipients",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
   try {
     const q = String(req.query.q ?? "").trim();
+    const role = String(req.query.role ?? "").trim().toLowerCase();
+    const prefill = String(req.query.prefill ?? "") === "1";
     const limitRaw = Number(req.query.limit ?? 10);
     const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(20, limitRaw)) : 10;
-    if (q.length < 2) return res.json({ results: [] });
+    // For "prefill" dropdowns, allow empty query but require a role filter to avoid huge result sets.
+    if (!prefill && q.length < 2) return res.json({ results: [] });
+    if (prefill && !role) return res.json({ results: [] });
 
-    const rx = new RegExp(escapeRegex(q), "i");
+    const rx = q ? new RegExp(escapeRegex(q), "i") : null;
 
-    // Only allow messaging among players/coaches for now.
-    const allowedRoles = [ROLE.PLAYER, ROLE.COACH];
+    // Allowed recipients (exclude admins from being messaged by default).
+    const allowedRecipientRoles = [ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR];
+    const roleFilter =
+      role && [ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR].includes(role as any) ? (role as any) : null;
 
-    const userHits = await UserModel.find({
-      role: { $in: allowedRoles as any },
-      $or: [{ email: rx }, { firstName: rx }, { lastName: rx }]
-    })
-      .limit(limit)
-      .lean();
+    const userFind: any = { role: { $in: allowedRecipientRoles as any } };
+    if (roleFilter) userFind.role = roleFilter;
+    if (rx) userFind.$or = [{ email: rx }, { firstName: rx }, { lastName: rx }];
 
-    const playerProfiles = await PlayerProfileModel.find({ $or: [{ firstName: rx }, { lastName: rx }] })
-      .select({ userId: 1, firstName: 1, lastName: 1 })
-      .limit(limit)
-      .lean();
-
-    const coachProfiles = await CoachProfileModel.find({ $or: [{ firstName: rx }, { lastName: rx }, { institutionName: rx }] })
-      .select({ userId: 1, firstName: 1, lastName: 1, institutionName: 1, title: 1 })
+    const userHits = await UserModel.find(userFind)
+      .select({ email: 1, role: 1, firstName: 1, lastName: 1 })
       .limit(limit)
       .lean();
 
     const ids = new Set<string>();
     for (const u of userHits) ids.add(String(u._id));
+
+    const playerProfiles =
+      !roleFilter || roleFilter === ROLE.PLAYER
+        ? await PlayerProfileModel.find(
+            rx ? { $or: [{ firstName: rx }, { lastName: rx }, { sport: rx }] } : {},
+            { userId: 1, firstName: 1, lastName: 1, sport: 1 }
+          )
+            .limit(limit)
+            .lean()
+        : [];
+
+    const coachProfiles =
+      !roleFilter || roleFilter === ROLE.COACH
+        ? await CoachProfileModel.find(
+            rx ? { $or: [{ firstName: rx }, { lastName: rx }, { institutionName: rx }] } : {},
+            { userId: 1, firstName: 1, lastName: 1, institutionName: 1, title: 1 }
+          )
+            .limit(limit)
+            .lean()
+        : [];
+
+    const evaluatorProfiles =
+      !roleFilter || roleFilter === ROLE.EVALUATOR
+        ? await EvaluatorProfileModel.find(
+            rx ? { $or: [{ firstName: rx }, { lastName: rx }, { location: rx }] } : {},
+            { userId: 1, firstName: 1, lastName: 1, title: 1, location: 1 }
+          )
+            .limit(limit)
+            .lean()
+        : [];
+
     for (const p of playerProfiles) ids.add(String((p as any).userId));
     for (const c of coachProfiles) ids.add(String((c as any).userId));
+    for (const e of evaluatorProfiles) ids.add(String((e as any).userId));
 
-    const users = await UserModel.find({ _id: { $in: Array.from(ids) }, role: { $in: allowedRoles as any } })
+    const users = await UserModel.find({
+      _id: { $in: Array.from(ids) },
+      role: roleFilter ? roleFilter : { $in: allowedRecipientRoles as any }
+    })
       .select({ email: 1, role: 1, firstName: 1, lastName: 1 })
       .limit(50)
       .lean();
     const userById = new Map(users.map((u) => [String(u._id), u]));
     const playerById = new Map(playerProfiles.map((p: any) => [String(p.userId), p]));
     const coachById = new Map(coachProfiles.map((c: any) => [String(c.userId), c]));
+    const evaluatorById = new Map(evaluatorProfiles.map((e: any) => [String(e.userId), e]));
 
     const results = Array.from(ids)
       .map((id) => {
@@ -84,9 +123,14 @@ messagesRouter.get("/messages/recipients", requireAuth, requireRole([ROLE.PLAYER
         if (role === ROLE.PLAYER) {
           const p = playerById.get(id);
           if (p?.firstName && p?.lastName) displayName = `${p.firstName} ${p.lastName}`;
+          else if ((u as any).firstName) displayName = `${(u as any).firstName} ${(u as any).lastName ?? ""}`.trim();
         } else if (role === ROLE.COACH) {
           const c = coachById.get(id);
           if (c?.firstName && c?.lastName) displayName = `${c.firstName} ${c.lastName}`;
+          else if ((u as any).firstName) displayName = `${(u as any).firstName} ${(u as any).lastName ?? ""}`.trim();
+        } else if (role === ROLE.EVALUATOR) {
+          const e = evaluatorById.get(id);
+          if (e?.firstName && e?.lastName) displayName = `${e.firstName} ${e.lastName}`;
           else if ((u as any).firstName) displayName = `${(u as any).firstName} ${(u as any).lastName ?? ""}`.trim();
         }
 
@@ -95,7 +139,9 @@ messagesRouter.get("/messages/recipients", requireAuth, requireRole([ROLE.PLAYER
             ? coachById.get(id)?.institutionName
             : role === ROLE.PLAYER
               ? playerById.get(id)?.sport
-              : undefined;
+              : role === ROLE.EVALUATOR
+                ? evaluatorById.get(id)?.location
+                : undefined;
 
         return { userId: id, role, email, displayName, extra: extra ?? null };
       })
@@ -161,7 +207,11 @@ messagesRouter.get("/messages/conversations", requireAuth, requireRole([ROLE.PLA
 });
 
 // Create a new conversation request (1:1) with an initial message.
-messagesRouter.post("/messages/conversations", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH]), async (req, res, next) => {
+messagesRouter.post(
+  "/messages/conversations",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
   const parsed = CreateConversationSchema.safeParse(req.body);
   if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 
@@ -170,6 +220,12 @@ messagesRouter.post("/messages/conversations", requireAuth, requireRole([ROLE.PL
     const recipientId = ensureObjectId(parsed.data.recipientUserId);
     if (String(actorId) === String(recipientId)) {
       return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Cannot message yourself" }));
+    }
+
+    const recipientUser = await UserModel.findById(recipientId).select({ role: 1 }).lean();
+    if (!recipientUser) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Recipient not found" }));
+    if (String((recipientUser as any).role) === ROLE.ADMIN) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Cannot message admins" }));
     }
 
     const key = conversationKeyFor(String(actorId), String(recipientId));
@@ -205,7 +261,11 @@ messagesRouter.post("/messages/conversations", requireAuth, requireRole([ROLE.PL
 });
 
 // Accept a conversation request
-messagesRouter.post("/messages/conversations/:id/accept", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH]), async (req, res, next) => {
+messagesRouter.post(
+  "/messages/conversations/:id/accept",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
   try {
     const userId = ensureObjectId(req.user!.id);
     const convId = ensureObjectId(req.params.id);
@@ -224,7 +284,11 @@ messagesRouter.post("/messages/conversations/:id/accept", requireAuth, requireRo
 });
 
 // Decline a conversation request
-messagesRouter.post("/messages/conversations/:id/decline", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH]), async (req, res, next) => {
+messagesRouter.post(
+  "/messages/conversations/:id/decline",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
   try {
     const userId = ensureObjectId(req.user!.id);
     const convId = ensureObjectId(req.params.id);
@@ -281,7 +345,11 @@ messagesRouter.get("/messages/conversations/:id", requireAuth, requireRole([ROLE
 });
 
 // Send a message (only if accepted, or allow creator to send while pending)
-messagesRouter.post("/messages/conversations/:id/messages", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH]), async (req, res, next) => {
+messagesRouter.post(
+  "/messages/conversations/:id/messages",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
   const parsed = SendMessageSchema.safeParse(req.body);
   if (!parsed.success) return next(zodToBadRequest(parsed.error.flatten()));
 
