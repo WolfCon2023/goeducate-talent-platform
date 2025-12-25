@@ -288,8 +288,18 @@ export function AdminUserManager() {
           </div>
         </div>
 
-        <div className="mt-6 overflow-x-auto">
-          <table className="w-full text-left text-sm">
+        <div className="mt-6">
+          <table className="w-full table-fixed text-left text-sm">
+            <colgroup>
+              <col className="w-[26%]" />
+              <col className="w-[14%]" />
+              <col className="w-[10%]" />
+              <col className="w-[22%]" />
+              <col className="w-[10%]" />
+              <col className="w-[8%]" />
+              <col className="hidden xl:table-column w-[10%]" />
+              <col className="w-[14%]" />
+            </colgroup>
             <thead>
               <tr className="border-b border-[color:var(--border)] text-[color:var(--color-text-muted)]">
                 <th className="py-2 pr-4">Email</th>
@@ -298,21 +308,22 @@ export function AdminUserManager() {
                 <th className="py-2 pr-4">Name</th>
                 <th className="py-2 pr-4">Subscription</th>
                 <th className="py-2 pr-4">Active</th>
-                <th className="py-2 pr-4">Created</th>
+                <th className="hidden xl:table-cell py-2 pr-4">Created</th>
                 <th className="py-2 pr-4">Actions</th>
               </tr>
             </thead>
             <tbody>
               {results.map((u) => (
-                <tr key={u.id} className="border-b border-[color:var(--border)]">
-                  <td className="py-2 pr-4">
+                <>
+                <tr key={u.id} className="border-b border-[color:var(--border)] align-top">
+                  <td className="py-2 pr-4 break-words">
                     {editId === u.id ? (
                       <Input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
                     ) : (
                       u.email
                     )}
                   </td>
-                  <td className="py-2 pr-4">
+                  <td className="py-2 pr-4 break-words">
                     {editId === u.id ? (
                       <Input value={editForm.username} onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))} placeholder="(optional)" />
                     ) : (
@@ -381,39 +392,11 @@ export function AdminUserManager() {
                       "active"
                     )}
                   </td>
-                  <td className="py-2 pr-4">{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
+                  <td className="hidden xl:table-cell py-2 pr-4">{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
                   <td className="py-2 pr-4">
                     <div className="flex flex-wrap gap-2">
                       {editId === u.id ? (
                         <>
-                          <div className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
-                            <div className="font-semibold text-white/90">Profile visibility</div>
-                            <div className="mt-2 grid gap-2">
-                              <label className="inline-flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={editForm.profilePublic}
-                                  onChange={(e) => setEditForm((f) => ({ ...f, profilePublic: e.target.checked }))}
-                                />
-                                <span className="text-[color:var(--muted)]">Public profile</span>
-                              </label>
-                              {editForm.role === "player" ? (
-                                <label className="inline-flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    checked={editForm.playerContactVisibleToSubscribedCoaches}
-                                    onChange={(e) => setEditForm((f) => ({ ...f, playerContactVisibleToSubscribedCoaches: e.target.checked }))}
-                                  />
-                                  <span className="text-[color:var(--muted)]">Contact visible to subscribed coaches</span>
-                                </label>
-                              ) : null}
-                              {editForm.role === "player" ? (
-                                <div className="text-xs text-[color:var(--muted-2)]">
-                                  Note: players must have saved a player profile before admin can publish it.
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
                           <Button type="button" onClick={() => saveEdit(u)} disabled={savingEdit}>
                             {savingEdit ? "Saving…" : "Save"}
                           </Button>
@@ -461,6 +444,41 @@ export function AdminUserManager() {
                     </div>
                   </td>
                 </tr>
+                {editId === u.id ? (
+                  <tr className="border-b border-[color:var(--border)]">
+                    <td className="py-3" colSpan={8}>
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
+                        <div className="font-semibold text-white/90">Profile visibility</div>
+                        <div className="mt-2 grid gap-2">
+                          <label className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={editForm.profilePublic}
+                              onChange={(e) => setEditForm((f) => ({ ...f, profilePublic: e.target.checked }))}
+                            />
+                            <span className="text-[color:var(--muted)]">Public profile</span>
+                          </label>
+                          {editForm.role === "player" ? (
+                            <label className="inline-flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={editForm.playerContactVisibleToSubscribedCoaches}
+                                onChange={(e) => setEditForm((f) => ({ ...f, playerContactVisibleToSubscribedCoaches: e.target.checked }))}
+                              />
+                              <span className="text-[color:var(--muted)]">Contact visible to subscribed coaches</span>
+                            </label>
+                          ) : null}
+                          {editForm.role === "player" ? (
+                            <div className="text-xs text-[color:var(--muted-2)]">
+                              Note: players must have saved a player profile before admin can publish it.
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+                </>
               ))}
               {results.length === 0 ? (
                 <tr>
