@@ -289,8 +289,8 @@ export function AuthNav() {
               Billing
             </Link>
           ) : null}
-          <Link href="/kb" className={navItem("/kb")}>
-            Help
+          <Link href="/kb" className={navItem("/kb")} title="Knowledge Base">
+            KB
           </Link>
           <Link href="/notifications" className={navItem("/notifications")}>
             <span className="inline-flex items-center gap-2">
@@ -398,8 +398,8 @@ export function AuthNav() {
           <Link href="/login" className={navItem("/login")}>
             Login
           </Link>
-          <Link href="/kb" className={navItem("/kb")}>
-            Help
+          <Link href="/kb" className={navItem("/kb")} title="Knowledge Base">
+            KB
           </Link>
           <Link href="/request-access" className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500">
             Request access
