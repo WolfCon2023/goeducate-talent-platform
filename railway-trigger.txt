@@ -21,4 +21,5 @@ trigger: redeploy api+web (messages mvp) 2025-12-25T02:45:00Z
 trigger: redeploy api+web (messages recipient typeahead) 2025-12-25T03:10:00Z
 trigger: redeploy api+web (admin user editing) 2025-12-25T03:25:00Z
 trigger: redeploy api (admin user editing 404 fix) 2025-12-25T03:40:00Z
+trigger: redeploy web (admin user editing retry) 2025-12-25T03:55:00Z
 
