@@ -19,12 +19,15 @@ import { isInviteEmailConfigured, sendInviteEmail } from "../email/invites.js";
 import nodemailer from "nodemailer";
 import { normalizeUsStateToCode, US_STATES } from "../util/usStates.js";
 import { logAdminAction } from "../audit/adminAudit.js";
-import { EmailAuditLogModel } from "../models/EmailAuditLog.js";
+import { EmailAuditLogModel, EMAIL_AUDIT_STATUS } from "../models/EmailAuditLog.js";
 import { createTransporterOrThrow, isEmailConfigured } from "../email/mailer.js";
 import { sendMailWithAudit } from "../email/audit.js";
 import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 import { AdminAuditLogModel } from "../models/AdminAuditLog.js";
 import { AuditLogModel } from "../models/AuditLog.js";
+import { AccessRequestModel } from "../models/AccessRequest.js";
+import { isAccessRequestEmailConfigured, sendAccessRequestApprovedEmail, sendAccessRequestRejectedEmail } from "../email/accessRequests.js";
+import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
 export const adminRouter = Router();
 async function createInvite(opts) {
     const email = opts.email.trim().toLowerCase();
@@ -962,6 +965,177 @@ adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), as
             related: { userId: req.user?.id }
         });
         return res.json({ ok: true, messageId: info?.messageId ?? null });
+    }
+    catch (err) {
+        return next(err);
+    }
+});
+// Admin-only: resend an email based on an audit log row (best-effort).
+// Supports: invite, access request approved/rejected, notification (if meta contains payload).
+adminRouter.post("/admin/email/resend", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+    try {
+        const id = String(req.body?.id ?? "").trim();
+        if (!id || !mongoose.isValidObjectId(id)) {
+            return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid audit log id is required" }));
+        }
+        const row = await EmailAuditLogModel.findById(id).lean();
+        if (!row) {
+            return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Email audit log row not found" }));
+        }
+        // INVITE
+        if (row.type === EMAIL_AUDIT_TYPE.INVITE) {
+            const inviteRole = String(row?.meta?.role ?? "").trim().toLowerCase();
+            if (!inviteRole) {
+                return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Missing invite role metadata on this row." }));
+            }
+            if (!isInviteEmailConfigured()) {
+                return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Email is not configured" }));
+            }
+            const invite = await createInvite({ email: row.to, role: inviteRole, createdByUserId: req.user.id });
+            const env = getEnv();
+            const base = String(env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+            await sendInviteEmail({
+                to: invite.email,
+                role: invite.role,
+                code: invite.token,
+                inviteUrl: base ? `${base}/invite` : "/invite",
+                expiresAtIso: invite.expiresAt
+            });
+            await logAdminAction({
+                req,
+                actorUserId: String(req.user.id),
+                action: "email_resend",
+                targetType: "email_audit",
+                targetId: String(row._id),
+                meta: { type: row.type, to: row.to }
+            });
+            return res.json({ ok: true, supported: true });
+        }
+        // ACCESS REQUEST APPROVED/REJECTED
+        if (row.type === EMAIL_AUDIT_TYPE.ACCESS_REQUEST_APPROVED || row.type === EMAIL_AUDIT_TYPE.ACCESS_REQUEST_REJECTED) {
+            if (!isAccessRequestEmailConfigured()) {
+                return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Email is not configured" }));
+            }
+            const accessRequestId = row.relatedAccessRequestId ? String(row.relatedAccessRequestId) : "";
+            if (!accessRequestId || !mongoose.isValidObjectId(accessRequestId)) {
+                return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "This email is missing relatedAccessRequestId." }));
+            }
+            const ar = await AccessRequestModel.findById(accessRequestId).lean();
+            if (!ar) {
+                return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Related access request not found" }));
+            }
+            if (row.type === EMAIL_AUDIT_TYPE.ACCESS_REQUEST_APPROVED) {
+                const invite = await createInvite({ email: ar.email, role: ar.requestedRole, createdByUserId: req.user.id });
+                const env = getEnv();
+                const base = String(env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+                const inviteUrl = base ? `${base}/invite` : "/invite";
+                try {
+                    const info = await sendAccessRequestApprovedEmail({
+                        to: ar.email,
+                        inviteUrl,
+                        inviteCode: invite.token,
+                        expiresAtIso: invite.expiresAt
+                    });
+                    await EmailAuditLogModel.create({
+                        type: EMAIL_AUDIT_TYPE.ACCESS_REQUEST_APPROVED,
+                        status: EMAIL_AUDIT_STATUS.SENT,
+                        to: ar.email,
+                        subject: info.subject,
+                        relatedAccessRequestId: ar._id,
+                        relatedInviteEmail: ar.email,
+                        messageId: info.messageId,
+                        meta: { resendOf: String(row._id), role: ar.requestedRole }
+                    });
+                }
+                catch (err) {
+                    await EmailAuditLogModel.create({
+                        type: EMAIL_AUDIT_TYPE.ACCESS_REQUEST_APPROVED,
+                        status: EMAIL_AUDIT_STATUS.FAILED,
+                        to: ar.email,
+                        subject: "GoEducate Talent – Access request approved",
+                        relatedAccessRequestId: ar._id,
+                        relatedInviteEmail: ar.email,
+                        error: err instanceof Error ? { message: err.message, name: err.name, stack: err.stack } : err,
+                        meta: { resendOf: String(row._id), role: ar.requestedRole }
+                    });
+                    throw err;
+                }
+            }
+            else {
+                try {
+                    const info = await sendAccessRequestRejectedEmail({ to: ar.email });
+                    await EmailAuditLogModel.create({
+                        type: EMAIL_AUDIT_TYPE.ACCESS_REQUEST_REJECTED,
+                        status: EMAIL_AUDIT_STATUS.SENT,
+                        to: ar.email,
+                        subject: info.subject,
+                        relatedAccessRequestId: ar._id,
+                        relatedInviteEmail: ar.email,
+                        messageId: info.messageId,
+                        meta: { resendOf: String(row._id) }
+                    });
+                }
+                catch (err) {
+                    await EmailAuditLogModel.create({
+                        type: EMAIL_AUDIT_TYPE.ACCESS_REQUEST_REJECTED,
+                        status: EMAIL_AUDIT_STATUS.FAILED,
+                        to: ar.email,
+                        subject: "GoEducate Talent – Access request update",
+                        relatedAccessRequestId: ar._id,
+                        relatedInviteEmail: ar.email,
+                        error: err instanceof Error ? { message: err.message, name: err.name, stack: err.stack } : err,
+                        meta: { resendOf: String(row._id) }
+                    });
+                    throw err;
+                }
+            }
+            await logAdminAction({
+                req,
+                actorUserId: String(req.user.id),
+                action: "email_resend",
+                targetType: "email_audit",
+                targetId: String(row._id),
+                meta: { type: row.type, to: row.to, relatedAccessRequestId: accessRequestId }
+            });
+            return res.json({ ok: true, supported: true });
+        }
+        // NOTIFICATION (requires meta payload; older rows may not have enough info)
+        if (row.type === EMAIL_AUDIT_TYPE.NOTIFICATION) {
+            if (!isNotificationEmailConfigured()) {
+                return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Email is not configured" }));
+            }
+            const meta = row.meta ?? {};
+            const subject = String(meta.subject ?? row.subject ?? "").trim();
+            const title = String(meta.title ?? "").trim();
+            const message = String(meta.message ?? "").trim();
+            const href = meta.href ? String(meta.href) : undefined;
+            if (!subject || !title || !message) {
+                return next(new ApiError({
+                    status: 400,
+                    code: "BAD_REQUEST",
+                    message: "This notification email is missing metadata required to resend (title/message/subject)."
+                }));
+            }
+            await sendNotificationEmail({
+                to: row.to,
+                subject,
+                title,
+                message,
+                href,
+                cc: row.cc ?? undefined,
+                bcc: row.bcc ?? undefined
+            });
+            await logAdminAction({
+                req,
+                actorUserId: String(req.user.id),
+                action: "email_resend",
+                targetType: "email_audit",
+                targetId: String(row._id),
+                meta: { type: row.type, to: row.to }
+            });
+            return res.json({ ok: true, supported: true });
+        }
+        return res.json({ ok: true, supported: false, message: "Resend is not supported for this email type yet." });
     }
     catch (err) {
         return next(err);

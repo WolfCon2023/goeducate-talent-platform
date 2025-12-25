@@ -38,9 +38,12 @@ export function AdminEmailDiagnostics() {
   const [rows, setRows] = useState<EmailAuditRow[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [page, setPage] = useState<number>(0);
-  const pageSize = 50;
+  const pageSize = 25;
   const [toEmail, setToEmail] = useState("");
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<string>("");
+  const [filterType, setFilterType] = useState<string>("");
+  const [filterTo, setFilterTo] = useState<string>("");
 
   async function load() {
     setError(null);
@@ -51,10 +54,18 @@ export function AdminEmailDiagnostics() {
       if (!token) throw new Error("Please login first.");
       if (role !== "admin") throw new Error("Insufficient permissions.");
 
+      const qs = new URLSearchParams({
+        limit: String(pageSize),
+        skip: String(page * pageSize)
+      });
+      if (filterStatus.trim()) qs.set("status", filterStatus.trim());
+      if (filterType.trim()) qs.set("type", filterType.trim());
+      if (filterTo.trim()) qs.set("to", filterTo.trim().toLowerCase());
+
       const [cfg, audit] = await Promise.all([
         apiFetch<EmailConfig>("/admin/email/config", { token }),
         apiFetch<{ total: number; results: EmailAuditRow[]; skip: number; limit: number }>(
-          `/admin/email/audit?limit=${pageSize}&skip=${page * pageSize}`,
+          `/admin/email/audit?${qs.toString()}`,
           { token }
         )
       ]);
@@ -120,6 +131,28 @@ export function AdminEmailDiagnostics() {
     }
   }
 
+  async function resendFromAudit(row: EmailAuditRow) {
+    setError(null);
+    setResending(row._id);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+
+      await apiFetch("/admin/email/resend", {
+        token,
+        method: "POST",
+        body: JSON.stringify({ id: row._id })
+      });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend email");
+    } finally {
+      setResending(null);
+    }
+  }
+
   useAutoRevalidate(load, { deps: [page], intervalMs: 30_000 });
 
   return (
@@ -176,6 +209,48 @@ export function AdminEmailDiagnostics() {
 
       <div className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
         <div className="text-sm font-semibold text-[color:var(--foreground)]">Recent email audit log</div>
+        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+          <div>
+            <label className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Status</label>
+            <select
+              className="mt-1 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+              value={filterStatus}
+              onChange={(e) => {
+                setPage(0);
+                setFilterStatus(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="sent">sent</option>
+              <option value="failed">failed</option>
+              <option value="skipped">skipped</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Type</label>
+            <input
+              className="mt-1 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+              value={filterType}
+              onChange={(e) => {
+                setPage(0);
+                setFilterType(e.target.value);
+              }}
+              placeholder='e.g. "invite" or "notification"'
+            />
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">To</label>
+            <input
+              className="mt-1 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+              value={filterTo}
+              onChange={(e) => {
+                setPage(0);
+                setFilterTo(e.target.value);
+              }}
+              placeholder="recipient@example.com"
+            />
+          </div>
+        </div>
         <div className="mt-2 flex items-center justify-between gap-3 text-sm text-[color:var(--muted)]">
           <div>
             Showing <span className="text-[color:var(--foreground)] font-semibold">{rows.length}</span> of{" "}
@@ -226,19 +301,15 @@ export function AdminEmailDiagnostics() {
                   <td className="px-3 py-2">{r.to}</td>
                   <td className="px-3 py-2">{r.subject}</td>
                   <td className="px-3 py-2">
-                    {r.type === "invite" ? (
-                      <button
-                        type="button"
-                        className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 hover:bg-white/10 disabled:opacity-50"
-                        onClick={() => resendInvite(r)}
-                        disabled={Boolean(resending) || !config?.configured}
-                        title="Resend (creates a fresh invite token)"
-                      >
-                        {resending === r._id ? "Resending..." : "Resend"}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-[color:var(--muted)]">—</span>
-                    )}
+                    <button
+                      type="button"
+                      className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 hover:bg-white/10 disabled:opacity-50"
+                      onClick={() => (r.type === "invite" ? resendInvite(r) : resendFromAudit(r))}
+                      disabled={Boolean(resending) || !config?.configured}
+                      title={r.type === "invite" ? "Resend (creates a fresh invite token)" : "Resend (best-effort; depends on email type/metadata)"}
+                    >
+                      {resending === r._id ? "Resending..." : "Resend"}
+                    </button>
                   </td>
                   <td className="px-3 py-2 text-xs text-[color:var(--muted)]">
                     {r.error ? (typeof r.error === "string" ? r.error : JSON.stringify(r.error)) : "—"}

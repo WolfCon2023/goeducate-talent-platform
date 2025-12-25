@@ -37,7 +37,8 @@ export async function sendNotificationEmail(input) {
             text,
             html
         },
-        meta: { href: input.href }
+        // Include enough metadata to support admin resend for future rows.
+        meta: { href: input.href, subject: input.subject, title: input.title, message: input.message }
     });
 }
 //# sourceMappingURL=notifications.js.map
