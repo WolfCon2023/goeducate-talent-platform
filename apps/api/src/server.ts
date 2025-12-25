@@ -30,6 +30,8 @@ import { profilesRouter } from "./routes/profiles.js";
 import { searchRouter } from "./routes/search.js";
 import { evaluatorNotesRouter } from "./routes/evaluatorNotes.js";
 import { messagesRouter } from "./routes/messages.js";
+import { kbRouter } from "./routes/kb.js";
+import { adminKbRouter } from "./routes/adminKb.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -130,6 +132,8 @@ async function main() {
   app.use(searchRouter);
   app.use(evaluatorNotesRouter);
   app.use(messagesRouter);
+  app.use(kbRouter);
+  app.use(adminKbRouter);
 
   app.use(errorHandler);
 
