@@ -384,7 +384,7 @@ export function AdminKbClient() {
 
       {editOpen ? (
         <div
-          className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-10"
+          className="fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-black/70 px-4 py-10"
           role="dialog"
           aria-modal="true"
           onMouseDown={(e) => {
@@ -393,8 +393,8 @@ export function AdminKbClient() {
         >
           <div className="w-full max-w-4xl">
             <Card className="p-0">
-              <div className="max-h-[calc(100vh-80px)] overflow-hidden">
-                <div className="flex items-start justify-between gap-4 border-b border-white/10 p-6">
+              <div className="flex max-h-[calc(100vh-80px)] flex-col overflow-hidden">
+                <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 p-6">
                 <div>
                   <h3 className="text-lg font-semibold">{editId ? "Edit KB article" : "New KB article"}</h3>
                   <p className="mt-1 text-sm text-white/70">Markdown content is supported.</p>
@@ -409,7 +409,7 @@ export function AdminKbClient() {
                 </Button>
                 </div>
 
-                <div className="overflow-y-auto p-6">
+                <div className="min-h-0 flex-1 overflow-y-auto p-6">
                   {editLoading ? (
                     <div className="text-sm text-[color:var(--muted)]">Loading…</div>
                   ) : (
