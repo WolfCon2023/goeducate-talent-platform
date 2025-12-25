@@ -41,7 +41,9 @@ export function AdminUserManager() {
   const [inviteFieldErrors, setInviteFieldErrors] = useState<FieldErrors | undefined>(undefined);
   const [creatingInvite, setCreatingInvite] = useState(false);
 
-  const [editId, setEditId] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editUserId, setEditUserId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     email: string;
     username: string;
@@ -52,6 +54,8 @@ export function AdminUserManager() {
     isActive: boolean;
     profilePublic: boolean;
     playerContactVisibleToSubscribedCoaches: boolean;
+    profileCity: string;
+    profileState: string;
     newPassword: string;
   }>({
     email: "",
@@ -63,6 +67,8 @@ export function AdminUserManager() {
     isActive: true,
     profilePublic: false,
     playerContactVisibleToSubscribedCoaches: false,
+    profileCity: "",
+    profileState: "",
     newPassword: ""
   });
   const [savingEdit, setSavingEdit] = useState(false);
@@ -122,44 +128,53 @@ export function AdminUserManager() {
     }
   }
 
-  async function startEdit(u: UserRow) {
-    setEditId(u.id);
-    setEditForm({
-      email: u.email ?? "",
-      username: u.username ?? "",
-      role: u.role,
-      firstName: u.firstName ?? "",
-      lastName: u.lastName ?? "",
-      subscriptionStatus: u.subscriptionStatus ?? "inactive",
-      isActive: u.isActive !== false,
-      profilePublic: false,
-      playerContactVisibleToSubscribedCoaches: false,
-      newPassword: ""
-    });
-
-    // Load current profile visibility flags
+  async function openEditModal(userId: string) {
+    setFormError(null);
+    setEditOpen(true);
+    setEditLoading(true);
+    setEditUserId(userId);
     try {
       const token = getAccessToken();
       const tokenRole = getTokenRole(token);
-      if (!token) return;
-      if (tokenRole !== "admin") return;
-      const vis = await apiFetch<{
-        role: string;
-        profileExists: boolean;
-        profilePublic?: boolean;
-        playerContactVisibleToSubscribedCoaches?: boolean;
-      }>(`/admin/users/${encodeURIComponent(u.id)}/profile-visibility`, { token, retries: 4, retryOn404: true });
-      setEditForm((f) => ({
-        ...f,
-        profilePublic: Boolean(vis.profilePublic),
-        playerContactVisibleToSubscribedCoaches: Boolean(vis.playerContactVisibleToSubscribedCoaches)
-      }));
-    } catch {
-      // ignore; visibility toggles will remain default false until loaded
+      if (!token) throw new Error("Please login first.");
+      if (tokenRole !== "admin") throw new Error("Insufficient permissions.");
+
+      const detail = await apiFetch<{
+        user: UserRow & { subscriptionStatus?: string; isActive?: boolean };
+        profile: {
+          profileExists: boolean;
+          city?: string;
+          state?: string;
+          profilePublic?: boolean;
+          playerContactVisibleToSubscribedCoaches?: boolean;
+        };
+      }>(`/admin/users/${encodeURIComponent(userId)}/detail`, { token, retries: 4, retryOn404: true });
+
+      setEditForm({
+        email: detail.user.email ?? "",
+        username: detail.user.username ?? "",
+        role: detail.user.role,
+        firstName: detail.user.firstName ?? "",
+        lastName: detail.user.lastName ?? "",
+        subscriptionStatus: detail.user.subscriptionStatus ?? "inactive",
+        isActive: detail.user.isActive !== false,
+        profilePublic: Boolean(detail.profile?.profilePublic),
+        playerContactVisibleToSubscribedCoaches: Boolean(detail.profile?.playerContactVisibleToSubscribedCoaches),
+        profileCity: detail.profile?.city ?? "",
+        profileState: detail.profile?.state ?? "",
+        newPassword: ""
+      });
+    } catch (err) {
+      const parsed = parseApiError(err);
+      setFormError(parsed.formError ?? "Failed to load user details");
+      setEditOpen(false);
+      setEditUserId(null);
+    } finally {
+      setEditLoading(false);
     }
   }
 
-  async function saveEdit(u: UserRow) {
+  async function saveEdit() {
     setFormError(null);
     setSavingEdit(true);
     try {
@@ -167,6 +182,7 @@ export function AdminUserManager() {
       const tokenRole = getTokenRole(token);
       if (!token) throw new Error("Please login first.");
       if (tokenRole !== "admin") throw new Error("Insufficient permissions.");
+      if (!editUserId) throw new Error("No user selected.");
 
       const payload: any = {
         email: editForm.email.trim() || undefined,
@@ -182,8 +198,10 @@ export function AdminUserManager() {
       };
       if (editForm.role === "coach") payload.subscriptionStatus = editForm.subscriptionStatus || "inactive";
       if (editForm.newPassword.trim()) payload.newPassword = editForm.newPassword;
+      if (editForm.profileCity.trim()) payload.profileCity = editForm.profileCity.trim();
+      if (editForm.profileState.trim()) payload.profileState = editForm.profileState.trim();
 
-      await apiFetch(`/admin/users/${encodeURIComponent(u.id)}`, {
+      await apiFetch(`/admin/users/${encodeURIComponent(editUserId)}`, {
         method: "PATCH",
         token,
         body: JSON.stringify(payload),
@@ -191,7 +209,8 @@ export function AdminUserManager() {
         retryOn404: true
       });
       toast({ kind: "success", title: "Saved", message: "User updated." });
-      setEditId(null);
+      setEditOpen(false);
+      setEditUserId(null);
       await load();
     } catch (err) {
       const parsed = parseApiError(err);
@@ -314,171 +333,50 @@ export function AdminUserManager() {
             </thead>
             <tbody>
               {results.map((u) => (
-                <>
                 <tr key={u.id} className="border-b border-[color:var(--border)] align-top">
                   <td className="py-2 pr-4 break-words">
-                    {editId === u.id ? (
-                      <Input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
-                    ) : (
-                      u.email
-                    )}
+                    {u.email}
                   </td>
                   <td className="py-2 pr-4 break-words">
-                    {editId === u.id ? (
-                      <Input value={editForm.username} onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))} placeholder="(optional)" />
-                    ) : (
-                      u.username ?? "—"
-                    )}
+                    {u.username ?? "—"}
                   </td>
                   <td className="py-2 pr-4">
-                    {editId === u.id ? (
-                      <select
-                        className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-2 py-1 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
-                        value={editForm.role}
-                        onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as Role }))}
-                      >
-                        <option value="player">player</option>
-                        <option value="coach">coach</option>
-                        <option value="evaluator">evaluator</option>
-                        <option value="admin">admin</option>
-                      </select>
-                    ) : (
-                      u.role
-                    )}
+                    {u.role}
                   </td>
                   <td className="py-2 pr-4">
-                    {editId === u.id ? (
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <Input value={editForm.firstName} onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))} placeholder="First" />
-                        <Input value={editForm.lastName} onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))} placeholder="Last" />
-                      </div>
-                    ) : u.firstName || u.lastName ? (
+                    {u.firstName || u.lastName ? (
                       `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()
                     ) : (
                       "-"
                     )}
                   </td>
                   <td className="py-2 pr-4">
-                    {editId === u.id ? (
-                      editForm.role === "coach" ? (
-                        <select
-                          className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-2 py-1 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
-                          value={editForm.subscriptionStatus}
-                          onChange={(e) => setEditForm((f) => ({ ...f, subscriptionStatus: e.target.value }))}
-                        >
-                          <option value="inactive">inactive</option>
-                          <option value="active">active</option>
-                        </select>
-                      ) : (
-                        <span className="text-[color:var(--color-text-muted)]">—</span>
-                      )
-                    ) : (
-                      u.role === "coach" ? u.subscriptionStatus ?? "inactive" : "—"
-                    )}
+                    {u.role === "coach" ? u.subscriptionStatus ?? "inactive" : "—"}
                   </td>
                   <td className="py-2 pr-4">
-                    {editId === u.id ? (
-                      <label className="inline-flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={editForm.isActive}
-                          onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.checked }))}
-                        />
-                        <span className="text-[color:var(--muted)]">{editForm.isActive ? "Active" : "Disabled"}</span>
-                      </label>
-                    ) : u.isActive === false ? (
-                      "disabled"
-                    ) : (
-                      "active"
-                    )}
+                    {u.isActive === false ? "disabled" : "active"}
                   </td>
                   <td className="hidden xl:table-cell py-2 pr-4">{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
                   <td className="py-2 pr-4">
                     <div className="flex flex-wrap gap-2">
-                      {editId === u.id ? (
-                        <>
-                          <Button type="button" onClick={() => saveEdit(u)} disabled={savingEdit}>
-                            {savingEdit ? "Saving…" : "Save"}
-                          </Button>
-                          <Button
-                            type="button"
-                            className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
-                            onClick={() => setEditId(null)}
-                            disabled={savingEdit}
-                          >
-                            Cancel
-                          </Button>
-                        </>
-                      ) : (
-                        <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => startEdit(u)}>
-                          Edit
-                        </Button>
-                      )}
                       <Button
                         type="button"
                         className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
-                        onClick={async () => {
-                          try {
-                            const token = getAccessToken();
-                            const tokenRole = getTokenRole(token);
-                            if (!token) throw new Error("Please login first.");
-                            if (tokenRole !== "admin") throw new Error("Insufficient permissions.");
-                            await apiFetch(`/admin/users/${encodeURIComponent(u.id)}/send-password-reset`, { method: "POST", token, retries: 4, retryOn404: true });
-                            toast({ kind: "success", title: "Sent", message: "Password reset email queued (if email is configured)." });
-                          } catch (err) {
-                            const parsed = parseApiError(err);
-                            setFormError(parsed.formError ?? "Failed to send reset email");
-                          }
-                        }}
+                        onClick={() => void openEditModal(u.id)}
                       >
-                        Send reset link
+                        Edit
                       </Button>
                       <Button
                         type="button"
                         className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
                         onClick={() => deleteUser(u)}
-                        disabled={savingEdit && editId === u.id}
+                        disabled={savingEdit}
                       >
                         Delete
                       </Button>
                     </div>
                   </td>
                 </tr>
-                {editId === u.id ? (
-                  <tr className="border-b border-[color:var(--border)]">
-                    <td className="py-3" colSpan={8}>
-                      <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
-                        <div className="font-semibold text-white/90">Profile visibility</div>
-                        <div className="mt-2 grid gap-2">
-                          <label className="inline-flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={editForm.profilePublic}
-                              onChange={(e) => setEditForm((f) => ({ ...f, profilePublic: e.target.checked }))}
-                            />
-                            <span className="text-[color:var(--muted)]">Public profile</span>
-                          </label>
-                          {editForm.role === "player" ? (
-                            <label className="inline-flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={editForm.playerContactVisibleToSubscribedCoaches}
-                                onChange={(e) => setEditForm((f) => ({ ...f, playerContactVisibleToSubscribedCoaches: e.target.checked }))}
-                              />
-                              <span className="text-[color:var(--muted)]">Contact visible to subscribed coaches</span>
-                            </label>
-                          ) : null}
-                          {editForm.role === "player" ? (
-                            <div className="text-xs text-[color:var(--muted-2)]">
-                              Note: players must have saved a player profile before admin can publish it.
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ) : null}
-                </>
               ))}
               {results.length === 0 ? (
                 <tr>
@@ -491,6 +389,198 @@ export function AdminUserManager() {
           </table>
         </div>
       </Card>
+
+      {editOpen ? (
+        <div
+          className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-10"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget && !savingEdit) {
+              setEditOpen(false);
+              setEditUserId(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-3xl">
+            <Card className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Edit user</h3>
+                  <p className="mt-1 text-sm text-white/70">Full user + profile view (including city/state).</p>
+                </div>
+                <Button
+                  type="button"
+                  className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                  onClick={() => {
+                    if (savingEdit) return;
+                    setEditOpen(false);
+                    setEditUserId(null);
+                  }}
+                  disabled={savingEdit}
+                >
+                  Close
+                </Button>
+              </div>
+
+              {editLoading ? (
+                <div className="mt-6 text-sm text-white/70">Loading…</div>
+              ) : (
+                <>
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-1.5">
+                      <Label>Email</Label>
+                      <Input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label>Username</Label>
+                      <Input
+                        value={editForm.username}
+                        onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))}
+                        placeholder="(optional)"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label>Role</Label>
+                      <select
+                        className="h-10 w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+                        value={editForm.role}
+                        onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value as Role }))}
+                      >
+                        <option value="player">player</option>
+                        <option value="coach">coach</option>
+                        <option value="evaluator">evaluator</option>
+                        <option value="admin">admin</option>
+                      </select>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label>Status</Label>
+                      <label className="mt-1 inline-flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={editForm.isActive}
+                          onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.checked }))}
+                        />
+                        <span className="text-[color:var(--muted)]">{editForm.isActive ? "Active" : "Disabled"}</span>
+                      </label>
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label>First name</Label>
+                      <Input value={editForm.firstName} onChange={(e) => setEditForm((f) => ({ ...f, firstName: e.target.value }))} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label>Last name</Label>
+                      <Input value={editForm.lastName} onChange={(e) => setEditForm((f) => ({ ...f, lastName: e.target.value }))} />
+                    </div>
+
+                    {editForm.role === "coach" ? (
+                      <div className="grid gap-1.5 sm:col-span-2">
+                        <Label>Subscription</Label>
+                        <select
+                          className="h-10 w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+                          value={editForm.subscriptionStatus}
+                          onChange={(e) => setEditForm((f) => ({ ...f, subscriptionStatus: e.target.value }))}
+                        >
+                          <option value="inactive">inactive</option>
+                          <option value="active">active</option>
+                        </select>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-sm font-semibold text-white/90">Profile (location + visibility)</div>
+                    <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                      <div className="grid gap-1.5">
+                        <Label>City</Label>
+                        <Input value={editForm.profileCity} onChange={(e) => setEditForm((f) => ({ ...f, profileCity: e.target.value }))} />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label>State</Label>
+                        <Input
+                          value={editForm.profileState}
+                          onChange={(e) => setEditForm((f) => ({ ...f, profileState: e.target.value }))}
+                          placeholder="e.g. TX"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-2">
+                      <label className="inline-flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={editForm.profilePublic}
+                          onChange={(e) => setEditForm((f) => ({ ...f, profilePublic: e.target.checked }))}
+                        />
+                        <span className="text-[color:var(--muted)]">Public profile</span>
+                      </label>
+                      {editForm.role === "player" ? (
+                        <label className="inline-flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={editForm.playerContactVisibleToSubscribedCoaches}
+                            onChange={(e) => setEditForm((f) => ({ ...f, playerContactVisibleToSubscribedCoaches: e.target.checked }))}
+                          />
+                          <span className="text-[color:var(--muted)]">Contact visible to subscribed coaches</span>
+                        </label>
+                      ) : null}
+                      {editForm.role === "player" ? (
+                        <div className="text-xs text-[color:var(--muted-2)]">
+                          Note: if the player hasn’t saved a player profile yet, publishing/location edits will be blocked.
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-sm font-semibold text-white/90">Security</div>
+                    <div className="mt-3 grid gap-2">
+                      <Label>Set new password (optional)</Label>
+                      <Input
+                        type="password"
+                        value={editForm.newPassword}
+                        onChange={(e) => setEditForm((f) => ({ ...f, newPassword: e.target.value }))}
+                        placeholder="Min 8 characters"
+                      />
+                      <div className="text-xs text-[color:var(--muted-2)]">Prefer “Send password reset link” for best auditability.</div>
+                      <div className="flex flex-wrap gap-2 pt-2">
+                        <Button type="button" onClick={() => void saveEdit()} disabled={savingEdit}>
+                          {savingEdit ? "Saving…" : "Save changes"}
+                        </Button>
+                        <Button
+                          type="button"
+                          className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                          onClick={async () => {
+                            try {
+                              const token = getAccessToken();
+                              const tokenRole = getTokenRole(token);
+                              if (!token) throw new Error("Please login first.");
+                              if (tokenRole !== "admin") throw new Error("Insufficient permissions.");
+                              if (!editUserId) throw new Error("No user selected.");
+                              await apiFetch(`/admin/users/${encodeURIComponent(editUserId)}/send-password-reset`, {
+                                method: "POST",
+                                token,
+                                retries: 4,
+                                retryOn404: true
+                              });
+                              toast({ kind: "success", title: "Sent", message: "Password reset link requested." });
+                            } catch (err) {
+                              const parsed = parseApiError(err);
+                              toast({ kind: "error", title: "Failed", message: parsed.formError ?? "Failed to send reset link." });
+                            }
+                          }}
+                          disabled={savingEdit}
+                        >
+                          Send password reset link
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </Card>
+          </div>
+        </div>
+      ) : null}
 
       <Card>
         <h2 className="text-lg font-semibold">Generate invite</h2>

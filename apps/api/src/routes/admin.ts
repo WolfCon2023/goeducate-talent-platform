@@ -1838,6 +1838,8 @@ const AdminUserUpdateSchema = z.object({
   // Profile visibility (role-specific)
   profilePublic: z.boolean().optional(),
   playerContactVisibleToSubscribedCoaches: z.boolean().optional(),
+  profileCity: z.preprocess((v) => (typeof v === "string" ? v.trim() : v), z.string().min(1).max(80)).optional(),
+  profileState: z.preprocess((v) => (typeof v === "string" ? v.trim().toUpperCase() : v), z.string().min(1).max(40)).optional(),
   // Admin-only direct password set (optional); prefer sending a reset link.
   newPassword: z.string().min(8).max(200).optional()
 });
@@ -1978,6 +1980,38 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
       );
     }
 
+    // City/State updates (role-specific)
+    if (parsed.data.profileCity || parsed.data.profileState) {
+      if (nextRole === ROLE.PLAYER) {
+        const profile = await PlayerProfileModel.findOne({ userId: _id }).lean();
+        if (!profile) {
+          return next(
+            new ApiError({
+              status: 409,
+              code: "PROFILE_MISSING",
+              message: "Player profile not created yet. The player must save their profile before location can be changed."
+            })
+          );
+        }
+        const update: any = {};
+        if (parsed.data.profileCity) update.city = parsed.data.profileCity;
+        if (parsed.data.profileState) update.state = parsed.data.profileState;
+        await PlayerProfileModel.updateOne({ userId: _id }, { $set: update });
+      }
+      if (nextRole === ROLE.COACH) {
+        const update: any = {};
+        if (parsed.data.profileCity) update.city = parsed.data.profileCity;
+        if (parsed.data.profileState) update.state = parsed.data.profileState;
+        await CoachProfileModel.updateOne({ userId: _id }, { $set: update, $setOnInsert: { userId: _id } }, { upsert: true });
+      }
+      if (nextRole === ROLE.EVALUATOR) {
+        const update: any = {};
+        if (parsed.data.profileCity) update.city = parsed.data.profileCity;
+        if (parsed.data.profileState) update.state = parsed.data.profileState;
+        await EvaluatorProfileModel.updateOne({ userId: _id }, { $set: update, $setOnInsert: { userId: _id } }, { upsert: true });
+      }
+    }
+
     // Keep coach/evaluator profile names in sync (best-effort).
     if (nextRole === ROLE.COACH) {
       await CoachProfileModel.updateOne(
@@ -2023,6 +2057,72 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
         subscriptionStatus: user.subscriptionStatus,
         isActive: (user as any).isActive !== false
       }
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: user detail (includes role-specific profile city/state so admin can edit in a modal)
+adminRouter.get("/admin/users/:id/detail", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+    }
+    const _id = new mongoose.Types.ObjectId(req.params.id);
+    const user = await UserModel.findById(_id).lean();
+    if (!user) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+
+    let profile: any = null;
+    if (user.role === ROLE.PLAYER) {
+      profile = await PlayerProfileModel.findOne({ userId: _id }).lean();
+      profile = profile
+        ? {
+            profileExists: true,
+            city: (profile as any).city,
+            state: (profile as any).state,
+            profilePublic: Boolean((profile as any).isProfilePublic),
+            playerContactVisibleToSubscribedCoaches: Boolean((profile as any).isContactVisibleToSubscribedCoaches)
+          }
+        : { profileExists: false };
+    } else if (user.role === ROLE.COACH) {
+      const p = await CoachProfileModel.findOne({ userId: _id }).lean();
+      profile = p
+        ? {
+            profileExists: true,
+            city: (p as any).city,
+            state: (p as any).state,
+            profilePublic: Boolean((p as any).isProfilePublic),
+            institutionName: (p as any).institutionName ?? null
+          }
+        : { profileExists: false };
+    } else if (user.role === ROLE.EVALUATOR) {
+      const p = await EvaluatorProfileModel.findOne({ userId: _id }).lean();
+      profile = p
+        ? {
+            profileExists: true,
+            city: (p as any).city,
+            state: (p as any).state,
+            profilePublic: Boolean((p as any).isProfilePublic),
+            location: (p as any).location ?? null
+          }
+        : { profileExists: false };
+    } else {
+      profile = { profileExists: false };
+    }
+
+    return res.json({
+      user: {
+        id: String((user as any)._id),
+        email: (user as any).email,
+        username: (user as any).username,
+        role: (user as any).role,
+        firstName: (user as any).firstName,
+        lastName: (user as any).lastName,
+        subscriptionStatus: (user as any).subscriptionStatus,
+        isActive: (user as any).isActive !== false
+      },
+      profile
     });
   } catch (err) {
     return next(err);

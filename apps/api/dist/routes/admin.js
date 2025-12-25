@@ -1732,6 +1732,8 @@ const AdminUserUpdateSchema = z.object({
     // Profile visibility (role-specific)
     profilePublic: z.boolean().optional(),
     playerContactVisibleToSubscribedCoaches: z.boolean().optional(),
+    profileCity: z.preprocess((v) => (typeof v === "string" ? v.trim() : v), z.string().min(1).max(80)).optional(),
+    profileState: z.preprocess((v) => (typeof v === "string" ? v.trim().toUpperCase() : v), z.string().min(1).max(40)).optional(),
     // Admin-only direct password set (optional); prefer sending a reset link.
     newPassword: z.string().min(8).max(200).optional()
 });
@@ -1847,6 +1849,41 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
             }
             await PlayerProfileModel.updateOne({ userId: _id }, { $set: { isContactVisibleToSubscribedCoaches: parsed.data.playerContactVisibleToSubscribedCoaches } });
         }
+        // City/State updates (role-specific)
+        if (parsed.data.profileCity || parsed.data.profileState) {
+            if (nextRole === ROLE.PLAYER) {
+                const profile = await PlayerProfileModel.findOne({ userId: _id }).lean();
+                if (!profile) {
+                    return next(new ApiError({
+                        status: 409,
+                        code: "PROFILE_MISSING",
+                        message: "Player profile not created yet. The player must save their profile before location can be changed."
+                    }));
+                }
+                const update = {};
+                if (parsed.data.profileCity)
+                    update.city = parsed.data.profileCity;
+                if (parsed.data.profileState)
+                    update.state = parsed.data.profileState;
+                await PlayerProfileModel.updateOne({ userId: _id }, { $set: update });
+            }
+            if (nextRole === ROLE.COACH) {
+                const update = {};
+                if (parsed.data.profileCity)
+                    update.city = parsed.data.profileCity;
+                if (parsed.data.profileState)
+                    update.state = parsed.data.profileState;
+                await CoachProfileModel.updateOne({ userId: _id }, { $set: update, $setOnInsert: { userId: _id } }, { upsert: true });
+            }
+            if (nextRole === ROLE.EVALUATOR) {
+                const update = {};
+                if (parsed.data.profileCity)
+                    update.city = parsed.data.profileCity;
+                if (parsed.data.profileState)
+                    update.state = parsed.data.profileState;
+                await EvaluatorProfileModel.updateOne({ userId: _id }, { $set: update, $setOnInsert: { userId: _id } }, { upsert: true });
+            }
+        }
         // Keep coach/evaluator profile names in sync (best-effort).
         if (nextRole === ROLE.COACH) {
             await CoachProfileModel.updateOne({ userId: _id }, { $set: { firstName: user.firstName, lastName: user.lastName }, $setOnInsert: { userId: _id, isProfilePublic: true } }, { upsert: true });
@@ -1882,6 +1919,74 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
                 subscriptionStatus: user.subscriptionStatus,
                 isActive: user.isActive !== false
             }
+        });
+    }
+    catch (err) {
+        return next(err);
+    }
+});
+// Admin-only: user detail (includes role-specific profile city/state so admin can edit in a modal)
+adminRouter.get("/admin/users/:id/detail", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+    try {
+        if (!mongoose.isValidObjectId(req.params.id)) {
+            return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+        }
+        const _id = new mongoose.Types.ObjectId(req.params.id);
+        const user = await UserModel.findById(_id).lean();
+        if (!user)
+            return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+        let profile = null;
+        if (user.role === ROLE.PLAYER) {
+            profile = await PlayerProfileModel.findOne({ userId: _id }).lean();
+            profile = profile
+                ? {
+                    profileExists: true,
+                    city: profile.city,
+                    state: profile.state,
+                    profilePublic: Boolean(profile.isProfilePublic),
+                    playerContactVisibleToSubscribedCoaches: Boolean(profile.isContactVisibleToSubscribedCoaches)
+                }
+                : { profileExists: false };
+        }
+        else if (user.role === ROLE.COACH) {
+            const p = await CoachProfileModel.findOne({ userId: _id }).lean();
+            profile = p
+                ? {
+                    profileExists: true,
+                    city: p.city,
+                    state: p.state,
+                    profilePublic: Boolean(p.isProfilePublic),
+                    institutionName: p.institutionName ?? null
+                }
+                : { profileExists: false };
+        }
+        else if (user.role === ROLE.EVALUATOR) {
+            const p = await EvaluatorProfileModel.findOne({ userId: _id }).lean();
+            profile = p
+                ? {
+                    profileExists: true,
+                    city: p.city,
+                    state: p.state,
+                    profilePublic: Boolean(p.isProfilePublic),
+                    location: p.location ?? null
+                }
+                : { profileExists: false };
+        }
+        else {
+            profile = { profileExists: false };
+        }
+        return res.json({
+            user: {
+                id: String(user._id),
+                email: user.email,
+                username: user.username,
+                role: user.role,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                subscriptionStatus: user.subscriptionStatus,
+                isActive: user.isActive !== false
+            },
+            profile
         });
     }
     catch (err) {
