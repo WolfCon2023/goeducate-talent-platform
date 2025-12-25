@@ -25,6 +25,7 @@ export function AuthNav() {
   const [profilePhotoBust, setProfilePhotoBust] = useState<number>(0);
   const [photoOpen, setPhotoOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [messagesUnreadCount, setMessagesUnreadCount] = useState<number>(0);
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -34,12 +35,24 @@ export function AuthNav() {
     setDisplayName(null);
     setProfilePhotoUrl(null);
     setUnreadCount(0);
+    setMessagesUnreadCount(0);
     let cancelled = false;
     let abort: AbortController | null = null;
+    let pollTimer: any = null;
 
     async function refreshUnread(t: string) {
       const unread = await apiFetch<{ count: number }>("/notifications/unread-count", { token: t }).catch(() => ({ count: 0 }));
       if (!cancelled) setUnreadCount(unread.count ?? 0);
+    }
+
+    async function refreshMessagesUnread(t: string) {
+      const res = await apiFetch<{ conversations: Array<{ unread?: number }> }>("/messages/conversations?limit=100", {
+        token: t,
+        retries: 1,
+        retryOn404: true
+      }).catch(() => ({ conversations: [] as Array<{ unread?: number }> }));
+      const total = (res.conversations ?? []).reduce((sum, c) => sum + (typeof c.unread === "number" ? c.unread : 0), 0);
+      if (!cancelled) setMessagesUnreadCount(total);
     }
 
     async function startUnreadStream(t: string) {
@@ -103,6 +116,8 @@ export function AuthNav() {
 
         // Notification badge (best-effort)
         await refreshUnread(token);
+        // Messages badge (best-effort)
+        await refreshMessagesUnread(token);
         // Start streaming updates (best-effort)
         void startUnreadStream(token);
       } catch {
@@ -111,6 +126,7 @@ export function AuthNav() {
         setRole(null);
         setDisplayName(null);
         setUnreadCount(0);
+        setMessagesUnreadCount(0);
       }
     }
 
@@ -121,16 +137,35 @@ export function AuthNav() {
       if (token) void refreshUnread(token);
     };
     window.addEventListener("goeducate:notifications-changed", onChanged);
+    const onMessagesChanged = () => {
+      if (token) void refreshMessagesUnread(token);
+    };
+    window.addEventListener("goeducate:messages-changed", onMessagesChanged);
     const onMeChanged = () => {
       void loadMe();
     };
     window.addEventListener("goeducate:me-changed", onMeChanged);
 
+    const onFocus = () => {
+      if (token) void refreshMessagesUnread(token);
+    };
+    window.addEventListener("focus", onFocus);
+
+    // Light polling as fallback (handles missed events / multi-tab updates).
+    if (token) {
+      pollTimer = setInterval(() => {
+        void refreshMessagesUnread(token);
+      }, 25_000);
+    }
+
     return () => {
       cancelled = true;
       abort?.abort();
+      if (pollTimer) clearInterval(pollTimer);
       window.removeEventListener("goeducate:notifications-changed", onChanged);
+      window.removeEventListener("goeducate:messages-changed", onMessagesChanged);
       window.removeEventListener("goeducate:me-changed", onMeChanged);
+      window.removeEventListener("focus", onFocus);
     };
   }, [pathname]);
 
@@ -265,7 +300,14 @@ export function AuthNav() {
             </span>
           </Link>
           <Link href="/messages" className={navItem("/messages")}>
-            Messages
+            <span className="inline-flex items-center gap-2">
+              <span>Messages</span>
+              {messagesUnreadCount > 0 ? (
+                <span className="rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-semibold text-white">
+                  {messagesUnreadCount > 99 ? "99+" : messagesUnreadCount}
+                </span>
+              ) : null}
+            </span>
           </Link>
           <div className="relative" data-auth-menu-root>
             <button

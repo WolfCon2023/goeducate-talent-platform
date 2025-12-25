@@ -86,6 +86,7 @@ export function MessagesClient() {
       if (!token) throw new Error("Please login first.");
       const res = await apiFetch<{ conversations: ConversationRow[] }>("/messages/conversations?limit=100", { token, retries: 2 });
       setConversations(res.conversations ?? []);
+      window.dispatchEvent(new CustomEvent("goeducate:messages-changed"));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load conversations");
     } finally {
@@ -236,6 +237,7 @@ export function MessagesClient() {
       await apiFetch(`/messages/conversations/${encodeURIComponent(selectedId)}/accept`, { method: "POST", token });
       toast({ kind: "success", title: "Accepted", message: "You can now message in this thread." });
       await Promise.all([loadInbox(), loadConversation(selectedId)]);
+      window.dispatchEvent(new CustomEvent("goeducate:messages-changed"));
     } catch (e) {
       toast({ kind: "error", title: "Failed", message: e instanceof Error ? e.message : "Failed to accept" });
     }
@@ -249,6 +251,7 @@ export function MessagesClient() {
       await apiFetch(`/messages/conversations/${encodeURIComponent(selectedId)}/decline`, { method: "POST", token });
       toast({ kind: "success", title: "Declined", message: "Conversation request declined." });
       await Promise.all([loadInbox(), loadConversation(selectedId)]);
+      window.dispatchEvent(new CustomEvent("goeducate:messages-changed"));
     } catch (e) {
       toast({ kind: "error", title: "Failed", message: e instanceof Error ? e.message : "Failed to decline" });
     }
@@ -268,6 +271,7 @@ export function MessagesClient() {
         body: JSON.stringify({ body })
       });
       await Promise.all([loadInbox(), loadConversation(selectedId)]);
+      window.dispatchEvent(new CustomEvent("goeducate:messages-changed"));
     } catch (e) {
       setComposer(body);
       toast({ kind: "error", title: "Failed to send", message: e instanceof Error ? e.message : "Failed to send" });
@@ -304,6 +308,7 @@ export function MessagesClient() {
       setNewBody("");
       toast({ kind: "success", title: "Sent", message: "Message request sent." });
       await loadInbox();
+      window.dispatchEvent(new CustomEvent("goeducate:messages-changed"));
       window.location.href = `/messages?c=${encodeURIComponent(res.conversationId)}`;
     } catch (e) {
       toast({ kind: "error", title: "Failed", message: e instanceof Error ? e.message : "Failed to start conversation" });
