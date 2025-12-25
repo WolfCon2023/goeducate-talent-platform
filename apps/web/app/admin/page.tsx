@@ -6,6 +6,7 @@ import { AdminInviteGenerator } from "@/components/AdminInviteGenerator";
 import { AdminUserManager } from "@/components/AdminUserManager";
 import { AdminStats } from "@/components/AdminStats";
 import { AdminPlayerMap } from "@/components/AdminPlayerMap";
+import { AdminCoachMap } from "@/components/AdminCoachMap";
 import { AdminShowcases } from "@/components/AdminShowcases";
 import { AdminShowcaseRegistrations } from "@/components/AdminShowcaseRegistrations";
 import { AdminNotificationQueue } from "@/components/AdminNotificationQueue";
@@ -40,6 +41,9 @@ export default function AdminPage() {
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-player-map">
                 Player map
+              </a>
+              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-coach-map">
+                Coach map
               </a>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-showcases">
                 Showcases
@@ -87,6 +91,10 @@ export default function AdminPage() {
 
         <section id="admin-player-map" className="scroll-mt-28">
           <AdminPlayerMap />
+        </section>
+
+        <section id="admin-coach-map" className="scroll-mt-28">
+          <AdminCoachMap />
         </section>
 
         <section id="admin-showcases" className="scroll-mt-28">

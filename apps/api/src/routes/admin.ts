@@ -13,6 +13,7 @@ import { rateLimit } from "../middleware/rateLimit.js";
 import { EvaluatorInviteModel, generateInviteToken, hashInviteToken } from "../models/EvaluatorInvite.js";
 import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
+import { CoachProfileModel } from "../models/CoachProfile.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 import { EvaluationReportModel } from "../models/EvaluationReport.js";
 import { EvaluationFormModel } from "../models/EvaluationForm.js";
@@ -701,6 +702,160 @@ adminRouter.get("/admin/players/by-state", requireAuth, requireRole([ROLE.ADMIN]
       .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
 
     return res.json({ byState, unknownCount: unknown });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+function guessStateFromCoachLocation(input: unknown): string | null {
+  const raw = String(input ?? "").trim();
+  if (!raw) return null;
+
+  // Try full-string normalization first.
+  const direct = normalizeUsStateToCode(raw);
+  if (direct) return direct;
+
+  // Common patterns: "City, ST" or "City, State"
+  const parts = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  const tail = parts.length ? parts[parts.length - 1] : raw;
+  const tailNorm = normalizeUsStateToCode(tail);
+  if (tailNorm) return tailNorm;
+
+  // Look for a 2-letter state code token anywhere.
+  const codeMatch = raw.toUpperCase().match(/\b([A-Z]{2})\b/);
+  if (codeMatch) {
+    const maybe = normalizeUsStateToCode(codeMatch[1]);
+    if (maybe) return maybe;
+  }
+
+  // Look for state name substring.
+  const lower = raw.toLowerCase();
+  for (const s of US_STATES) {
+    if (lower.includes(s.name.toLowerCase())) return s.code;
+  }
+
+  return null;
+}
+
+// Admin-only: coach distribution map (counts by US state) based on institutionLocation/regions
+adminRouter.get("/admin/coaches/by-state", requireAuth, requireRole([ROLE.ADMIN]), async (_req, res, next) => {
+  try {
+    const raw = await CoachProfileModel.aggregate([
+      {
+        $project: {
+          institutionLocation: {
+            $cond: [
+              { $or: [{ $eq: ["$institutionLocation", null] }, { $eq: ["$institutionLocation", ""] }] },
+              null,
+              "$institutionLocation"
+            ]
+          },
+          regions: { $ifNull: ["$regions", []] }
+        }
+      }
+    ]);
+
+    const counts = new Map<string, number>();
+    let unknown = 0;
+
+    for (const r of raw as Array<{ institutionLocation?: any; regions?: any[] }>) {
+      const codes: string[] = [];
+      const locCode = guessStateFromCoachLocation(r.institutionLocation);
+      if (locCode) codes.push(locCode);
+      const regions = Array.isArray(r.regions) ? r.regions : [];
+      for (const v of regions) {
+        const c = normalizeUsStateToCode(v);
+        if (c) codes.push(c);
+      }
+      const unique = Array.from(new Set(codes));
+      if (unique.length === 0) {
+        unknown += 1;
+        continue;
+      }
+      // If multiple regions, count the coach once per matched state (useful for "recruiting regions").
+      for (const code of unique) counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+
+    const byState = Array.from(counts.entries())
+      .map(([code, count]) => ({ code, name: US_STATES.find((s) => s.code === code)?.name ?? code, count }))
+      .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+
+    return res.json({ byState, unknownCount: unknown });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: list coaches in a given state (best-effort matching against institutionLocation/regions)
+adminRouter.get("/admin/coaches/by-state/:state", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const stateParam = String(req.params.state ?? "").trim();
+    const code = normalizeUsStateToCode(stateParam);
+    if (!code) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid US state is required" }));
+    }
+    const stateName = US_STATES.find((s) => s.code === code)?.name ?? code;
+
+    const limitRaw = Number(req.query.limit ?? 25);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, limitRaw)) : 25;
+    const skipRaw = Number(req.query.skip ?? 0);
+    const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.min(50_000, skipRaw)) : 0;
+
+    // Best-effort: match either explicit regions OR institutionLocation containing the state code/name.
+    const locRegexes: any[] = [
+      { institutionLocation: { $regex: `\\b${escapeRegex(code)}\\b`, $options: "i" } }
+    ];
+    if (stateName && stateName !== code) {
+      locRegexes.push({ institutionLocation: { $regex: escapeRegex(stateName), $options: "i" } });
+    }
+
+    const match: any = {
+      $or: [
+        { regions: { $elemMatch: { $regex: `^${escapeRegex(code)}$`, $options: "i" } } },
+        ...locRegexes
+      ]
+    };
+
+    const [total, coaches] = await Promise.all([
+      CoachProfileModel.countDocuments(match),
+      CoachProfileModel.aggregate([
+        { $match: match },
+        {
+          $lookup: {
+            from: "users",
+            localField: "userId",
+            foreignField: "_id",
+            as: "user"
+          }
+        },
+        { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+        { $sort: { lastName: 1, firstName: 1, updatedAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $project: {
+            _id: 0,
+            userId: 1,
+            firstName: 1,
+            lastName: 1,
+            title: 1,
+            institutionName: 1,
+            programLevel: 1,
+            institutionLocation: 1,
+            regions: 1,
+            user: { id: "$user._id", email: "$user.email", role: "$user.role" }
+          }
+        }
+      ])
+    ]);
+
+    return res.json({
+      state: { code, name: stateName },
+      total,
+      skip,
+      limit,
+      coaches
+    });
   } catch (err) {
     return next(err);
   }
