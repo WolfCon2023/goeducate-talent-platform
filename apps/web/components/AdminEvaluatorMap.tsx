@@ -132,7 +132,7 @@ export function AdminEvaluatorMap() {
       const role = getTokenRole(token);
       if (!token) throw new Error("Please login first.");
       if (role !== "admin") throw new Error("Insufficient permissions.");
-      const res = await apiFetch<ByStateResponse>("/admin/evaluators/by-state", { token });
+      const res = await apiFetch<ByStateResponse>("/admin/evaluators/by-state", { token, retries: 4, retryOn404: true });
       setData(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load evaluator locations");
@@ -165,7 +165,9 @@ export function AdminEvaluatorMap() {
       const skip = Math.max(0, pageIdx) * pageSize;
       const res = await apiFetch<InStateResponse>(`/admin/evaluators/by-state/${encodeURIComponent(code)}?limit=${pageSize}&skip=${skip}`, {
         token,
-        signal: controller.signal
+        signal: controller.signal,
+        retries: 4,
+        retryOn404: true
       });
       setListData(res);
     } catch (err) {

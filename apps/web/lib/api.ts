@@ -32,7 +32,7 @@ function isBrowser() {
 
 export async function apiFetch<T>(
   path: string,
-  init?: RequestInit & { token?: string; timeoutMs?: number; retries?: number }
+  init?: RequestInit & { token?: string; timeoutMs?: number; retries?: number; retryOn404?: boolean }
 ): Promise<T> {
   const baseUrl = getApiBaseUrl();
   const headers = new Headers(init?.headers);
@@ -40,7 +40,8 @@ export async function apiFetch<T>(
   if (init?.token) headers.set("authorization", `Bearer ${init.token}`);
 
   const timeoutMs = typeof init?.timeoutMs === "number" ? init.timeoutMs : 15_000;
-  const retries = typeof init?.retries === "number" ? Math.max(0, Math.min(2, init.retries)) : 1;
+  const retries = typeof init?.retries === "number" ? Math.max(0, Math.min(4, init.retries)) : 1;
+  const retryOn404 = Boolean(init?.retryOn404);
 
   let lastErr: unknown = null;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -58,6 +59,12 @@ export async function apiFetch<T>(
         // Retry on transient upstream errors.
         if ((res.status === 502 || res.status === 503 || res.status === 504) && attempt < retries) {
           await sleep(250 * (attempt + 1));
+          continue;
+        }
+        // Some deployments temporarily serve mixed versions behind a load balancer.
+        // Allow an opt-in retry on 404 to ride through split-rollouts.
+        if (retryOn404 && res.status === 404 && attempt < retries) {
+          await sleep(300 * (attempt + 1));
           continue;
         }
 
