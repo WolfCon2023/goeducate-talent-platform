@@ -12,6 +12,8 @@ import { UserModel } from "../models/User.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { CoachProfileModel } from "../models/CoachProfile.js";
 import { EvaluatorProfileModel } from "../models/EvaluatorProfile.js";
+import { logAppEvent } from "../util/appEvents.js";
+import { APP_EVENT_TYPE } from "../models/AppEvent.js";
 
 export const messagesRouter = Router();
 
@@ -381,6 +383,13 @@ messagesRouter.post(
 
     const body = parsed.data.body;
     await MessageModel.create({ conversationId: convId, senderUserId: userId, body });
+
+    logAppEvent({
+      type: APP_EVENT_TYPE.MESSAGE_SENT,
+      user: req.user,
+      path: req.path,
+      meta: { conversationId: String(convId) }
+    });
 
     const other = (conv.participantUserIds ?? []).find((p) => String(p) !== String(userId));
     const otherKey = other ? String(other) : "";

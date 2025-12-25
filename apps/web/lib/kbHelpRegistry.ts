@@ -45,6 +45,8 @@ export const KB_HELPKEY_TO_SLUG: Record<string, string> = {
   "admin.kb.authoring": "admin-kb-authoring",
   "admin.maps": "admin-maps",
   "admin.audit-logs": "admin-audit-logs"
+  ,
+  "admin.metrics": "admin-metrics"
 };
 
 

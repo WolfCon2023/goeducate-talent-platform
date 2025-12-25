@@ -6,6 +6,8 @@ import { ROLE } from "@goeducate/shared";
 import { ApiError } from "../http/errors.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { WatchlistModel } from "../models/Watchlist.js";
+import { logAppEvent } from "../util/appEvents.js";
+import { APP_EVENT_TYPE } from "../models/AppEvent.js";
 
 export const watchlistsRouter = Router();
 
@@ -69,6 +71,13 @@ watchlistsRouter.post(
         { upsert: true, new: true }
       );
 
+      logAppEvent({
+        type: APP_EVENT_TYPE.WATCHLIST_ADD,
+        user: req.user,
+        path: req.path,
+        meta: { playerUserId: String(playerUserId) }
+      });
+
       return res.status(201).json(doc);
     } catch (err) {
       return next(err);
@@ -90,6 +99,13 @@ watchlistsRouter.delete(
       const playerUserId = new mongoose.Types.ObjectId(req.params.playerUserId);
 
       await WatchlistModel.deleteOne({ coachUserId, playerUserId });
+
+      logAppEvent({
+        type: APP_EVENT_TYPE.WATCHLIST_REMOVE,
+        user: req.user,
+        path: req.path,
+        meta: { playerUserId: String(playerUserId) }
+      });
       return res.status(204).send();
     } catch (err) {
       return next(err);

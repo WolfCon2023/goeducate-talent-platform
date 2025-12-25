@@ -14,6 +14,8 @@ import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { WatchlistModel } from "../models/Watchlist.js";
 import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
+import { logAppEvent } from "../util/appEvents.js";
+import { APP_EVENT_TYPE } from "../models/AppEvent.js";
 import { EvaluationFormModel } from "../models/EvaluationForm.js";
 import { publishNotificationsChanged } from "../notifications/bus.js";
 
@@ -284,6 +286,23 @@ evaluationsRouter.get(
 
       const report = await EvaluationReportModel.findOne({ filmSubmissionId }).lean();
       if (!report) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Evaluation not found" }));
+
+      if (req.user?.role === ROLE.COACH) {
+        logAppEvent({
+          type: APP_EVENT_TYPE.EVALUATION_VIEW_COACH,
+          user: req.user,
+          path: req.path,
+          meta: { filmSubmissionId: String(filmSubmissionId) }
+        });
+      }
+      if (req.user?.role === ROLE.PLAYER) {
+        logAppEvent({
+          type: APP_EVENT_TYPE.EVALUATION_VIEW_PLAYER,
+          user: req.user,
+          path: req.path,
+          meta: { filmSubmissionId: String(filmSubmissionId) }
+        });
+      }
       return res.json(report);
     } catch (err) {
       return next(err);

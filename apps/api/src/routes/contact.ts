@@ -11,6 +11,8 @@ import { NotificationModel, NOTIFICATION_TYPE } from "../models/Notification.js"
 import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { publishNotificationsChanged } from "../notifications/bus.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
+import { logAppEvent } from "../util/appEvents.js";
+import { APP_EVENT_TYPE } from "../models/AppEvent.js";
 
 export const contactRouter = Router();
 
@@ -82,6 +84,13 @@ contactRouter.post(
         href: "/notifications"
       });
       publishNotificationsChanged(String(playerUserId));
+
+      logAppEvent({
+        type: APP_EVENT_TYPE.CONTACT_REQUEST,
+        user: req.user,
+        path: req.path,
+        meta: { playerUserId: String(playerUserId) }
+      });
 
       // Best-effort email to the player (uses user.email, not profile contactEmail)
       if (isNotificationEmailConfigured()) {

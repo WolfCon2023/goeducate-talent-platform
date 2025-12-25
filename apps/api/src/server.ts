@@ -6,7 +6,9 @@ import express from "express";
 import { connectDb } from "./db.js";
 import { getEnv } from "./env.js";
 import { errorHandler } from "./http/errors.js";
+import { trackDailyActive } from "./middleware/activity.js";
 import { requestLogger } from "./middleware/requestLogger.js";
+import { maybeAuth } from "./middleware/auth.js";
 import { adminRouter } from "./routes/admin.js";
 import { authRouter } from "./routes/auth.js";
 import { evaluationsRouter } from "./routes/evaluations.js";
@@ -32,6 +34,7 @@ import { evaluatorNotesRouter } from "./routes/evaluatorNotes.js";
 import { messagesRouter } from "./routes/messages.js";
 import { kbRouter } from "./routes/kb.js";
 import { adminKbRouter } from "./routes/adminKb.js";
+import { adminMetricsRouter } from "./routes/adminMetrics.js";
 import path from "node:path";
 import fs from "node:fs";
 
@@ -95,6 +98,11 @@ async function main() {
   // Request correlation + latency logging (helps debug Railway deploy/runtime issues).
   app.use(requestLogger);
 
+  // Attach req.user when a valid bearer token is present, even on routes that don't call requireAuth.
+  app.use(maybeAuth);
+  // Best-effort daily active user tracking for DAU/WAU/MAU (admin metrics).
+  app.use(trackDailyActive);
+
   // Stripe webhook must receive the raw request body for signature verification.
   app.post("/webhooks/stripe", express.raw({ type: "application/json" }), stripeWebhookHandler);
 
@@ -134,6 +142,7 @@ async function main() {
   app.use(messagesRouter);
   app.use(kbRouter);
   app.use(adminKbRouter);
+  app.use(adminMetricsRouter);
 
   app.use(errorHandler);
 

@@ -1101,6 +1101,33 @@ adminKbRouter.post("/admin/kb/seed", async (req, res, next) => {
                     "Search and filter by time/user when investigating an issue.",
                     ""
                 ].join("\n")
+            },
+            {
+                title: "Admin: Metrics Dashboard",
+                slug: "admin-metrics",
+                summary: "How to use the Metrics dashboard (executive snapshot + operational KPIs) and what each metric means.",
+                category: "admin",
+                tags: ["admin", "metrics", "kpi"],
+                helpKeys: ["admin.metrics"],
+                status: "published",
+                body: [
+                    "# Admin: Metrics Dashboard",
+                    "",
+                    "## Where to find it",
+                    "Admin → **Metrics** (or `/admin/metrics`).",
+                    "",
+                    "## What’s included",
+                    "- **Users**: totals, new users, and active users (DAU/WAU/MAU) by role",
+                    "- **Profiles**: completion scores and player public profile rate",
+                    "- **Evaluations**: submissions, backlog, overdue items, and turnaround time",
+                    "- **Engagement**: coach searches, watchlist adds, messages, contact requests, evaluation opens",
+                    "- **Revenue**: Stripe subscription KPIs (MRR/ARR) and showcase revenue (paid registrations)",
+                    "- **Reliability**: email fail rate and KB usage",
+                    "",
+                    "## Notes",
+                    "- Some engagement and active-user metrics begin populating after event tracking is deployed.",
+                    ""
+                ].join("\n")
             }
         ];
         let created = 0;

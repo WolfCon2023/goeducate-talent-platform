@@ -37,6 +37,18 @@ export default function AdminPage() {
           </Link>
         </div>
 
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Metrics</div>
+              <p className="mt-1 text-sm text-white/80">Executive snapshot + operational KPIs (users, evaluations, revenue, reliability).</p>
+            </div>
+            <Link href="/admin/metrics" className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
+              Open metrics →
+            </Link>
+          </div>
+        </Card>
+
         <div className="sticky top-4 z-40 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)]/80 p-4 backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="text-sm font-semibold text-[color:var(--foreground)]">Jump to</div>

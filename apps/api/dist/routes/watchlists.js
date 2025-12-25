@@ -4,6 +4,8 @@ import { ROLE } from "@goeducate/shared";
 import { ApiError } from "../http/errors.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { WatchlistModel } from "../models/Watchlist.js";
+import { logAppEvent } from "../util/appEvents.js";
+import { APP_EVENT_TYPE } from "../models/AppEvent.js";
 export const watchlistsRouter = Router();
 // Coach/Admin: list current coach's watchlist with player profile summary
 watchlistsRouter.get("/watchlists", requireAuth, requireRole([ROLE.COACH, ROLE.ADMIN]), async (req, res, next) => {
@@ -53,6 +55,12 @@ watchlistsRouter.post("/watchlists/:playerUserId", requireAuth, requireRole([ROL
         const coachUserId = new mongoose.Types.ObjectId(req.user.id);
         const playerUserId = new mongoose.Types.ObjectId(req.params.playerUserId);
         const doc = await WatchlistModel.findOneAndUpdate({ coachUserId, playerUserId }, { $setOnInsert: { coachUserId, playerUserId } }, { upsert: true, new: true });
+        logAppEvent({
+            type: APP_EVENT_TYPE.WATCHLIST_ADD,
+            user: req.user,
+            path: req.path,
+            meta: { playerUserId: String(playerUserId) }
+        });
         return res.status(201).json(doc);
     }
     catch (err) {
@@ -68,6 +76,12 @@ watchlistsRouter.delete("/watchlists/:playerUserId", requireAuth, requireRole([R
         const coachUserId = new mongoose.Types.ObjectId(req.user.id);
         const playerUserId = new mongoose.Types.ObjectId(req.params.playerUserId);
         await WatchlistModel.deleteOne({ coachUserId, playerUserId });
+        logAppEvent({
+            type: APP_EVENT_TYPE.WATCHLIST_REMOVE,
+            user: req.user,
+            path: req.path,
+            meta: { playerUserId: String(playerUserId) }
+        });
         return res.status(204).send();
     }
     catch (err) {

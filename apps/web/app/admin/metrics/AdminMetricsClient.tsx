@@ -1,0 +1,373 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+
+import { Card, RefreshIconButton } from "@/components/ui";
+import { apiFetch } from "@/lib/api";
+import { getAccessToken, getTokenRole } from "@/lib/auth";
+import { HelpIcon } from "@/components/kb/HelpIcon";
+
+type Metrics = {
+  timeframe: { days: number; start: string; end: string };
+  users: {
+    totalsByRole: Record<string, number>;
+    newUsersByRole: Record<string, number>;
+    coaches: {
+      total: number;
+      active: number;
+      conversionRatePct: number | null;
+      new: number;
+      newActive: number;
+      newConversionRatePct: number | null;
+    };
+    active: { dauByRole: Record<string, number>; wauByRole: Record<string, number>; mauByRole: Record<string, number>; note?: string };
+    profiles: {
+      playerPublicRatePct: number | null;
+      playerCompletion: { avgScore: number | null; pctAtLeast80: number | null; count: number };
+      coachCompletion: { avgScore: number | null; pctAtLeast80: number | null; count: number };
+      evaluatorCompletion: { avgScore: number | null; pctAtLeast80: number | null; count: number };
+    };
+  };
+  evaluations: {
+    submissions: { total: number; new: number; byStatus: Record<string, number>; backlogOpen: number; overdueHours: number; overdueCount: number };
+    reports: { total: number; completedNew: number };
+    turnaround: { avgHours: number | null; medianHours: number | null; p90Hours: number | null; sampleSize: number };
+    evaluatorThroughput: Array<{ evaluatorUserId: string | null; count: number; avgGrade: number | null; stddev: number | null }>;
+  };
+  engagement: {
+    coachSearch: { total: number; uniqueCoaches: number; note?: string };
+    watchlist: { totalItems: number; addsNew: number };
+    contactRequests: { total: number };
+    messages: { sent: number };
+    evaluationViews: { coachOpens: number; note?: string };
+  };
+  revenue: {
+    stripe: any;
+    showcases: Array<{ currency: string; paidCount: number; revenueCents: number }>;
+  };
+  reliability: {
+    email: { totals: { sent: number; failed: number; skipped: number }; failRatePct: number | null; byType: Record<string, { sent: number; failed: number; skipped: number }> };
+    kb: { topViewed: Array<{ slug: string; views: number }>; mostNotHelpful: Array<{ slug: string; title: string; helpfulNoCount: number; helpfulYesCount: number }> };
+    authRecovery: { usernameReminderEmails: number; passwordResetEmails: number };
+  };
+};
+
+function money(cents: number, currency: string) {
+  const amt = (cents ?? 0) / 100;
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: (currency || "usd").toUpperCase() }).format(amt);
+  } catch {
+    return `$${amt.toFixed(2)}`;
+  }
+}
+
+function pct(v: number | null | undefined) {
+  return v == null ? "—" : `${v}%`;
+}
+
+export function AdminMetricsClient() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [days, setDays] = useState<30 | 7 | 90>(30);
+  const [data, setData] = useState<Metrics | null>(null);
+
+  const qs = useMemo(() => `days=${days}`, [days]);
+
+  async function load() {
+    setError(null);
+    setLoading(true);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+      const res = await apiFetch<Metrics>(`/admin/metrics/summary?${qs}`, { token, retries: 2, retryOn404: true });
+      setData(res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load metrics");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days]);
+
+  const stripe = data?.revenue.stripe;
+  const stripeConfigured = Boolean(stripe?.configured);
+
+  return (
+    <div className="grid gap-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">Metrics</h1>
+            <HelpIcon helpKey="admin.metrics" title="Admin metrics" />
+          </div>
+          <p className="mt-2 text-sm text-white/80">Executive snapshot + operational KPIs (auto-updating as activity is tracked).</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setDays(7)}
+            className={`rounded-md px-3 py-1.5 text-sm ${days === 7 ? "bg-indigo-600 text-white" : "border border-white/15 bg-white/5 text-white hover:bg-white/10"}`}
+          >
+            7d
+          </button>
+          <button
+            type="button"
+            onClick={() => setDays(30)}
+            className={`rounded-md px-3 py-1.5 text-sm ${days === 30 ? "bg-indigo-600 text-white" : "border border-white/15 bg-white/5 text-white hover:bg-white/10"}`}
+          >
+            30d
+          </button>
+          <button
+            type="button"
+            onClick={() => setDays(90)}
+            className={`rounded-md px-3 py-1.5 text-sm ${days === 90 ? "bg-indigo-600 text-white" : "border border-white/15 bg-white/5 text-white hover:bg-white/10"}`}
+          >
+            90d
+          </button>
+          <RefreshIconButton onClick={load} loading={loading} title="Refresh metrics" />
+          <Link href="/admin" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+            Back to admin
+          </Link>
+        </div>
+      </div>
+
+      {error ? (
+        <Card>
+          <div className="text-sm text-red-300">{error}</div>
+        </Card>
+      ) : null}
+
+      {data ? (
+        <>
+          <div className="grid gap-4 lg:grid-cols-4">
+            <Card>
+              <div className="text-xs uppercase tracking-wide text-white/60">MRR (Stripe)</div>
+              <div className="mt-1 text-2xl font-semibold">{stripeConfigured && typeof stripe?.mrrCents === "number" ? money(stripe.mrrCents, "usd") : "—"}</div>
+              <div className="mt-2 text-sm text-white/70">
+                active: {stripe?.active ?? "—"} · monthly: {stripe?.monthly ?? "—"} · annual: {stripe?.annual ?? "—"}
+              </div>
+            </Card>
+            <Card>
+              <div className="text-xs uppercase tracking-wide text-white/60">Submissions (new)</div>
+              <div className="mt-1 text-2xl font-semibold">{data.evaluations.submissions.new}</div>
+              <div className="mt-2 text-sm text-white/70">backlog: {data.evaluations.submissions.backlogOpen} · overdue: {data.evaluations.submissions.overdueCount}</div>
+            </Card>
+            <Card>
+              <div className="text-xs uppercase tracking-wide text-white/60">Evaluations (completed)</div>
+              <div className="mt-1 text-2xl font-semibold">{data.evaluations.reports.completedNew}</div>
+              <div className="mt-2 text-sm text-white/70">
+                TAT avg: {data.evaluations.turnaround.avgHours ?? "—"}h · p90: {data.evaluations.turnaround.p90Hours ?? "—"}h
+              </div>
+            </Card>
+            <Card>
+              <div className="text-xs uppercase tracking-wide text-white/60">Email fail rate</div>
+              <div className="mt-1 text-2xl font-semibold">{pct(data.reliability.email.failRatePct)}</div>
+              <div className="mt-2 text-sm text-white/70">
+                sent: {data.reliability.email.totals.sent} · failed: {data.reliability.email.totals.failed}
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold">Users</div>
+                  <div className="mt-1 text-sm text-white/70">New users and active users by role.</div>
+                </div>
+              </div>
+              <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
+                <table className="min-w-full border-collapse text-sm">
+                  <thead className="bg-white/5 text-left text-white/70">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Role</th>
+                      <th className="px-4 py-3 font-semibold">Total</th>
+                      <th className="px-4 py-3 font-semibold">New</th>
+                      <th className="px-4 py-3 font-semibold">DAU</th>
+                      <th className="px-4 py-3 font-semibold">WAU</th>
+                      <th className="px-4 py-3 font-semibold">MAU</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10">
+                    {["player", "coach", "evaluator", "admin"].map((r) => (
+                      <tr key={r}>
+                        <td className="px-4 py-3 font-semibold text-white">{r}</td>
+                        <td className="px-4 py-3 text-white/80">{data.users.totalsByRole[r] ?? 0}</td>
+                        <td className="px-4 py-3 text-white/80">{data.users.newUsersByRole[r] ?? 0}</td>
+                        <td className="px-4 py-3 text-white/80">{data.users.active.dauByRole[r] ?? 0}</td>
+                        <td className="px-4 py-3 text-white/80">{data.users.active.wauByRole[r] ?? 0}</td>
+                        <td className="px-4 py-3 text-white/80">{data.users.active.mauByRole[r] ?? 0}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 text-xs text-white/60">{data.users.active.note ?? ""}</div>
+            </Card>
+
+            <Card>
+              <div className="text-sm font-semibold">Profiles</div>
+              <div className="mt-1 text-sm text-white/70">Completion scores and discoverability.</div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Player public rate</div>
+                  <div className="mt-1 text-2xl font-semibold">{pct(data.users.profiles.playerPublicRatePct)}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Coach conversion</div>
+                  <div className="mt-1 text-2xl font-semibold">{pct(data.users.coaches.conversionRatePct)}</div>
+                  <div className="mt-2 text-sm text-white/70">active: {data.users.coaches.active} / {data.users.coaches.total}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Player completion</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.users.profiles.playerCompletion.avgScore ?? "—"}</div>
+                  <div className="mt-2 text-sm text-white/70">≥80%: {pct(data.users.profiles.playerCompletion.pctAtLeast80)}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Coach completion</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.users.profiles.coachCompletion.avgScore ?? "—"}</div>
+                  <div className="mt-2 text-sm text-white/70">≥80%: {pct(data.users.profiles.coachCompletion.pctAtLeast80)}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:col-span-2">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Evaluator completion</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.users.profiles.evaluatorCompletion.avgScore ?? "—"}</div>
+                  <div className="mt-2 text-sm text-white/70">≥80%: {pct(data.users.profiles.evaluatorCompletion.pctAtLeast80)}</div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <div className="text-sm font-semibold">Engagement</div>
+              <div className="mt-1 text-sm text-white/70">Search, watchlist, contact requests, messages, evaluation opens.</div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Coach searches</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.engagement.coachSearch.total}</div>
+                  <div className="mt-2 text-sm text-white/70">unique coaches: {data.engagement.coachSearch.uniqueCoaches}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Watchlist adds</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.engagement.watchlist.addsNew}</div>
+                  <div className="mt-2 text-sm text-white/70">total items: {data.engagement.watchlist.totalItems}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Contact requests</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.engagement.contactRequests.total}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Messages sent</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.engagement.messages.sent}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:col-span-2">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Coach evaluation opens</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.engagement.evaluationViews.coachOpens}</div>
+                  <div className="mt-2 text-xs text-white/60">{data.engagement.evaluationViews.note ?? ""}</div>
+                </div>
+              </div>
+            </Card>
+
+            <Card>
+              <div className="text-sm font-semibold">Evaluator throughput (top)</div>
+              <div className="mt-1 text-sm text-white/70">Counts and scoring distribution by evaluator (from reports).</div>
+              <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
+                <table className="min-w-full border-collapse text-sm">
+                  <thead className="bg-white/5 text-left text-white/70">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Evaluator</th>
+                      <th className="px-4 py-3 font-semibold">Reports</th>
+                      <th className="px-4 py-3 font-semibold">Avg grade</th>
+                      <th className="px-4 py-3 font-semibold">Std dev</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10">
+                    {data.evaluations.evaluatorThroughput.slice(0, 15).map((r) => (
+                      <tr key={r.evaluatorUserId ?? "unknown"}>
+                        <td className="px-4 py-3 text-white/80">{r.evaluatorUserId ?? "—"}</td>
+                        <td className="px-4 py-3 text-white/80">{r.count}</td>
+                        <td className="px-4 py-3 text-white/80">{r.avgGrade ?? "—"}</td>
+                        <td className="px-4 py-3 text-white/80">{r.stddev ?? "—"}</td>
+                      </tr>
+                    ))}
+                    {data.evaluations.evaluatorThroughput.length === 0 ? (
+                      <tr>
+                        <td className="px-4 py-6 text-white/70" colSpan={4}>
+                          No evaluator reports in this timeframe.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <div className="text-sm font-semibold">Showcases revenue (paid)</div>
+              <div className="mt-1 text-sm text-white/70">Based on paid registrations × showcase cost.</div>
+              <div className="mt-4 grid gap-3">
+                {data.revenue.showcases.map((r) => (
+                  <div key={r.currency} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold">{r.currency.toUpperCase()}</div>
+                      <div className="text-sm text-white/70">{r.paidCount} paid</div>
+                    </div>
+                    <div className="mt-2 text-2xl font-semibold">{money(r.revenueCents, r.currency)}</div>
+                  </div>
+                ))}
+                {data.revenue.showcases.length === 0 ? <div className="text-sm text-white/70">No paid registrations in this timeframe.</div> : null}
+              </div>
+            </Card>
+
+            <Card>
+              <div className="text-sm font-semibold">Knowledge Base</div>
+              <div className="mt-1 text-sm text-white/70">Top viewed and least helpful articles.</div>
+              <div className="mt-4 grid gap-4">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-white/60">Top viewed</div>
+                  <div className="mt-2 grid gap-2 text-sm">
+                    {data.reliability.kb.topViewed.map((a) => (
+                      <div key={a.slug} className="flex items-center justify-between gap-3">
+                        <Link href={`/kb/${encodeURIComponent(a.slug)}`} className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                          {a.slug}
+                        </Link>
+                        <div className="text-white/70">{a.views}</div>
+                      </div>
+                    ))}
+                    {data.reliability.kb.topViewed.length === 0 ? <div className="text-white/70">No KB views recorded yet.</div> : null}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-white/60">Most “Not helpful”</div>
+                  <div className="mt-2 grid gap-2 text-sm">
+                    {data.reliability.kb.mostNotHelpful.slice(0, 8).map((a) => (
+                      <div key={a.slug} className="flex items-center justify-between gap-3">
+                        <Link href={`/kb/${encodeURIComponent(a.slug)}`} className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                          {a.title}
+                        </Link>
+                        <div className="text-white/70">
+                          no: {a.helpfulNoCount} · yes: {a.helpfulYesCount}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+

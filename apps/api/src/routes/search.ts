@@ -6,6 +6,8 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { EvaluationReportModel } from "../models/EvaluationReport.js";
 import { normalizeUsStateToCode, US_STATES } from "../util/usStates.js";
+import { logAppEvent } from "../util/appEvents.js";
+import { APP_EVENT_TYPE } from "../models/AppEvent.js";
 
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -19,6 +21,15 @@ searchRouter.get("/search/players", requireAuth, requireRole([ROLE.COACH, ROLE.A
   try {
     const { q, sport, position, state, gradYearMin, gradYearMax, limit } = req.query as Record<string, string | undefined>;
     const filter: Record<string, any> = { isProfilePublic: true };
+
+    if (req.user?.role === ROLE.COACH) {
+      logAppEvent({
+        type: APP_EVENT_TYPE.COACH_SEARCH_PLAYERS,
+        user: req.user,
+        path: req.path,
+        meta: { q: q ?? null, sport: sport ?? null, position: position ?? null, state: state ?? null, gradYearMin: gradYearMin ?? null, gradYearMax: gradYearMax ?? null }
+      });
+    }
 
     const sportNorm = String(sport ?? "").trim().toLowerCase();
     const posNorm = String(position ?? "").trim();
