@@ -5,6 +5,7 @@ import { FILM_SUBMISSION_STATUS, FilmSubmissionCreateSchema, ROLE } from "@goedu
 import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 import { getEnv } from "../env.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 import { NotificationModel, NOTIFICATION_TYPE } from "../models/Notification.js";
@@ -13,6 +14,8 @@ import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/n
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { publishNotificationsChanged } from "../notifications/bus.js";
 export const filmSubmissionsRouter = Router();
+const assignmentLimiter = rateLimit({ windowMs: 5 * 60 * 1000, max: 60, keyPrefix: "film_assignment" });
+const statusLimiter = rateLimit({ windowMs: 5 * 60 * 1000, max: 60, keyPrefix: "film_status" });
 // Player: create a film submission (manual upload MVP = URL placeholder + metadata)
 filmSubmissionsRouter.post("/film-submissions", requireAuth, requireRole([ROLE.PLAYER]), async (req, res, next) => {
     const parsed = FilmSubmissionCreateSchema.safeParse(req.body);
@@ -214,7 +217,7 @@ filmSubmissionsRouter.get("/film-submissions/queue", requireAuth, requireRole([R
     }
 });
 // Evaluator/Admin: assignment controls (assign-to-me / unassign)
-filmSubmissionsRouter.patch("/film-submissions/:id/assignment", requireAuth, requireRole([ROLE.EVALUATOR, ROLE.ADMIN]), async (req, res, next) => {
+filmSubmissionsRouter.patch("/film-submissions/:id/assignment", assignmentLimiter, requireAuth, requireRole([ROLE.EVALUATOR, ROLE.ADMIN]), async (req, res, next) => {
     try {
         if (!mongoose.isValidObjectId(req.params.id)) {
             return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Film submission not found" }));
@@ -339,7 +342,7 @@ filmSubmissionsRouter.patch("/film-submissions/:id/assignment", requireAuth, req
     }
 });
 // Evaluator/Admin: update status (submitted -> in_review -> completed)
-filmSubmissionsRouter.patch("/film-submissions/:id/status", requireAuth, requireRole([ROLE.EVALUATOR, ROLE.ADMIN]), async (req, res, next) => {
+filmSubmissionsRouter.patch("/film-submissions/:id/status", statusLimiter, requireAuth, requireRole([ROLE.EVALUATOR, ROLE.ADMIN]), async (req, res, next) => {
     const status = String(req.body.status ?? "").trim();
     const note = String(req.body.note ?? "").trim();
     const allowed = [

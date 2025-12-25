@@ -7,6 +7,7 @@ import { FILM_SUBMISSION_STATUS, FilmSubmissionCreateSchema, ROLE } from "@goedu
 import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 import { getEnv } from "../env.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 import { NotificationModel, NOTIFICATION_TYPE } from "../models/Notification.js";
@@ -16,6 +17,9 @@ import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { publishNotificationsChanged } from "../notifications/bus.js";
 
 export const filmSubmissionsRouter = Router();
+
+const assignmentLimiter = rateLimit({ windowMs: 5 * 60 * 1000, max: 60, keyPrefix: "film_assignment" });
+const statusLimiter = rateLimit({ windowMs: 5 * 60 * 1000, max: 60, keyPrefix: "film_status" });
 
 // Player: create a film submission (manual upload MVP = URL placeholder + metadata)
 filmSubmissionsRouter.post(
@@ -256,6 +260,7 @@ filmSubmissionsRouter.get(
 // Evaluator/Admin: assignment controls (assign-to-me / unassign)
 filmSubmissionsRouter.patch(
   "/film-submissions/:id/assignment",
+  assignmentLimiter,
   requireAuth,
   requireRole([ROLE.EVALUATOR, ROLE.ADMIN]),
   async (req, res, next) => {
@@ -397,6 +402,7 @@ filmSubmissionsRouter.patch(
 // Evaluator/Admin: update status (submitted -> in_review -> completed)
 filmSubmissionsRouter.patch(
   "/film-submissions/:id/status",
+  statusLimiter,
   requireAuth,
   requireRole([ROLE.EVALUATOR, ROLE.ADMIN]),
   async (req, res, next) => {

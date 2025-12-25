@@ -7,6 +7,7 @@ import { getEnv } from "../env.js";
 import { ApiError } from "../http/errors.js";
 import { zodToBadRequest } from "../http/zod.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
+import { rateLimit } from "../middleware/rateLimit.js";
 import { EvaluatorInviteModel, generateInviteToken, hashInviteToken } from "../models/EvaluatorInvite.js";
 import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
@@ -29,6 +30,8 @@ import { AccessRequestModel } from "../models/AccessRequest.js";
 import { isAccessRequestEmailConfigured, sendAccessRequestApprovedEmail, sendAccessRequestRejectedEmail } from "../email/accessRequests.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
 export const adminRouter = Router();
+const adminEmailLimiter = rateLimit({ windowMs: 5 * 60 * 1000, max: 30, keyPrefix: "admin_email" });
+const adminDangerLimiter = rateLimit({ windowMs: 10 * 60 * 1000, max: 20, keyPrefix: "admin_danger" });
 async function createInvite(opts) {
     const email = opts.email.trim().toLowerCase();
     const role = opts.role.trim().toLowerCase();
@@ -904,7 +907,7 @@ adminRouter.get("/admin/email/audit", requireAuth, requireRole([ROLE.ADMIN]), as
     }
 });
 // Admin-only: resend invite email (creates a fresh invite token)
-adminRouter.post("/admin/email/resend-invite", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+adminRouter.post("/admin/email/resend-invite", adminEmailLimiter, requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
     try {
         const email = String(req.body?.email ?? "").trim().toLowerCase();
         const role = String(req.body?.role ?? "").trim().toLowerCase();
@@ -941,7 +944,7 @@ adminRouter.post("/admin/email/resend-invite", requireAuth, requireRole([ROLE.AD
         return next(err);
     }
 });
-adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+adminRouter.post("/admin/email/test", adminEmailLimiter, requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
     try {
         const to = String(req.body?.to ?? "").trim().toLowerCase();
         if (!to || !to.includes("@")) {
@@ -972,7 +975,7 @@ adminRouter.post("/admin/email/test", requireAuth, requireRole([ROLE.ADMIN]), as
 });
 // Admin-only: resend an email based on an audit log row (best-effort).
 // Supports: invite, access request approved/rejected, notification (if meta contains payload).
-adminRouter.post("/admin/email/resend", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+adminRouter.post("/admin/email/resend", adminEmailLimiter, requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
     try {
         const id = String(req.body?.id ?? "").trim();
         if (!id || !mongoose.isValidObjectId(id)) {
@@ -1271,6 +1274,14 @@ adminRouter.delete("/admin/notifications/:id", requireAuth, requireRole([ROLE.AD
         if (!deleted.deletedCount) {
             return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Notification not found" }));
         }
+        void logAdminAction({
+            req,
+            actorUserId: String(req.user.id),
+            action: "admin.notifications.delete",
+            targetType: "Notification",
+            targetId: String(_id),
+            meta: {}
+        });
         return res.status(204).send();
     }
     catch (err) {
@@ -1285,6 +1296,14 @@ adminRouter.delete("/admin/notifications", requireAuth, requireRole([ROLE.ADMIN]
         if (unreadOnly)
             query.readAt = { $exists: false };
         const result = await NotificationModel.deleteMany(query);
+        void logAdminAction({
+            req,
+            actorUserId: String(req.user.id),
+            action: "admin.notifications.bulk_delete",
+            targetType: "Notification",
+            targetId: unreadOnly ? "unreadOnly" : "all",
+            meta: { unreadOnly, deletedCount: result.deletedCount ?? 0 }
+        });
         return res.json({ deletedCount: result.deletedCount ?? 0 });
     }
     catch (err) {
@@ -1299,6 +1318,14 @@ adminRouter.patch("/admin/notifications/read", requireAuth, requireRole([ROLE.AD
         if (unreadOnly)
             query.readAt = { $exists: false };
         const result = await NotificationModel.updateMany(query, { $set: { readAt: new Date() } });
+        void logAdminAction({
+            req,
+            actorUserId: String(req.user.id),
+            action: "admin.notifications.bulk_mark_read",
+            targetType: "Notification",
+            targetId: unreadOnly ? "unreadOnly" : "all",
+            meta: { unreadOnly, modifiedCount: result.modifiedCount ?? 0 }
+        });
         return res.json({ modifiedCount: result.modifiedCount ?? 0 });
     }
     catch (err) {
@@ -1415,7 +1442,7 @@ adminRouter.get("/admin/users", requireAuth, requireRole([ROLE.ADMIN]), async (r
     }
 });
 // Admin-only: delete a user (with basic cascade cleanup). Prevent deleting yourself or the last admin.
-adminRouter.delete("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+adminRouter.delete("/admin/users/:id", adminDangerLimiter, requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
     try {
         if (!mongoose.isValidObjectId(req.params.id)) {
             return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
