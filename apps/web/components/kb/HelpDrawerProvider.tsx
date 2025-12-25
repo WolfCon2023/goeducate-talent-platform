@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { toast } from "@/components/ToastProvider";
 import { Button, Input } from "@/components/ui";
+import { Markdown } from "@/components/kb/Markdown";
 
 type KbResult = {
   id: string;
@@ -43,6 +44,9 @@ export function HelpDrawerProvider(props: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<KbResult[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [articleSlug, setArticleSlug] = useState<string | null>(null);
+  const [articleLoading, setArticleLoading] = useState(false);
+  const [article, setArticle] = useState<{ title: string; slug: string; body: string } | null>(null);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -93,6 +97,7 @@ export function HelpDrawerProvider(props: { children: React.ReactNode }) {
   // Load on open / query changes.
   useEffect(() => {
     if (!open) return;
+    if (articleSlug) return;
     void load();
   }, [open, load]);
 
@@ -111,6 +116,34 @@ export function HelpDrawerProvider(props: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close]);
 
+  // Lock background scroll while drawer is open.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  async function loadArticle(slug: string) {
+    setArticleSlug(slug);
+    setArticleLoading(true);
+    setError(null);
+    try {
+      const res = await apiFetch<{ article: { title: string; slug: string; body: string } }>(`/kb/articles/${encodeURIComponent(slug)}`, {
+        retries: 2,
+        retryOn404: true
+      });
+      setArticle(res.article ?? null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load article");
+      setArticle(null);
+    } finally {
+      setArticleLoading(false);
+    }
+  }
+
   const value = useMemo<HelpContextValue>(() => ({ open: openDrawer, close }), [openDrawer, close]);
 
   return (
@@ -126,7 +159,7 @@ export function HelpDrawerProvider(props: { children: React.ReactNode }) {
           role="dialog"
           aria-modal="true"
         >
-          <aside className="absolute right-0 top-0 h-full w-full max-w-[520px] border-l border-white/10 bg-[var(--surface)] shadow-[0_20px_80px_rgba(0,0,0,0.7)]">
+          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[520px] flex-col border-l border-white/10 bg-[var(--surface)] shadow-[0_20px_80px_rgba(0,0,0,0.7)]">
             <div className="flex items-start justify-between gap-3 border-b border-white/10 p-5">
               <div className="min-w-0">
                 <div className="text-sm font-semibold text-white/90">{title ?? "Help"}</div>
@@ -143,54 +176,100 @@ export function HelpDrawerProvider(props: { children: React.ReactNode }) {
               </Button>
             </div>
 
-            <div className="p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <div className="flex gap-2">
-                <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search within help…" />
+                <Input
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setArticleSlug(null);
+                    setArticle(null);
+                  }}
+                  placeholder="Search within help…"
+                />
                 <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => void load()}>
                   Search
                 </Button>
               </div>
 
               {error ? <div className="mt-3 text-sm text-red-300">{error}</div> : null}
-              <div className="mt-3 text-xs text-[color:var(--muted)]">
-                {loading ? "Loading…" : results.length ? `${results.length} result${results.length === 1 ? "" : "s"}` : "No matching articles yet."}
-              </div>
-
-              <div className="mt-4 grid gap-3">
-                {results.map((r) => (
-                  <Link
-                    key={r.id}
-                    href={`/kb/${encodeURIComponent(r.slug)}`}
-                    className="block rounded-xl border border-white/10 bg-white/5 p-4 hover:bg-white/10"
-                    onClick={() => {
-                      toast({ kind: "info", title: "Opening article", message: r.title });
-                      close();
-                    }}
-                  >
-                    <div className="text-sm font-semibold text-white/90">{r.title}</div>
-                    {r.summary ? <div className="mt-1 line-clamp-2 text-xs text-[color:var(--muted)]">{r.summary}</div> : null}
-                    <div className="mt-2 text-[11px] text-[color:var(--muted-2)]">
-                      {r.category ? <span>{r.category}</span> : null}
-                      {r.tags?.length ? <span>{r.category ? " · " : ""}#{r.tags.slice(0, 4).join(" #")}</span> : null}
+              {articleSlug ? (
+                <>
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline"
+                      onClick={() => {
+                        setArticleSlug(null);
+                        setArticle(null);
+                      }}
+                    >
+                      ← Back
+                    </button>
+                    {article ? (
+                      <Link
+                        href={`/kb/${encodeURIComponent(article.slug)}`}
+                        className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline"
+                        onClick={close}
+                      >
+                        Open full article →
+                      </Link>
+                    ) : null}
+                  </div>
+                  {articleLoading ? (
+                    <div className="mt-4 text-sm text-[color:var(--muted)]">Loading article…</div>
+                  ) : article ? (
+                    <div className="mt-4">
+                      <div className="text-lg font-semibold text-white/90">{article.title}</div>
+                      <div className="mt-3">
+                        <Markdown markdown={article.body} />
+                      </div>
                     </div>
-                  </Link>
-                ))}
-              </div>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <div className="mt-3 text-xs text-[color:var(--muted)]">
+                    {loading ? "Loading…" : results.length ? `${results.length} result${results.length === 1 ? "" : "s"}` : "No matching articles yet."}
+                  </div>
 
-              {!loading && results.length === 0 ? (
-                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-[color:var(--muted)]">
-                  No article is published for this section yet. Please contact support (or an admin) to add one.
-                </div>
-              ) : null}
+                  <div className="mt-4 grid gap-3">
+                    {results.map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className="block w-full rounded-xl border border-white/10 bg-white/5 p-4 text-left hover:bg-white/10"
+                        onClick={() => {
+                          toast({ kind: "info", title: "Opening article", message: r.title });
+                          void loadArticle(r.slug);
+                        }}
+                      >
+                        <div className="text-sm font-semibold text-white/90">{r.title}</div>
+                        {r.summary ? <div className="mt-1 line-clamp-2 text-xs text-[color:var(--muted)]">{r.summary}</div> : null}
+                        <div className="mt-2 text-[11px] text-[color:var(--muted-2)]">
+                          {r.category ? <span>{r.category}</span> : null}
+                          {r.tags?.length ? <span>{r.category ? " · " : ""}#{r.tags.slice(0, 4).join(" #")}</span> : null}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
 
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-                <Link href={`/kb?helpKey=${encodeURIComponent(helpKey ?? "")}`} className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline" onClick={close}>
-                  Browse all for this section →
-                </Link>
-                <Link href="/kb" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline" onClick={close}>
-                  Open Knowledge Base →
-                </Link>
-              </div>
+                  {!loading && results.length === 0 ? (
+                    <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-[color:var(--muted)]">
+                      No article is published for this section yet. Please contact support (or an admin) to add one.
+                    </div>
+                  ) : null}
+
+                  <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
+                    <Link href={`/kb?helpKey=${encodeURIComponent(helpKey ?? "")}`} className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline" onClick={close}>
+                      Browse all for this section →
+                    </Link>
+                    <Link href="/kb" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline" onClick={close}>
+                      Open Knowledge Base →
+                    </Link>
+                  </div>
+                </>
+              )}
             </div>
           </aside>
         </div>

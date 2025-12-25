@@ -8,6 +8,22 @@ import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { parseApiError } from "@/lib/formErrors";
 import { toast } from "@/components/ToastProvider";
 
+const KB_CATEGORIES = [
+  "getting-started",
+  "accounts-access",
+  "profiles",
+  "film",
+  "evaluations",
+  "showcases",
+  "billing-subscriptions",
+  "notifications",
+  "messages",
+  "admin",
+  "maps-search",
+  "security-recovery",
+  "troubleshooting"
+] as const;
+
 type ArticleRow = {
   id: string;
   title: string;
@@ -59,6 +75,8 @@ export function AdminKbClient() {
   const [editLoading, setEditLoading] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [history, setHistory] = useState<Array<{ id: string; action: string; createdAt: string | null; actor: { displayName: string } }> | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [editForm, setEditForm] = useState<{
     title: string;
     slug: string;
@@ -113,8 +131,18 @@ export function AdminKbClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
+  useEffect(() => {
+    if (!editOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [editOpen]);
+
   async function openCreate() {
     setEditId(null);
+    setHistory(null);
     setEditForm({
       title: "",
       slug: "",
@@ -128,10 +156,31 @@ export function AdminKbClient() {
     setEditOpen(true);
   }
 
+  async function loadHistory(id: string) {
+    setHistoryLoading(true);
+    try {
+      const token = getAccessToken();
+      const tokenRole = getTokenRole(token);
+      if (!token) return;
+      if (tokenRole !== "admin") return;
+      const res = await apiFetch<{ history: any[] }>(`/admin/kb/articles/${encodeURIComponent(id)}/history?limit=50`, {
+        token,
+        retries: 3,
+        retryOn404: true
+      });
+      setHistory(res.history ?? []);
+    } catch {
+      setHistory([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
   async function openEdit(id: string) {
     setEditOpen(true);
     setEditLoading(true);
     setEditId(id);
+    setHistory(null);
     try {
       const token = getAccessToken();
       const tokenRole = getTokenRole(token);
@@ -149,6 +198,7 @@ export function AdminKbClient() {
         helpKeysCsv: (a.helpKeys ?? []).join(", "),
         status: a.status ?? "draft"
       });
+      void loadHistory(id);
     } catch (err) {
       const parsed = parseApiError(err);
       toast({ kind: "error", title: "Failed", message: parsed.formError ?? "Failed to load article" });
@@ -212,6 +262,7 @@ export function AdminKbClient() {
       }
 
       await load();
+      if (editId) void loadHistory(editId);
     } catch (err) {
       const parsed = parseApiError(err);
       setFormError(parsed.formError ?? (err instanceof Error ? err.message : "Failed to save"));
@@ -258,7 +309,19 @@ export function AdminKbClient() {
           </div>
           <div className="grid gap-2">
             <Label htmlFor="kbCategory">Category</Label>
-            <Input id="kbCategory" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="billing" />
+            <select
+              id="kbCategory"
+              className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="">All</option>
+              {KB_CATEGORIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="grid gap-2 sm:col-span-2 lg:col-span-2">
             <Label htmlFor="kbHelpKey">Help key</Label>
@@ -329,8 +392,9 @@ export function AdminKbClient() {
           }}
         >
           <div className="w-full max-w-4xl">
-            <Card className="p-6">
-              <div className="flex items-start justify-between gap-4">
+            <Card className="p-0">
+              <div className="max-h-[calc(100vh-80px)] overflow-hidden">
+                <div className="flex items-start justify-between gap-4 border-b border-white/10 p-6">
                 <div>
                   <h3 className="text-lg font-semibold">{editId ? "Edit KB article" : "New KB article"}</h3>
                   <p className="mt-1 text-sm text-white/70">Markdown content is supported.</p>
@@ -343,13 +407,14 @@ export function AdminKbClient() {
                 >
                   Close
                 </Button>
-              </div>
+                </div>
 
-              {editLoading ? (
-                <div className="mt-6 text-sm text-[color:var(--muted)]">Loading…</div>
-              ) : (
-                <>
-                  {formError ? <div className="mt-4 text-sm text-red-300">{formError}</div> : null}
+                <div className="overflow-y-auto p-6">
+                  {editLoading ? (
+                    <div className="text-sm text-[color:var(--muted)]">Loading…</div>
+                  ) : (
+                    <>
+                      {formError ? <div className="mb-4 text-sm text-red-300">{formError}</div> : null}
 
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
                     <div className="grid gap-2 sm:col-span-2">
@@ -381,7 +446,18 @@ export function AdminKbClient() {
                     </div>
                     <div className="grid gap-2">
                       <Label>Category</Label>
-                      <Input value={editForm.category} onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))} placeholder="player" />
+                      <select
+                        className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--color-primary-600)]"
+                        value={editForm.category}
+                        onChange={(e) => setEditForm((f) => ({ ...f, category: e.target.value }))}
+                      >
+                        <option value="">(none)</option>
+                        {KB_CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="grid gap-2">
                       <Label>Tags (comma separated)</Label>
@@ -423,8 +499,37 @@ export function AdminKbClient() {
                       Unpublish
                     </Button>
                   </div>
+                  <div className="mt-8 rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-sm font-semibold text-white/90">History</div>
+                    <div className="mt-2 text-xs text-[color:var(--muted)]">Every publish/update is recorded.</div>
+                    {editId ? (
+                      historyLoading ? (
+                        <div className="mt-3 text-sm text-[color:var(--muted)]">Loading history…</div>
+                      ) : history?.length ? (
+                        <div className="mt-3 grid gap-2">
+                          {history.map((h) => (
+                            <div key={h.id} className="rounded-lg border border-white/10 bg-black/10 px-3 py-2 text-sm">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <div className="font-semibold text-white/90">{h.action}</div>
+                                <div className="text-xs text-[color:var(--muted-2)]">
+                                  {h.createdAt ? new Date(h.createdAt).toLocaleString() : "—"}
+                                </div>
+                              </div>
+                              <div className="mt-1 text-xs text-[color:var(--muted)]">By: {h.actor?.displayName ?? "—"}</div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-sm text-[color:var(--muted)]">No history yet.</div>
+                      )
+                    ) : (
+                      <div className="mt-3 text-sm text-[color:var(--muted)]">History will appear after you create the article.</div>
+                    )}
+                  </div>
                 </>
               )}
+                </div>
+              </div>
             </Card>
           </div>
         </div>
