@@ -13,7 +13,8 @@ export declare const RegisterSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type RegisterInput = z.infer<typeof RegisterSchema>;
 export declare const LoginSchema: z.ZodObject<{
-    email: z.ZodString;
+    login: z.ZodOptional<z.ZodString>;
+    email: z.ZodOptional<z.ZodString>;
     password: z.ZodString;
 }, z.core.$strip>;
 export type LoginInput = z.infer<typeof LoginSchema>;

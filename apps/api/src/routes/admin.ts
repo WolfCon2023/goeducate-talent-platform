@@ -1,5 +1,6 @@
 import { Router } from "express";
 import mongoose from "mongoose";
+import crypto from "node:crypto";
 
 import { FILM_SUBMISSION_STATUS, RegisterSchema, ROLE } from "@goeducate/shared";
 import { z } from "zod";
@@ -34,6 +35,7 @@ import { AuditLogModel } from "../models/AuditLog.js";
 import { AccessRequestModel } from "../models/AccessRequest.js";
 import { isAccessRequestEmailConfigured, sendAccessRequestApprovedEmail, sendAccessRequestRejectedEmail } from "../email/accessRequests.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
+import { isAuthRecoveryEmailConfigured, sendPasswordResetEmail } from "../email/authRecovery.js";
 
 export const adminRouter = Router();
 
@@ -1790,17 +1792,22 @@ adminRouter.get("/admin/users", requireAuth, requireRole([ROLE.ADMIN]), async (r
 
     const filter: any = {};
     if (role && [ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN].includes(role as any)) filter.role = role;
-    if (q) filter.email = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+    if (q) {
+      const rx = { $regex: q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      filter.$or = [{ email: rx }, { username: rx }];
+    }
 
     const results = await UserModel.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
     return res.json({
       results: results.map((u) => ({
         id: String(u._id),
         email: u.email,
+        username: (u as any).username,
         role: u.role,
         firstName: u.firstName,
         lastName: u.lastName,
         subscriptionStatus: u.subscriptionStatus,
+        isActive: (u as any).isActive !== false,
         createdAt: u.createdAt?.toISOString?.() ?? undefined
       }))
     });
@@ -1811,6 +1818,13 @@ adminRouter.get("/admin/users", requireAuth, requireRole([ROLE.ADMIN]), async (r
 
 const AdminUserUpdateSchema = z.object({
   role: z.enum([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]).optional(),
+  email: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim().toLowerCase() : v),
+    z.string().email().max(254)
+  ).optional(),
+  username: z
+    .preprocess((v) => (typeof v === "string" ? v.trim().toLowerCase() : v), z.string().min(3).max(40))
+    .optional(),
   firstName: z.preprocess(
     (v) => (typeof v === "string" ? v.trim() : v),
     z.string().min(1).max(60)
@@ -1819,7 +1833,13 @@ const AdminUserUpdateSchema = z.object({
     (v) => (typeof v === "string" ? v.trim() : v),
     z.string().min(1).max(60)
   ).optional(),
-  subscriptionStatus: z.enum([COACH_SUBSCRIPTION_STATUS.INACTIVE, COACH_SUBSCRIPTION_STATUS.ACTIVE]).optional()
+  subscriptionStatus: z.enum([COACH_SUBSCRIPTION_STATUS.INACTIVE, COACH_SUBSCRIPTION_STATUS.ACTIVE]).optional(),
+  isActive: z.boolean().optional(),
+  // Profile visibility (role-specific)
+  profilePublic: z.boolean().optional(),
+  playerContactVisibleToSubscribedCoaches: z.boolean().optional(),
+  // Admin-only direct password set (optional); prefer sending a reset link.
+  newPassword: z.string().min(8).max(200).optional()
 });
 
 // Admin-only: update a user (role/name/subscription status).
@@ -1842,7 +1862,15 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
       return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "You cannot change your own role" }));
     }
 
-    const before = { email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, subscriptionStatus: user.subscriptionStatus };
+    const before = {
+      email: user.email,
+      username: (user as any).username,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      subscriptionStatus: user.subscriptionStatus,
+      isActive: (user as any).isActive !== false
+    };
 
     const nextRole = parsed.data.role ?? user.role;
 
@@ -1861,6 +1889,29 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
       return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Coach first and last name are required" }));
     }
 
+    // Email/username updates (optional)
+    if (parsed.data.email && parsed.data.email !== user.email) {
+      const existingEmail = await UserModel.findOne({ email: parsed.data.email }).lean();
+      if (existingEmail && String(existingEmail._id) !== String(user._id)) {
+        return next(new ApiError({ status: 409, code: "EMAIL_TAKEN", message: "Email already registered" }));
+      }
+      user.email = parsed.data.email;
+    }
+    if (typeof parsed.data.username === "string") {
+      const uname = parsed.data.username.trim().toLowerCase();
+      if (!/^[a-z0-9_][a-z0-9_.-]{1,38}[a-z0-9_]$/.test(uname)) {
+        return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Username must be 3-40 chars (letters/numbers/._-), start/end alphanumeric/underscore" }));
+      }
+      const existingUsername = await UserModel.findOne({ username: uname }).lean();
+      if (existingUsername && String(existingUsername._id) !== String(user._id)) {
+        return next(new ApiError({ status: 409, code: "USERNAME_TAKEN", message: "Username already taken" }));
+      }
+      (user as any).username = uname;
+    }
+    if (typeof parsed.data.isActive === "boolean") {
+      (user as any).isActive = parsed.data.isActive;
+    }
+
     user.role = nextRole as any;
     if (parsed.data.firstName) user.firstName = parsed.data.firstName;
     if (parsed.data.lastName) user.lastName = parsed.data.lastName;
@@ -1871,7 +1922,33 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
       user.subscriptionStatus = undefined;
     }
 
+    if (parsed.data.newPassword) {
+      user.passwordHash = await hashPassword(parsed.data.newPassword);
+      (user as any).passwordResetTokenHash = undefined;
+      (user as any).passwordResetExpiresAt = undefined;
+      (user as any).passwordResetUsedAt = undefined;
+    }
+
     await user.save();
+
+    // Profile visibility updates (best-effort; only if the profile exists for that role)
+    if (typeof parsed.data.profilePublic === "boolean") {
+      if (nextRole === ROLE.PLAYER) {
+        await PlayerProfileModel.updateOne({ userId: _id }, { $set: { isProfilePublic: parsed.data.profilePublic } });
+      }
+      if (nextRole === ROLE.COACH) {
+        await CoachProfileModel.updateOne({ userId: _id }, { $set: { isProfilePublic: parsed.data.profilePublic } });
+      }
+      if (nextRole === ROLE.EVALUATOR) {
+        await EvaluatorProfileModel.updateOne({ userId: _id }, { $set: { isProfilePublic: parsed.data.profilePublic } });
+      }
+    }
+    if (typeof parsed.data.playerContactVisibleToSubscribedCoaches === "boolean" && nextRole === ROLE.PLAYER) {
+      await PlayerProfileModel.updateOne(
+        { userId: _id },
+        { $set: { isContactVisibleToSubscribedCoaches: parsed.data.playerContactVisibleToSubscribedCoaches } }
+      );
+    }
 
     // Keep coach/evaluator profile names in sync (best-effort).
     if (nextRole === ROLE.COACH) {
@@ -1889,7 +1966,15 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
       );
     }
 
-    const after = { email: user.email, role: user.role, firstName: user.firstName, lastName: user.lastName, subscriptionStatus: user.subscriptionStatus };
+    const after = {
+      email: user.email,
+      username: (user as any).username,
+      role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      subscriptionStatus: user.subscriptionStatus,
+      isActive: (user as any).isActive !== false
+    };
     void logAdminAction({
       req,
       actorUserId: actorId,
@@ -1903,12 +1988,55 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
       user: {
         id: String(user._id),
         email: user.email,
+        username: (user as any).username,
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
-        subscriptionStatus: user.subscriptionStatus
+        subscriptionStatus: user.subscriptionStatus,
+        isActive: (user as any).isActive !== false
       }
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: send a password reset email to a user (generic ok; audited by email log)
+adminRouter.post("/admin/users/:id/send-password-reset", adminEmailLimiter, requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+    }
+    const _id = new mongoose.Types.ObjectId(req.params.id);
+    const user = await UserModel.findById(_id);
+    if (!user) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+
+    // Always return ok (avoid leaking info via admin tooling? still fine; admin already has list)
+    if (user.isActive === false) return res.json({ ok: true });
+
+    // Generate + store reset token
+    const token = crypto.randomBytes(32).toString("base64url");
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    user.passwordResetTokenHash = tokenHash;
+    user.passwordResetExpiresAt = new Date(Date.now() + 1000 * 60 * 60);
+    user.passwordResetUsedAt = undefined;
+    user.passwordResetRequestedAt = new Date();
+    await user.save();
+
+    if (isAuthRecoveryEmailConfigured()) {
+      void sendPasswordResetEmail({ to: user.email, resetToken: token }).catch(() => {});
+    }
+
+    void logAdminAction({
+      req,
+      actorUserId: String(req.user!.id),
+      action: "admin.users.send_password_reset",
+      targetType: "User",
+      targetId: String(_id),
+      meta: { email: user.email }
+    });
+
+    return res.json({ ok: true });
   } catch (err) {
     return next(err);
   }

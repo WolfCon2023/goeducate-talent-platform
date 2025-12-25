@@ -15,7 +15,7 @@ import { toast } from "@/components/ToastProvider";
 export function LoginClient() {
   const router = useRouter();
   const search = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors | undefined>(undefined);
@@ -36,7 +36,7 @@ export function LoginClient() {
     setLoading(true);
     try {
       const nextFieldErrors: FieldErrors = {};
-      if (!email.trim()) nextFieldErrors.email = ["Email is required."];
+      if (!login.trim()) nextFieldErrors.login = ["Email or username is required."];
       if (!password) nextFieldErrors.password = ["Password is required."];
       if (Object.keys(nextFieldErrors).length > 0) {
         setFieldErrors(nextFieldErrors);
@@ -44,7 +44,7 @@ export function LoginClient() {
       }
       const res = await apiFetch<{ token: string; user: { role: string } }>("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ login, password })
       });
       setAccessToken(res.token);
       const fallback =
@@ -144,16 +144,16 @@ export function LoginClient() {
               <div className="flex items-baseline justify-between gap-4">
                 <div>
                   <div className="text-lg font-semibold">Account login</div>
-                  <div className="mt-1 text-sm text-white/80">Use the email and password associated with your account.</div>
+                  <div className="mt-1 text-sm text-white/80">Use your email or username and password.</div>
                 </div>
               </div>
 
               <form onSubmit={onSubmit} className="mt-6 grid gap-4">
                 <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
-                  <FieldError name="email" fieldErrors={fieldErrors} />
+                  <Label htmlFor="login">Email or username</Label>
+                  <Input id="login" value={login} onChange={(e) => setLogin(e.target.value)} autoComplete="username" />
+                  <FieldError name="login" fieldErrors={fieldErrors} />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="password">Password</Label>
@@ -165,6 +165,14 @@ export function LoginClient() {
                     autoComplete="current-password"
                   />
                   <FieldError name="password" fieldErrors={fieldErrors} />
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <Link href="/forgot-username" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                    Forgot username?
+                  </Link>
+                  <Link href="/forgot-password" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                    Forgot password?
+                  </Link>
                 </div>
                 <Button type="submit" disabled={loading}>
                   {loading ? "Signing in..." : "Sign in"}

@@ -12,6 +12,8 @@ export const EMAIL_AUDIT_TYPE = {
     INVITE: "invite",
     SHOWCASE_REGISTRATION_CONFIRMATION: "showcase_registration_confirmation",
     NOTIFICATION: "notification",
+    AUTH_USERNAME_REMINDER: "auth_username_reminder",
+    AUTH_PASSWORD_RESET: "auth_password_reset",
     TEST: "test"
 };
 const EmailAuditLogSchema = new Schema({

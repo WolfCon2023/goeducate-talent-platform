@@ -15,10 +15,12 @@ type Role = "player" | "coach" | "evaluator" | "admin";
 type UserRow = {
   id: string;
   email: string;
+  username?: string;
   role: Role;
   firstName?: string;
   lastName?: string;
   subscriptionStatus?: string;
+  isActive?: boolean;
   createdAt?: string;
 };
 
@@ -40,11 +42,28 @@ export function AdminUserManager() {
   const [creatingInvite, setCreatingInvite] = useState(false);
 
   const [editId, setEditId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ role: Role; firstName: string; lastName: string; subscriptionStatus: string }>({
+  const [editForm, setEditForm] = useState<{
+    email: string;
+    username: string;
+    role: Role;
+    firstName: string;
+    lastName: string;
+    subscriptionStatus: string;
+    isActive: boolean;
+    profilePublic: boolean;
+    playerContactVisibleToSubscribedCoaches: boolean;
+    newPassword: string;
+  }>({
+    email: "",
+    username: "",
     role: "coach",
     firstName: "",
     lastName: "",
-    subscriptionStatus: "inactive"
+    subscriptionStatus: "inactive",
+    isActive: true,
+    profilePublic: false,
+    playerContactVisibleToSubscribedCoaches: false,
+    newPassword: ""
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -106,10 +125,16 @@ export function AdminUserManager() {
   function startEdit(u: UserRow) {
     setEditId(u.id);
     setEditForm({
+      email: u.email ?? "",
+      username: u.username ?? "",
       role: u.role,
       firstName: u.firstName ?? "",
       lastName: u.lastName ?? "",
-      subscriptionStatus: u.subscriptionStatus ?? "inactive"
+      subscriptionStatus: u.subscriptionStatus ?? "inactive",
+      isActive: u.isActive !== false,
+      profilePublic: false,
+      playerContactVisibleToSubscribedCoaches: false,
+      newPassword: ""
     });
   }
 
@@ -123,11 +148,19 @@ export function AdminUserManager() {
       if (tokenRole !== "admin") throw new Error("Insufficient permissions.");
 
       const payload: any = {
+        email: editForm.email.trim() || undefined,
+        username: editForm.username.trim() || undefined,
         role: editForm.role,
         firstName: editForm.firstName.trim() || undefined,
-        lastName: editForm.lastName.trim() || undefined
+        lastName: editForm.lastName.trim() || undefined,
+        isActive: editForm.isActive,
+        ...(typeof editForm.profilePublic === "boolean" ? { profilePublic: editForm.profilePublic } : {}),
+        ...(typeof editForm.playerContactVisibleToSubscribedCoaches === "boolean"
+          ? { playerContactVisibleToSubscribedCoaches: editForm.playerContactVisibleToSubscribedCoaches }
+          : {})
       };
       if (editForm.role === "coach") payload.subscriptionStatus = editForm.subscriptionStatus || "inactive";
+      if (editForm.newPassword.trim()) payload.newPassword = editForm.newPassword;
 
       await apiFetch(`/admin/users/${encodeURIComponent(u.id)}`, {
         method: "PATCH",
@@ -239,9 +272,11 @@ export function AdminUserManager() {
             <thead>
               <tr className="border-b border-[color:var(--border)] text-[color:var(--color-text-muted)]">
                 <th className="py-2 pr-4">Email</th>
+                <th className="py-2 pr-4">Username</th>
                 <th className="py-2 pr-4">Role</th>
                 <th className="py-2 pr-4">Name</th>
                 <th className="py-2 pr-4">Subscription</th>
+                <th className="py-2 pr-4">Active</th>
                 <th className="py-2 pr-4">Created</th>
                 <th className="py-2 pr-4">Actions</th>
               </tr>
@@ -249,7 +284,20 @@ export function AdminUserManager() {
             <tbody>
               {results.map((u) => (
                 <tr key={u.id} className="border-b border-[color:var(--border)]">
-                  <td className="py-2 pr-4">{u.email}</td>
+                  <td className="py-2 pr-4">
+                    {editId === u.id ? (
+                      <Input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
+                    ) : (
+                      u.email
+                    )}
+                  </td>
+                  <td className="py-2 pr-4">
+                    {editId === u.id ? (
+                      <Input value={editForm.username} onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))} placeholder="(optional)" />
+                    ) : (
+                      u.username ?? "—"
+                    )}
+                  </td>
                   <td className="py-2 pr-4">
                     {editId === u.id ? (
                       <select
@@ -296,6 +344,22 @@ export function AdminUserManager() {
                       u.role === "coach" ? u.subscriptionStatus ?? "inactive" : "—"
                     )}
                   </td>
+                  <td className="py-2 pr-4">
+                    {editId === u.id ? (
+                      <label className="inline-flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={editForm.isActive}
+                          onChange={(e) => setEditForm((f) => ({ ...f, isActive: e.target.checked }))}
+                        />
+                        <span className="text-[color:var(--muted)]">{editForm.isActive ? "Active" : "Disabled"}</span>
+                      </label>
+                    ) : u.isActive === false ? (
+                      "disabled"
+                    ) : (
+                      "active"
+                    )}
+                  </td>
                   <td className="py-2 pr-4">{u.createdAt ? new Date(u.createdAt).toLocaleString() : "-"}</td>
                   <td className="py-2 pr-4">
                     <div className="flex flex-wrap gap-2">
@@ -321,6 +385,25 @@ export function AdminUserManager() {
                       <Button
                         type="button"
                         className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                        onClick={async () => {
+                          try {
+                            const token = getAccessToken();
+                            const tokenRole = getTokenRole(token);
+                            if (!token) throw new Error("Please login first.");
+                            if (tokenRole !== "admin") throw new Error("Insufficient permissions.");
+                            await apiFetch(`/admin/users/${encodeURIComponent(u.id)}/send-password-reset`, { method: "POST", token, retries: 4, retryOn404: true });
+                            toast({ kind: "success", title: "Sent", message: "Password reset email queued (if email is configured)." });
+                          } catch (err) {
+                            const parsed = parseApiError(err);
+                            setFormError(parsed.formError ?? "Failed to send reset email");
+                          }
+                        }}
+                      >
+                        Send reset link
+                      </Button>
+                      <Button
+                        type="button"
+                        className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
                         onClick={() => deleteUser(u)}
                         disabled={savingEdit && editId === u.id}
                       >
@@ -332,7 +415,7 @@ export function AdminUserManager() {
               ))}
               {results.length === 0 ? (
                 <tr>
-                  <td className="py-4 text-[color:var(--color-text-muted)]" colSpan={6}>
+                  <td className="py-4 text-[color:var(--color-text-muted)]" colSpan={8}>
                     No users found.
                   </td>
                 </tr>
