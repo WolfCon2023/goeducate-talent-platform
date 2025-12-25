@@ -1,13 +1,35 @@
 "use client";
 
-import { useHelpDrawer } from "./HelpDrawerProvider";
+import { useRouter } from "next/navigation";
 
-export function HelpIcon(props: { helpKey: string; title?: string; initialQuery?: string; className?: string }) {
+import { useHelpDrawer } from "./HelpDrawerProvider";
+import { KB_HELPKEY_TO_SLUG } from "@/lib/kbHelpRegistry";
+
+export function HelpIcon(props: {
+  helpKey: string;
+  title?: string;
+  initialQuery?: string;
+  className?: string;
+  behavior?: "route" | "drawer";
+}) {
   const help = useHelpDrawer();
+  const router = useRouter();
+  const behavior = props.behavior ?? "route";
   return (
     <button
       type="button"
-      onClick={() => help.open({ helpKey: props.helpKey, title: props.title, initialQuery: props.initialQuery })}
+      onClick={() => {
+        if (behavior === "drawer") {
+          help.open({ helpKey: props.helpKey, title: props.title, initialQuery: props.initialQuery });
+          return;
+        }
+        const slug = KB_HELPKEY_TO_SLUG[props.helpKey];
+        if (slug) {
+          router.push(`/kb/${encodeURIComponent(slug)}`);
+        } else {
+          router.push(`/kb?helpKey=${encodeURIComponent(props.helpKey)}`);
+        }
+      }}
       aria-label={props.title ? `Help: ${props.title}` : "Help"}
       title={props.title ? `Help: ${props.title}` : "Help"}
       className={

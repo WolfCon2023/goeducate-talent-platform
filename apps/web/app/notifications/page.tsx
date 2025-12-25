@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Card } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type NotificationRow = {
   _id: string;
@@ -86,7 +87,10 @@ export default function NotificationsPage() {
     <div className="grid gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">Notifications</h1>
+            <HelpIcon helpKey="notifications" title="Notifications" />
+          </div>
           <p className="mt-2 text-sm text-white/80">Updates about evaluations, film status, and other activity.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

@@ -7,6 +7,7 @@ import { Card, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole, getTokenSub } from "@/lib/auth";
 import { PlayerGuard } from "../Guard";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type FilmSubmission = { _id: string; title: string; createdAt?: string; status: string };
 type EvaluationReport = { filmSubmissionId: string; overallGrade: number; createdAt?: string };
@@ -80,7 +81,10 @@ export default function PlayerEvaluationsPage() {
       <div className="grid gap-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Evaluations</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">Evaluations</h1>
+              <HelpIcon helpKey="player.evaluations" title="Player evaluation history" />
+            </div>
             <p className="mt-2 text-sm text-white/80">Your completed evaluation reports.</p>
           </div>
           <div className="flex items-center gap-3">

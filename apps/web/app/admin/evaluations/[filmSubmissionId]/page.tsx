@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { AdminGuard } from "../../Guard";
 import { EvaluatorEvaluationForm } from "@/components/EvaluatorEvaluationForm";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type FilmSubmission = {
   _id: string;
@@ -141,7 +142,10 @@ export default function AdminEvaluationDetailPage() {
     <AdminGuard>
       <div className="grid gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">Evaluation (admin)</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">Evaluation (admin)</h1>
+            <HelpIcon helpKey="admin.evaluations.detail" title="Admin evaluation detail" />
+          </div>
           <Link href="/admin" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
             Back to admin
           </Link>

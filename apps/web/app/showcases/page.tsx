@@ -7,6 +7,7 @@ import { Card, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { ShowcasesGuard } from "./Guard";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type Showcase = {
   id: string;
@@ -79,7 +80,10 @@ export default function ShowcasesPage() {
       <div className="grid gap-8">
       <section className="rounded-2xl border border-white/10 bg-[var(--surface)] p-10">
         <div className="max-w-3xl">
-          <h1 className="text-balance text-4xl font-semibold tracking-tight">Showcases</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-balance text-4xl font-semibold tracking-tight">Showcases</h1>
+            <HelpIcon helpKey="showcases" title="Showcases" />
+          </div>
           <p className="mt-3 text-lg text-white/90">Browse upcoming showcases and register.</p>
         </div>
         <div className="mt-6 flex flex-wrap gap-3">

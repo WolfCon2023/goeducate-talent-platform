@@ -17,6 +17,7 @@ import { AdminEvaluations } from "@/components/AdminEvaluations";
 import { AdminAccessRequests } from "@/components/AdminAccessRequests";
 import { AdminEmailDiagnostics } from "@/components/AdminEmailDiagnostics";
 import { AdminAuditLog } from "@/components/AdminAuditLog";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 import { AdminGuard } from "./Guard";
 
 export default function AdminPage() {
@@ -25,7 +26,10 @@ export default function AdminPage() {
       <div className="grid gap-8">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
+              <HelpIcon helpKey="admin.dashboard" title="Admin dashboard" />
+            </div>
             <p className="mt-2 text-sm text-white/80">User and content management will be built next.</p>
           </div>
           <Link href="/" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">

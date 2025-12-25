@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PlayerGuard } from "../Guard";
 import { ProfileVisibilityCard } from "@/components/profiles/ProfileVisibilityCard";
 import { PlayerProfileForm } from "@/components/PlayerProfileForm";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 export default function PlayerProfilePage() {
   return (
@@ -10,7 +11,10 @@ export default function PlayerProfilePage() {
       <div className="grid gap-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Player profile</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">Player profile</h1>
+              <HelpIcon helpKey="player.profile" title="Player profile" />
+            </div>
             <p className="mt-2 text-sm text-white/80">Control visibility and complete your profile to improve discoverability.</p>
           </div>
           <Link href="/player" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">

@@ -2,6 +2,7 @@ import { EvaluatorQueue } from "@/components/EvaluatorQueue";
 import { EvaluatorGuard } from "./Guard";
 import Link from "next/link";
 import { Card } from "@/components/ui";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 export default function EvaluatorDashboardPage() {
   return (
@@ -9,7 +10,10 @@ export default function EvaluatorDashboardPage() {
       <div className="grid gap-8">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Evaluator queue</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">Evaluator queue</h1>
+              <HelpIcon helpKey="evaluator.film.queue" title="Evaluator queue" />
+            </div>
             <p className="mt-2 text-sm text-white/80">Review submitted film. Tagging and reports are next.</p>
           </div>
         </div>

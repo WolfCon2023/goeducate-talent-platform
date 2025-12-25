@@ -5,6 +5,7 @@ import { ProfilePhotoUploader } from "@/components/ProfilePhotoUploader";
 import { Card } from "@/components/ui";
 import { CoachGuard } from "./Guard";
 import Link from "next/link";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 export default function CoachDashboardPage() {
   return (
@@ -12,7 +13,10 @@ export default function CoachDashboardPage() {
       <div className="grid gap-8">
         <div className="flex items-start justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Coach dashboard (MVP)</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">Coach dashboard (MVP)</h1>
+              <HelpIcon helpKey="coach.dashboard" title="Coach dashboard" />
+            </div>
             <p className="mt-2 text-sm text-white/80">
               Search players and view profiles. Upgrade your subscription to unlock contact info.
             </p>

@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { parseApiError } from "@/lib/formErrors";
 import { toast } from "@/components/ToastProvider";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 const KB_CATEGORIES = [
   "getting-started",
@@ -277,15 +278,48 @@ export function AdminKbClient() {
     }
   }
 
+  async function seedStarter(force?: boolean) {
+    setFormError(null);
+    try {
+      const token = getAccessToken();
+      const tokenRole = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (tokenRole !== "admin") throw new Error("Insufficient permissions.");
+      const res = await apiFetch<{ created: number; updated: number; skipped: number }>(
+        `/admin/kb/seed${force ? "?force=1" : ""}`,
+        { method: "POST", token, retries: 3, retryOn404: true }
+      );
+      toast({
+        kind: "success",
+        title: "KB seeded",
+        message: `Created ${res.created}, updated ${res.updated}, skipped ${res.skipped}.`
+      });
+      await load();
+    } catch (err) {
+      const parsed = parseApiError(err);
+      toast({ kind: "error", title: "Seed failed", message: parsed.formError ?? "Failed to seed KB" });
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold">Knowledge Base</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">Knowledge Base</h2>
+              <HelpIcon helpKey="admin.kb.authoring" title="KB authoring" />
+            </div>
             <p className="mt-1 text-sm text-white/80">Admin authoring (drafts, publish, helpKeys, tags).</p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+              onClick={() => void seedStarter(false)}
+            >
+              Seed starter KB
+            </Button>
             <Button type="button" onClick={openCreate}>
               New article
             </Button>
