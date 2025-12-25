@@ -1,7 +1,10 @@
 import { z } from "zod";
 const EnvSchema = z.object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-    PORT: z.coerce.number().int().min(1).max(65535).default(4000),
+    // Some platforms/user vars may set PORT="" which z.coerce.number() turns into 0. Treat "" as unset.
+    PORT: z
+        .preprocess((v) => (v === "" ? undefined : v), z.coerce.number().int().min(1).max(65535))
+        .default(4000),
     MONGODB_URI: z.string().min(1).optional(),
     JWT_SECRET: z.string().min(20).optional(),
     // Optional. If set, allows one-time bootstrapping of the first admin user.
