@@ -1819,16 +1819,32 @@ adminRouter.patch("/admin/users/:id", requireAuth, requireRole([ROLE.ADMIN]), as
         // Profile visibility updates (best-effort; only if the profile exists for that role)
         if (typeof parsed.data.profilePublic === "boolean") {
             if (nextRole === ROLE.PLAYER) {
+                const profile = await PlayerProfileModel.findOne({ userId: _id }).lean();
+                if (!profile) {
+                    return next(new ApiError({
+                        status: 409,
+                        code: "PROFILE_MISSING",
+                        message: "Player profile not created yet. The player must save their profile before it can be made public."
+                    }));
+                }
                 await PlayerProfileModel.updateOne({ userId: _id }, { $set: { isProfilePublic: parsed.data.profilePublic } });
             }
             if (nextRole === ROLE.COACH) {
-                await CoachProfileModel.updateOne({ userId: _id }, { $set: { isProfilePublic: parsed.data.profilePublic } });
+                await CoachProfileModel.updateOne({ userId: _id }, { $set: { isProfilePublic: parsed.data.profilePublic }, $setOnInsert: { userId: _id } }, { upsert: true });
             }
             if (nextRole === ROLE.EVALUATOR) {
-                await EvaluatorProfileModel.updateOne({ userId: _id }, { $set: { isProfilePublic: parsed.data.profilePublic } });
+                await EvaluatorProfileModel.updateOne({ userId: _id }, { $set: { isProfilePublic: parsed.data.profilePublic }, $setOnInsert: { userId: _id } }, { upsert: true });
             }
         }
         if (typeof parsed.data.playerContactVisibleToSubscribedCoaches === "boolean" && nextRole === ROLE.PLAYER) {
+            const profile = await PlayerProfileModel.findOne({ userId: _id }).lean();
+            if (!profile) {
+                return next(new ApiError({
+                    status: 409,
+                    code: "PROFILE_MISSING",
+                    message: "Player profile not created yet. The player must save their profile before contact visibility can be changed."
+                }));
+            }
             await PlayerProfileModel.updateOne({ userId: _id }, { $set: { isContactVisibleToSubscribedCoaches: parsed.data.playerContactVisibleToSubscribedCoaches } });
         }
         // Keep coach/evaluator profile names in sync (best-effort).
@@ -1905,6 +1921,47 @@ adminRouter.post("/admin/users/:id/send-password-reset", adminEmailLimiter, requ
             meta: { email: user.email }
         });
         return res.json({ ok: true });
+    }
+    catch (err) {
+        return next(err);
+    }
+});
+// Admin-only: fetch a user's profile visibility flags (to drive admin UI toggles).
+adminRouter.get("/admin/users/:id/profile-visibility", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+    try {
+        if (!mongoose.isValidObjectId(req.params.id)) {
+            return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+        }
+        const _id = new mongoose.Types.ObjectId(req.params.id);
+        const user = await UserModel.findById(_id).lean();
+        if (!user)
+            return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "User not found" }));
+        if (user.role === ROLE.PLAYER) {
+            const profile = await PlayerProfileModel.findOne({ userId: _id }).lean();
+            return res.json({
+                role: user.role,
+                profileExists: !!profile,
+                profilePublic: profile ? Boolean(profile.isProfilePublic) : false,
+                playerContactVisibleToSubscribedCoaches: profile ? Boolean(profile.isContactVisibleToSubscribedCoaches) : false
+            });
+        }
+        if (user.role === ROLE.COACH) {
+            const profile = await CoachProfileModel.findOne({ userId: _id }).lean();
+            return res.json({
+                role: user.role,
+                profileExists: !!profile,
+                profilePublic: profile ? Boolean(profile.isProfilePublic) : false
+            });
+        }
+        if (user.role === ROLE.EVALUATOR) {
+            const profile = await EvaluatorProfileModel.findOne({ userId: _id }).lean();
+            return res.json({
+                role: user.role,
+                profileExists: !!profile,
+                profilePublic: profile ? Boolean(profile.isProfilePublic) : false
+            });
+        }
+        return res.json({ role: user.role, profileExists: false, profilePublic: false });
     }
     catch (err) {
         return next(err);

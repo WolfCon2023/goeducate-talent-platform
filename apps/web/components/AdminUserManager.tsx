@@ -122,7 +122,7 @@ export function AdminUserManager() {
     }
   }
 
-  function startEdit(u: UserRow) {
+  async function startEdit(u: UserRow) {
     setEditId(u.id);
     setEditForm({
       email: u.email ?? "",
@@ -136,6 +136,27 @@ export function AdminUserManager() {
       playerContactVisibleToSubscribedCoaches: false,
       newPassword: ""
     });
+
+    // Load current profile visibility flags
+    try {
+      const token = getAccessToken();
+      const tokenRole = getTokenRole(token);
+      if (!token) return;
+      if (tokenRole !== "admin") return;
+      const vis = await apiFetch<{
+        role: string;
+        profileExists: boolean;
+        profilePublic?: boolean;
+        playerContactVisibleToSubscribedCoaches?: boolean;
+      }>(`/admin/users/${encodeURIComponent(u.id)}/profile-visibility`, { token, retries: 4, retryOn404: true });
+      setEditForm((f) => ({
+        ...f,
+        profilePublic: Boolean(vis.profilePublic),
+        playerContactVisibleToSubscribedCoaches: Boolean(vis.playerContactVisibleToSubscribedCoaches)
+      }));
+    } catch {
+      // ignore; visibility toggles will remain default false until loaded
+    }
   }
 
   async function saveEdit(u: UserRow) {
@@ -365,6 +386,34 @@ export function AdminUserManager() {
                     <div className="flex flex-wrap gap-2">
                       {editId === u.id ? (
                         <>
+                          <div className="w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
+                            <div className="font-semibold text-white/90">Profile visibility</div>
+                            <div className="mt-2 grid gap-2">
+                              <label className="inline-flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.profilePublic}
+                                  onChange={(e) => setEditForm((f) => ({ ...f, profilePublic: e.target.checked }))}
+                                />
+                                <span className="text-[color:var(--muted)]">Public profile</span>
+                              </label>
+                              {editForm.role === "player" ? (
+                                <label className="inline-flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={editForm.playerContactVisibleToSubscribedCoaches}
+                                    onChange={(e) => setEditForm((f) => ({ ...f, playerContactVisibleToSubscribedCoaches: e.target.checked }))}
+                                  />
+                                  <span className="text-[color:var(--muted)]">Contact visible to subscribed coaches</span>
+                                </label>
+                              ) : null}
+                              {editForm.role === "player" ? (
+                                <div className="text-xs text-[color:var(--muted-2)]">
+                                  Note: players must have saved a player profile before admin can publish it.
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
                           <Button type="button" onClick={() => saveEdit(u)} disabled={savingEdit}>
                             {savingEdit ? "Saving…" : "Save"}
                           </Button>
