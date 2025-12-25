@@ -21,6 +21,7 @@ type ConversationRow = {
 type MessageRow = {
   id: string;
   senderUserId: string;
+  sender?: { id: string; email?: string | null; role?: string | null; displayName?: string | null } | null;
   body: string;
   createdAt: string;
 };
@@ -615,7 +616,7 @@ export function MessagesClient() {
                   {messages.map((m) => (
                     <div key={m.id} className="rounded-lg border border-white/10 bg-white/5 p-3">
                       <div className="text-[10px] text-[color:var(--muted-2)]">
-                        {fmtDate(m.createdAt)} · sender {m.senderUserId}
+                        {fmtDate(m.createdAt)} · sender {m.sender?.displayName || m.sender?.email || m.senderUserId}
                       </div>
                       <div className="mt-1 whitespace-pre-wrap text-sm text-[color:var(--foreground)]">{m.body}</div>
                     </div>

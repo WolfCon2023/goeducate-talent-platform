@@ -323,6 +323,11 @@ messagesRouter.get("/messages/conversations/:id", requireAuth, requireRole([ROLE
     if (before && !Number.isNaN(before.getTime())) match.createdAt = { $lt: before };
 
     const messages = await MessageModel.find(match).sort({ createdAt: -1 }).limit(limit).lean();
+    const senderIds = Array.from(new Set(messages.map((m: any) => String(m.senderUserId)).filter(Boolean)));
+    const senders = await UserModel.find({ _id: { $in: senderIds } })
+      .select({ email: 1, role: 1, firstName: 1, lastName: 1 })
+      .lean();
+    const senderById = new Map(senders.map((u: any) => [String(u._id), u]));
 
     // Mark as read by resetting unread count
     await ConversationModel.updateOne(
@@ -335,6 +340,13 @@ messagesRouter.get("/messages/conversations/:id", requireAuth, requireRole([ROLE
       messages: messages.reverse().map((m: any) => ({
         id: String(m._id),
         senderUserId: String(m.senderUserId),
+        sender: (() => {
+          const u = senderById.get(String(m.senderUserId));
+          if (!u) return null;
+          const displayName =
+            (u as any).firstName ? `${(u as any).firstName} ${(u as any).lastName ?? ""}`.trim() : (u as any).email;
+          return { id: String((u as any)._id), email: (u as any).email, role: (u as any).role, displayName };
+        })(),
         body: m.body,
         createdAt: m.createdAt
       }))
