@@ -41,6 +41,7 @@ type Metrics = {
     contactRequests: { total: number };
     messages: { sent: number };
     evaluationViews: { coachOpens: number; note?: string };
+    coachFunnel?: { searched: number; watchlistAdded: number; contactRequested: number; checkoutStarted: number; activated: number };
   };
   revenue: {
     stripe: any;
@@ -48,9 +49,45 @@ type Metrics = {
   };
   reliability: {
     email: { totals: { sent: number; failed: number; skipped: number }; failRatePct: number | null; byType: Record<string, { sent: number; failed: number; skipped: number }> };
-    kb: { topViewed: Array<{ slug: string; views: number }>; mostNotHelpful: Array<{ slug: string; title: string; helpfulNoCount: number; helpfulYesCount: number }> };
+    kb: {
+      topViewed: Array<{ slug: string; views: number }>;
+      feedback: { yes: number; no: number; total: number };
+      mostNotHelpful: Array<{ slug: string; title: string; helpfulNoCount: number; helpfulYesCount: number }>;
+    };
     authRecovery: { usernameReminderEmails: number; passwordResetEmails: number };
   };
+  config?: any;
+  statusFlags?: Record<string, string>;
+  ops?: {
+    overdueHours: number;
+    overdueItems: Array<{
+      id: string;
+      title: string;
+      status: string;
+      createdAt: string | null;
+      assignedAt: string | null;
+      assignedEvaluator: { id: string; email: string | null } | null;
+      playerName: string | null;
+      playerSport: string | null;
+      playerPosition: string | null;
+    }>;
+    evaluatorWorkload: Array<{
+      evaluatorUserId: string;
+      evaluatorEmail: string | null;
+      evaluatorName: string | null;
+      openAssigned: number;
+      overdueAssigned: number;
+      oldestAgeHours: number | null;
+      newestAssignedAt: string | null;
+      completedInWindow: number;
+    }>;
+  };
+};
+
+type Trends = {
+  weeks: string[];
+  series: Record<string, Array<number | null>>;
+  note?: string;
 };
 
 function money(cents: number, currency: string) {
@@ -71,6 +108,10 @@ export function AdminMetricsClient() {
   const [error, setError] = useState<string | null>(null);
   const [days, setDays] = useState<30 | 7 | 90>(30);
   const [data, setData] = useState<Metrics | null>(null);
+  const [trends, setTrends] = useState<Trends | null>(null);
+  const [config, setConfig] = useState<any | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   const qs = useMemo(() => `days=${days}`, [days]);
 
@@ -82,8 +123,14 @@ export function AdminMetricsClient() {
       const role = getTokenRole(token);
       if (!token) throw new Error("Please login first.");
       if (role !== "admin") throw new Error("Insufficient permissions.");
-      const res = await apiFetch<Metrics>(`/admin/metrics/summary?${qs}`, { token, retries: 2, retryOn404: true });
+      const [res, t, cfg] = await Promise.all([
+        apiFetch<Metrics>(`/admin/metrics/summary?${qs}`, { token, retries: 2, retryOn404: true }),
+        apiFetch<Trends>(`/admin/metrics/trends?weeks=12`, { token, retries: 2, retryOn404: true }).catch(() => null as any),
+        apiFetch<{ config: any }>(`/admin/metrics/config`, { token, retries: 2, retryOn404: true }).catch(() => null as any)
+      ]);
       setData(res);
+      setTrends(t ?? null);
+      setConfig(cfg?.config ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load metrics");
     } finally {
@@ -98,6 +145,51 @@ export function AdminMetricsClient() {
 
   const stripe = data?.revenue.stripe;
   const stripeConfigured = Boolean(stripe?.configured);
+
+  function seriesFor(key: string) {
+    return (trends?.series?.[key] ?? []) as Array<number | null>;
+  }
+
+  function Sparkline(props: { values: Array<number | null>; className?: string }) {
+    const vals = props.values.filter((v) => typeof v === "number" && Number.isFinite(v)) as number[];
+    if (vals.length < 2) return <div className={props.className ?? "h-8"} />;
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const w = 120;
+    const h = 28;
+    const pts = props.values
+      .map((v, i) => {
+        const x = (i / Math.max(1, props.values.length - 1)) * (w - 2) + 1;
+        if (v == null || !Number.isFinite(v)) return `${x},${h / 2}`;
+        const t = max === min ? 0.5 : (Number(v) - min) / (max - min);
+        const y = (1 - t) * (h - 2) + 1;
+        return `${x},${y}`;
+      })
+      .join(" ");
+    return (
+      <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} className={props.className ?? ""} aria-hidden>
+        <polyline fill="none" stroke="rgba(99,102,241,0.9)" strokeWidth="2" points={pts} />
+      </svg>
+    );
+  }
+
+  async function saveConfig(next: any) {
+    try {
+      setSavingConfig(true);
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+      const res = await apiFetch<{ config: any }>(`/admin/metrics/config`, { method: "PUT", token, body: JSON.stringify(next), retries: 2, retryOn404: true });
+      setConfig(res.config);
+      setConfigOpen(false);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save config");
+    } finally {
+      setSavingConfig(false);
+    }
+  }
 
   return (
     <div className="grid gap-6">
@@ -132,6 +224,13 @@ export function AdminMetricsClient() {
             90d
           </button>
           <RefreshIconButton onClick={load} loading={loading} title="Refresh metrics" />
+          <button
+            type="button"
+            onClick={() => setConfigOpen(true)}
+            className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white hover:bg-white/10"
+          >
+            Targets
+          </button>
           <Link href="/admin" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
             Back to admin
           </Link>
@@ -153,11 +252,17 @@ export function AdminMetricsClient() {
               <div className="mt-2 text-sm text-white/70">
                 active: {stripe?.active ?? "—"} · monthly: {stripe?.monthly ?? "—"} · annual: {stripe?.annual ?? "—"}
               </div>
+              <div className="mt-2">
+                <Sparkline values={seriesFor("mrrCents")} />
+              </div>
             </Card>
             <Card>
               <div className="text-xs uppercase tracking-wide text-white/60">Submissions (new)</div>
               <div className="mt-1 text-2xl font-semibold">{data.evaluations.submissions.new}</div>
               <div className="mt-2 text-sm text-white/70">backlog: {data.evaluations.submissions.backlogOpen} · overdue: {data.evaluations.submissions.overdueCount}</div>
+              <div className="mt-2">
+                <Sparkline values={seriesFor("submissionsNew")} />
+              </div>
             </Card>
             <Card>
               <div className="text-xs uppercase tracking-wide text-white/60">Evaluations (completed)</div>
@@ -165,12 +270,18 @@ export function AdminMetricsClient() {
               <div className="mt-2 text-sm text-white/70">
                 TAT avg: {data.evaluations.turnaround.avgHours ?? "—"}h · p90: {data.evaluations.turnaround.p90Hours ?? "—"}h
               </div>
+              <div className="mt-2">
+                <Sparkline values={seriesFor("evaluationsCompletedNew")} />
+              </div>
             </Card>
             <Card>
               <div className="text-xs uppercase tracking-wide text-white/60">Email fail rate</div>
               <div className="mt-1 text-2xl font-semibold">{pct(data.reliability.email.failRatePct)}</div>
               <div className="mt-2 text-sm text-white/70">
                 sent: {data.reliability.email.totals.sent} · failed: {data.reliability.email.totals.failed}
+              </div>
+              <div className="mt-2">
+                <Sparkline values={seriesFor("emailFailRatePct")} />
               </div>
             </Card>
           </div>
@@ -253,6 +364,9 @@ export function AdminMetricsClient() {
                   <div className="text-xs uppercase tracking-wide text-white/60">Coach searches</div>
                   <div className="mt-1 text-2xl font-semibold">{data.engagement.coachSearch.total}</div>
                   <div className="mt-2 text-sm text-white/70">unique coaches: {data.engagement.coachSearch.uniqueCoaches}</div>
+                  <div className="mt-2">
+                    <Sparkline values={seriesFor("coachSearchEvents")} />
+                  </div>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
                   <div className="text-xs uppercase tracking-wide text-white/60">Watchlist adds</div>
@@ -312,6 +426,110 @@ export function AdminMetricsClient() {
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
+              <div className="text-sm font-semibold">Coach funnel (unique)</div>
+              <div className="mt-1 text-sm text-white/70">Search → watchlist → contact request → checkout → activated.</div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-5">
+                {[
+                  ["Search", data.engagement.coachFunnel?.searched ?? 0],
+                  ["Watchlist", data.engagement.coachFunnel?.watchlistAdded ?? 0],
+                  ["Contact", data.engagement.coachFunnel?.contactRequested ?? 0],
+                  ["Checkout", data.engagement.coachFunnel?.checkoutStarted ?? 0],
+                  ["Activated", data.engagement.coachFunnel?.activated ?? 0]
+                ].map(([label, v]) => (
+                  <div key={String(label)} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="text-xs uppercase tracking-wide text-white/60">{label}</div>
+                    <div className="mt-1 text-2xl font-semibold">{Number(v)}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 text-xs text-white/60">Activation events populate from Stripe webhooks after this deploy.</div>
+            </Card>
+
+            <Card>
+              <div className="text-sm font-semibold">SLA / overdue</div>
+              <div className="mt-1 text-sm text-white/70">Oldest open submissions (overdue threshold: {data.ops?.overdueHours ?? "—"}h).</div>
+              <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
+                <table className="min-w-full border-collapse text-sm">
+                  <thead className="bg-white/5 text-left text-white/70">
+                    <tr>
+                      <th className="px-4 py-3 font-semibold">Film</th>
+                      <th className="px-4 py-3 font-semibold">Status</th>
+                      <th className="px-4 py-3 font-semibold">Assigned</th>
+                      <th className="px-4 py-3 font-semibold">Open</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/10">
+                    {(data.ops?.overdueItems ?? []).map((r) => (
+                      <tr key={r.id}>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-white">{r.title}</div>
+                          <div className="mt-1 text-xs text-white/60">{r.playerName ? `${r.playerName}${r.playerSport ? ` · ${r.playerSport}` : ""}${r.playerPosition ? ` · ${r.playerPosition}` : ""}` : ""}</div>
+                        </td>
+                        <td className="px-4 py-3 text-white/80">{r.status}</td>
+                        <td className="px-4 py-3 text-white/70">{r.assignedEvaluator?.email ?? "—"}</td>
+                        <td className="px-4 py-3">
+                          <Link href={`/admin/evaluations/${encodeURIComponent(r.id)}`} className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                            Open
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                    {(data.ops?.overdueItems ?? []).length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-6 text-white/70">
+                          No open submissions found.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 text-sm">
+                <Link href="/admin/evaluations" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                  Manage assignments in Evaluations →
+                </Link>
+              </div>
+            </Card>
+          </div>
+
+          <Card>
+            <div className="text-sm font-semibold">Evaluator workload</div>
+            <div className="mt-1 text-sm text-white/70">Open assignments + overdue by evaluator (plus completed count in timeframe).</div>
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
+              <table className="min-w-full border-collapse text-sm">
+                <thead className="bg-white/5 text-left text-white/70">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Evaluator</th>
+                    <th className="px-4 py-3 font-semibold">Open assigned</th>
+                    <th className="px-4 py-3 font-semibold">Overdue</th>
+                    <th className="px-4 py-3 font-semibold">Oldest age (h)</th>
+                    <th className="px-4 py-3 font-semibold">Completed</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {(data.ops?.evaluatorWorkload ?? []).slice(0, 25).map((r) => (
+                    <tr key={r.evaluatorUserId}>
+                      <td className="px-4 py-3 text-white/80">{r.evaluatorName ?? r.evaluatorEmail ?? r.evaluatorUserId}</td>
+                      <td className="px-4 py-3 text-white/80">{r.openAssigned}</td>
+                      <td className="px-4 py-3 text-white/80">{r.overdueAssigned}</td>
+                      <td className="px-4 py-3 text-white/80">{r.oldestAgeHours ?? "—"}</td>
+                      <td className="px-4 py-3 text-white/80">{r.completedInWindow}</td>
+                    </tr>
+                  ))}
+                  {(data.ops?.evaluatorWorkload ?? []).length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-white/70">
+                        No evaluator assignments found.
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
               <div className="text-sm font-semibold">Showcases revenue (paid)</div>
               <div className="mt-1 text-sm text-white/70">Based on paid registrations × showcase cost.</div>
               <div className="mt-4 grid gap-3">
@@ -332,6 +550,14 @@ export function AdminMetricsClient() {
               <div className="text-sm font-semibold">Knowledge Base</div>
               <div className="mt-1 text-sm text-white/70">Top viewed and least helpful articles.</div>
               <div className="mt-4 grid gap-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Feedback</div>
+                  <div className="mt-1 text-sm text-white/80">
+                    Helpful: <span className="font-semibold text-white">{data.reliability.kb.feedback.yes}</span> · Not helpful:{" "}
+                    <span className="font-semibold text-white">{data.reliability.kb.feedback.no}</span> · Total:{" "}
+                    <span className="font-semibold text-white">{data.reliability.kb.feedback.total}</span>
+                  </div>
+                </div>
                 <div>
                   <div className="text-xs uppercase tracking-wide text-white/60">Top viewed</div>
                   <div className="mt-2 grid gap-2 text-sm">
@@ -365,6 +591,58 @@ export function AdminMetricsClient() {
             </Card>
           </div>
         </>
+      ) : null}
+
+      {configOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)]">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+              <div className="text-sm font-semibold">Targets / thresholds</div>
+              <button
+                type="button"
+                onClick={() => setConfigOpen(false)}
+                className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white hover:bg-white/10"
+              >
+                Close
+              </button>
+            </div>
+            <div className="max-h-[75vh] overflow-y-auto px-5 py-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ["overdueHours", "Overdue hours", config?.overdueHours],
+                  ["tatP90WarnHours", "TAT p90 warn (h)", config?.tatP90WarnHours],
+                  ["tatP90CritHours", "TAT p90 crit (h)", config?.tatP90CritHours],
+                  ["emailFailWarnPct", "Email fail warn (%)", config?.emailFailWarnPct],
+                  ["emailFailCritPct", "Email fail crit (%)", config?.emailFailCritPct],
+                  ["coachConversionTargetPct", "Coach conversion target (%)", config?.coachConversionTargetPct],
+                  ["playerPublicTargetPct", "Player public target (%)", config?.playerPublicTargetPct],
+                  ["profileCompletionTargetPctAtLeast80", "Profile ≥80% target (%)", config?.profileCompletionTargetPctAtLeast80]
+                ].map(([k, label, v]) => (
+                  <label key={String(k)} className="grid gap-1 text-sm">
+                    <div className="text-xs text-white/60">{label}</div>
+                    <input
+                      className="w-full rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white"
+                      defaultValue={v ?? ""}
+                      onChange={(e) => setConfig((prev: any) => ({ ...(prev ?? {}), [k]: Number(e.target.value) }))}
+                      inputMode="numeric"
+                    />
+                  </label>
+                ))}
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={savingConfig}
+                  onClick={() => void saveConfig(config ?? {})}
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+                >
+                  {savingConfig ? "Saving…" : "Save"}
+                </button>
+              </div>
+              <div className="mt-3 text-xs text-white/60">These thresholds drive red/yellow/green flags and SLA definitions.</div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );

@@ -320,6 +320,13 @@ export function AdminKbClient() {
             >
               Seed starter KB
             </Button>
+            <Button
+              type="button"
+              className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+              onClick={() => void seedStarter(true)}
+            >
+              Seed (force update)
+            </Button>
             <Button type="button" onClick={openCreate}>
               New article
             </Button>

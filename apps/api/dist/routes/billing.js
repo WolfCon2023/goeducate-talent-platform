@@ -6,6 +6,8 @@ import { ApiError } from "../http/errors.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { getStripe, isStripeConfigured } from "../stripe.js";
+import { logAppEvent } from "../util/appEvents.js";
+import { APP_EVENT_TYPE } from "../models/AppEvent.js";
 export const billingRouter = Router();
 function getCoachOrThrow(user) {
     if (!user)
@@ -266,6 +268,12 @@ billingRouter.post("/billing/checkout", requireAuth, requireRole([ROLE.COACH]), 
         if (!session.url) {
             return next(new ApiError({ status: 500, code: "INTERNAL_SERVER_ERROR", message: "Missing checkout URL" }));
         }
+        logAppEvent({
+            type: APP_EVENT_TYPE.COACH_CHECKOUT_STARTED,
+            user: req.user,
+            path: req.path,
+            meta: { plan, priceId }
+        });
         return res.json({ url: session.url });
     }
     catch (err) {
@@ -302,6 +310,12 @@ billingRouter.post("/billing/portal", requireAuth, requireRole([ROLE.COACH]), as
         const session = await stripe.billingPortal.sessions.create({
             customer: coach.stripeCustomerId,
             return_url: `${env.WEB_APP_URL}/coach/billing`
+        });
+        logAppEvent({
+            type: APP_EVENT_TYPE.COACH_BILLING_PORTAL_OPENED,
+            user: req.user,
+            path: req.path,
+            meta: { customerId: coach.stripeCustomerId }
         });
         return res.json({ url: session.url });
     }

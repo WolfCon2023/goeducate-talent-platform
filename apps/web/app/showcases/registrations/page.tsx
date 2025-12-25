@@ -7,6 +7,7 @@ import { Card, Button } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { ShowcasesGuard } from "../Guard";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type RegistrationRow = {
   id: string;
@@ -86,7 +87,10 @@ export default function MyShowcaseRegistrationsPage() {
         <section className="rounded-2xl border border-white/10 bg-[var(--surface)] p-10">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-3xl">
-              <h1 className="text-balance text-4xl font-semibold tracking-tight">My registrations</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-balance text-4xl font-semibold tracking-tight">My registrations</h1>
+                <HelpIcon helpKey="player.showcases.registrations" title="Showcase registrations" />
+              </div>
               <p className="mt-3 text-lg text-white/90">Your showcase registration history.</p>
             </div>
             <div className="flex items-center gap-3">

@@ -9,7 +9,11 @@ export const APP_EVENT_TYPE = {
   CONTACT_REQUEST: "contact_request",
   EVALUATION_VIEW_COACH: "evaluation_view_coach",
   EVALUATION_VIEW_PLAYER: "evaluation_view_player",
-  MESSAGE_SENT: "message_sent"
+  MESSAGE_SENT: "message_sent",
+  COACH_CHECKOUT_STARTED: "coach_checkout_started",
+  COACH_BILLING_PORTAL_OPENED: "coach_billing_portal_opened",
+  COACH_SUBSCRIPTION_ACTIVATED: "coach_subscription_activated",
+  COACH_SUBSCRIPTION_CANCELED: "coach_subscription_canceled"
 } as const;
 
 export type AppEventType = (typeof APP_EVENT_TYPE)[keyof typeof APP_EVENT_TYPE];

@@ -9,6 +9,7 @@ import { getAccessToken } from "@/lib/auth";
 import { FormErrorSummary, FieldError } from "@/components/FormErrors";
 import type { FieldErrors } from "@/lib/formErrors";
 import { toast } from "@/components/ToastProvider";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 const QUESTION_BANK: Array<{ id: string; label: string }> = [
   { id: "pet_name", label: "What was the name of your first pet?" },
@@ -112,7 +113,10 @@ function AccountSecurityInner() {
   return (
     <div className="mx-auto max-w-2xl">
       <Card>
-        <h1 className="text-xl font-semibold">Account security</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold">Account security</h1>
+          <HelpIcon helpKey="account.security" title="Account security" />
+        </div>
         <p className="mt-1 text-sm text-[color:var(--muted)]">
           Set security questions to help recover your account if you forget your username or password.
         </p>

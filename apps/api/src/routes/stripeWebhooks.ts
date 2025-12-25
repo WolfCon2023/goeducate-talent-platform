@@ -10,6 +10,8 @@ import { getStripe } from "../stripe.js";
 import { ShowcaseModel } from "../models/Showcase.js";
 import { ShowcaseRegistrationModel, SHOWCASE_REGISTRATION_STATUS } from "../models/ShowcaseRegistration.js";
 import { isShowcaseEmailConfigured, sendShowcaseRegistrationEmail } from "../email/showcases.js";
+import { logAppEvent } from "../util/appEvents.js";
+import { APP_EVENT_TYPE } from "../models/AppEvent.js";
 
 function isActiveStripeSubscription(status: Stripe.Subscription.Status) {
   return status === "active" || status === "trialing";
@@ -156,12 +158,23 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
         const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer.id;
         const user = await resolveCoachByStripeCustomerId(stripe, customerId);
         if (user && user.role === ROLE.COACH) {
+          const before = user.subscriptionStatus ?? COACH_SUBSCRIPTION_STATUS.INACTIVE;
           user.stripeCustomerId = user.stripeCustomerId ?? customerId;
           user.stripeSubscriptionId = sub.id;
           user.subscriptionStatus = isActiveStripeSubscription(sub.status)
             ? COACH_SUBSCRIPTION_STATUS.ACTIVE
             : COACH_SUBSCRIPTION_STATUS.INACTIVE;
           await user.save();
+
+          const after = user.subscriptionStatus ?? COACH_SUBSCRIPTION_STATUS.INACTIVE;
+          if (before !== after) {
+            logAppEvent({
+              type: after === COACH_SUBSCRIPTION_STATUS.ACTIVE ? APP_EVENT_TYPE.COACH_SUBSCRIPTION_ACTIVATED : APP_EVENT_TYPE.COACH_SUBSCRIPTION_CANCELED,
+              user: { id: String(user._id), role: user.role },
+              path: "stripe_webhook",
+              meta: { stripeCustomerId: customerId, stripeSubscriptionId: sub.id, stripeStatus: sub.status, eventType: event.type }
+            });
+          }
         }
         break;
       }

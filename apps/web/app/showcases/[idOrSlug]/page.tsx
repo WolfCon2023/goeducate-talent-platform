@@ -10,6 +10,7 @@ import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { FormErrorSummary, FieldError } from "@/components/FormErrors";
 import { parseApiError, type FieldErrors } from "@/lib/formErrors";
 import { ShowcasesGuard } from "../Guard";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type Showcase = {
   id: string;
@@ -338,7 +339,10 @@ export default function ShowcaseDetailPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
           <Card>
-            <h1 className="text-2xl font-semibold tracking-tight">{showcase.title}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">{showcase.title}</h1>
+              <HelpIcon helpKey="showcases" title="Showcases" />
+            </div>
             <div className="mt-2 text-sm text-white/80">
               {fmtDateTime(showcase.startDateTime)} – {fmtDateTime(showcase.endDateTime)} ({showcase.timezone})
             </div>
