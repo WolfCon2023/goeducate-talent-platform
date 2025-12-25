@@ -1,5 +1,6 @@
 import { PlayerProfileForm } from "@/components/PlayerProfileForm";
 import { PlayerFilmStatusWidget } from "@/components/PlayerFilmStatusWidget";
+import { PlayerEvaluationHistoryWidget } from "@/components/PlayerEvaluationHistoryWidget";
 import { PlayerGuard } from "./Guard";
 import Link from "next/link";
 
@@ -17,6 +18,8 @@ export default function PlayerDashboardPage() {
         </div>
 
         <PlayerFilmStatusWidget />
+
+        <PlayerEvaluationHistoryWidget />
 
         <PlayerProfileForm />
       </div>

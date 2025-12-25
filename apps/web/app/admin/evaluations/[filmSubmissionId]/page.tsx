@@ -26,6 +26,7 @@ type FilmSubmission = {
 type EvaluationReport = {
   _id: string;
   filmSubmissionId: string;
+  playerUserId?: string;
   overallGrade: number;
   overallGradeRaw?: number;
   suggestedProjectionLabel?: string;
@@ -315,6 +316,14 @@ export default function AdminEvaluationDetailPage() {
                   {showForm ? "Hide evaluation form" : "Open evaluation form (edit/resubmit)"}
                 </Button>
               )}
+              {report?.playerUserId ? (
+                <Link
+                  href={`/admin/players/${encodeURIComponent(report.playerUserId)}/evaluations`}
+                  className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline"
+                >
+                  View player evaluation history
+                </Link>
+              ) : null}
               <Link href="/admin#admin-evaluations" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
                 Back to evaluations table
               </Link>
