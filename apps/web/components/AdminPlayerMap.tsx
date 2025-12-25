@@ -30,6 +30,8 @@ type PlayerRow = {
 type PlayersInStateResponse = {
   state: { code: string; name: string };
   total: number;
+  skip?: number;
+  limit?: number;
   players: PlayerRow[];
 };
 
@@ -111,6 +113,8 @@ export function AdminPlayerMap() {
   const [playersLoading, setPlayersLoading] = useState(false);
   const [playersError, setPlayersError] = useState<string | null>(null);
   const [playersData, setPlayersData] = useState<PlayersInStateResponse | null>(null);
+  const [playersPage, setPlayersPage] = useState(0);
+  const playersPageSize = 25;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playersAbortRef = useRef<AbortController | null>(null);
@@ -132,7 +136,7 @@ export function AdminPlayerMap() {
     }
   }
 
-  async function loadPlayersFor(s: PlayerByState | null) {
+  async function loadPlayersFor(s: PlayerByState | null, page: number) {
     setPlayersError(null);
     setPlayersData(null);
     playersAbortRef.current?.abort();
@@ -155,10 +159,14 @@ export function AdminPlayerMap() {
       if (!token) throw new Error("Please login first.");
       if (role !== "admin") throw new Error("Insufficient permissions.");
 
-      const res = await apiFetch<PlayersInStateResponse>(`/admin/players/by-state/${encodeURIComponent(code)}?limit=500`, {
+      const skip = Math.max(0, page) * playersPageSize;
+      const res = await apiFetch<PlayersInStateResponse>(
+        `/admin/players/by-state/${encodeURIComponent(code)}?limit=${playersPageSize}&skip=${skip}`,
+        {
         token,
         signal: controller.signal
-      });
+        }
+      );
       setPlayersData(res);
     } catch (err) {
       if (err instanceof Error && /aborted/i.test(err.message)) return;
@@ -173,9 +181,17 @@ export function AdminPlayerMap() {
   }, []);
 
   useEffect(() => {
-    void loadPlayersFor(selected);
+    // Reset paging when state changes.
+    setPlayersPage(0);
+    void loadPlayersFor(selected, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.code, selected?.name]);
+
+  useEffect(() => {
+    if (!selected) return;
+    void loadPlayersFor(selected, playersPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playersPage]);
 
   const byName = useMemo(() => {
     const m = new Map<string, PlayerByState>();
@@ -332,7 +348,29 @@ export function AdminPlayerMap() {
                 {playersData ? (
                   <div className="mt-3">
                     <div className="mb-2 text-xs text-[color:var(--muted-2)]">
-                      Showing {playersData.players.length} of {playersData.total}
+                      Showing {playersData.players.length} of {playersData.total} · Page {playersPage + 1} of{" "}
+                      {Math.max(1, Math.ceil((playersData.total ?? 0) / playersPageSize))}
+                    </div>
+                    <div className="mb-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/90 hover:bg-white/10 disabled:opacity-50"
+                        disabled={playersLoading || playersPage <= 0}
+                        onClick={() => setPlayersPage((p) => Math.max(0, p - 1))}
+                      >
+                        Prev
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-sm text-white/90 hover:bg-white/10 disabled:opacity-50"
+                        disabled={
+                          playersLoading ||
+                          (playersData.total ?? 0) <= (playersPage + 1) * playersPageSize
+                        }
+                        onClick={() => setPlayersPage((p) => p + 1)}
+                      >
+                        Next
+                      </button>
                     </div>
                     <div className="max-h-[360px] overflow-auto rounded-xl border border-white/10">
                       <table className="w-full text-left text-sm">

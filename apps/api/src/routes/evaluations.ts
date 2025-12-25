@@ -184,6 +184,10 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
         .split(",")
         .map((s) => s.trim())
         .filter((s) => s.includes("@"));
+      // Always ensure info@ is included for operational visibility.
+      if (!opsEmails.some((e) => e.toLowerCase() === "info@goeducateinc.org")) {
+        opsEmails.push("info@goeducateinc.org");
+      }
       const playerUser = await UserModel.findById(playerUserId).lean();
       if (playerUser?.email) {
         const bcc = opsEmails.filter((e) => e.toLowerCase() !== String(playerUser.email).trim().toLowerCase());

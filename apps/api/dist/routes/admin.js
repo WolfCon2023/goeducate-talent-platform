@@ -729,8 +729,10 @@ adminRouter.get("/admin/players/by-state/:state", requireAuth, requireRole([ROLE
             return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid US state is required" }));
         }
         const stateName = US_STATES.find((s) => s.code === code)?.name ?? code;
-        const limitRaw = Number(req.query.limit ?? 200);
-        const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(500, limitRaw)) : 200;
+        const limitRaw = Number(req.query.limit ?? 25);
+        const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, limitRaw)) : 25;
+        const skipRaw = Number(req.query.skip ?? 0);
+        const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.min(50_000, skipRaw)) : 0;
         const or = [{ state: { $regex: `^${escapeRegex(code)}$`, $options: "i" } }];
         if (stateName && stateName !== code) {
             or.push({ state: { $regex: `^${escapeRegex(stateName)}$`, $options: "i" } });
@@ -769,6 +771,7 @@ adminRouter.get("/admin/players/by-state/:state", requireAuth, requireRole([ROLE
                     }
                 },
                 { $sort: { lastName: 1, firstName: 1, updatedAt: -1 } },
+                { $skip: skip },
                 { $limit: limit },
                 {
                     $project: {
@@ -793,6 +796,8 @@ adminRouter.get("/admin/players/by-state/:state", requireAuth, requireRole([ROLE
         return res.json({
             state: { code, name: stateName },
             total,
+            skip,
+            limit,
             players
         });
     }
