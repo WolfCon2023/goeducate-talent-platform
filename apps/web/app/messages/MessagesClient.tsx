@@ -25,6 +25,14 @@ type MessageRow = {
   createdAt: string;
 };
 
+type RecipientOption = {
+  userId: string;
+  role: string;
+  email: string;
+  displayName: string;
+  extra?: string | null;
+};
+
 function fmtDate(iso?: string | null) {
   if (!iso) return "";
   try {
@@ -48,7 +56,11 @@ export function MessagesClient() {
   const [status, setStatus] = React.useState<ConversationRow["status"] | null>(null);
   const [composer, setComposer] = React.useState("");
 
-  const [newTo, setNewTo] = React.useState("");
+  const [recipientQuery, setRecipientQuery] = React.useState("");
+  const [recipientLoading, setRecipientLoading] = React.useState(false);
+  const [recipientOptions, setRecipientOptions] = React.useState<RecipientOption[]>([]);
+  const [recipientOpen, setRecipientOpen] = React.useState(false);
+  const [selectedRecipient, setSelectedRecipient] = React.useState<RecipientOption | null>(null);
   const [newBody, setNewBody] = React.useState("");
   const [creating, setCreating] = React.useState(false);
 
@@ -97,6 +109,36 @@ export function MessagesClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
+  React.useEffect(() => {
+    const q = recipientQuery.trim();
+    if (!q || q.length < 2 || selectedRecipient) {
+      setRecipientOptions([]);
+      return;
+    }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      setRecipientLoading(true);
+      try {
+        const token = getAccessToken();
+        if (!token) return;
+        const qs = new URLSearchParams({ q, limit: "10" });
+        const res = await apiFetch<{ results: RecipientOption[] }>(`/messages/recipients?${qs.toString()}`, { token, retries: 2, retryOn404: true });
+        if (!cancelled) {
+          setRecipientOptions(res.results ?? []);
+          setRecipientOpen(true);
+        }
+      } catch {
+        if (!cancelled) setRecipientOptions([]);
+      } finally {
+        if (!cancelled) setRecipientLoading(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [recipientQuery, selectedRecipient]);
+
   async function accept() {
     if (!selectedId) return;
     try {
@@ -144,7 +186,7 @@ export function MessagesClient() {
   }
 
   async function createConversation() {
-    const recipientUserId = newTo.trim();
+    const recipientUserId = selectedRecipient?.userId ?? "";
     const message = newBody.trim();
     if (!recipientUserId || !message) return;
     setCreating(true);
@@ -156,7 +198,8 @@ export function MessagesClient() {
         token,
         body: JSON.stringify({ recipientUserId, message })
       });
-      setNewTo("");
+      setRecipientQuery("");
+      setSelectedRecipient(null);
       setNewBody("");
       toast({ kind: "success", title: "Sent", message: "Message request sent." });
       await loadInbox();
@@ -217,8 +260,68 @@ export function MessagesClient() {
             <div className="text-sm font-semibold">Start a new conversation</div>
             <div className="mt-3 grid gap-3">
               <div className="grid gap-2">
-                <Label htmlFor="msgTo">Recipient user ID</Label>
-                <Input id="msgTo" value={newTo} onChange={(e) => setNewTo(e.target.value)} placeholder="Paste userId (Mongo ObjectId)" />
+                <Label htmlFor="msgTo">Recipient</Label>
+                <div className="relative">
+                  <Input
+                    id="msgTo"
+                    value={recipientQuery}
+                    onChange={(e) => {
+                      setRecipientQuery(e.target.value);
+                      setSelectedRecipient(null);
+                      setRecipientOpen(true);
+                    }}
+                    onFocus={() => setRecipientOpen(true)}
+                    placeholder="Start typing a name or email…"
+                  />
+                  {selectedRecipient ? (
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[color:var(--muted)] hover:text-[color:var(--foreground)]"
+                      onClick={() => {
+                        setSelectedRecipient(null);
+                        setRecipientQuery("");
+                        setRecipientOptions([]);
+                        setRecipientOpen(false);
+                      }}
+                      aria-label="Clear recipient"
+                      title="Clear"
+                    >
+                      Clear
+                    </button>
+                  ) : recipientLoading ? (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[color:var(--muted)]">…</div>
+                  ) : null}
+
+                  {recipientOpen && !selectedRecipient && recipientOptions.length ? (
+                    <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-[var(--surface)] shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+                      {recipientOptions.map((opt) => {
+                        const sub = [opt.email, opt.role, opt.extra].filter(Boolean).join(" · ");
+                        return (
+                          <button
+                            key={opt.userId}
+                            type="button"
+                            className="block w-full px-4 py-2.5 text-left hover:bg-white/5"
+                            onClick={() => {
+                              setSelectedRecipient(opt);
+                              setRecipientQuery(opt.displayName || opt.email);
+                              setRecipientOpen(false);
+                            }}
+                          >
+                            <div className="text-sm font-semibold text-white/90">{opt.displayName || opt.email}</div>
+                            <div className="mt-0.5 text-xs text-[color:var(--muted)]">{sub}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+                {selectedRecipient ? (
+                  <div className="text-xs text-[color:var(--muted)]">
+                    Selected: <span className="text-white/90 font-semibold">{selectedRecipient.displayName || selectedRecipient.email}</span>
+                  </div>
+                ) : (
+                  <div className="text-xs text-[color:var(--muted)]">Pick a user from the dropdown.</div>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="msgBody">First message</Label>
@@ -231,7 +334,7 @@ export function MessagesClient() {
                 />
               </div>
               <div>
-                <Button type="button" onClick={createConversation} disabled={creating}>
+                <Button type="button" onClick={createConversation} disabled={creating || !selectedRecipient || !newBody.trim()}>
                   {creating ? "Sending…" : "Send request"}
                 </Button>
               </div>

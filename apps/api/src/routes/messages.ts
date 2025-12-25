@@ -9,6 +9,8 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { ConversationModel, conversationKeyFor } from "../models/Conversation.js";
 import { MessageModel } from "../models/Message.js";
 import { UserModel } from "../models/User.js";
+import { PlayerProfileModel } from "../models/PlayerProfile.js";
+import { CoachProfileModel } from "../models/CoachProfile.js";
 
 export const messagesRouter = Router();
 
@@ -22,6 +24,99 @@ function ensureObjectId(id: string) {
 function preview(text: string) {
   return String(text ?? "").trim().slice(0, 240);
 }
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Recipient search (typeahead)
+// Returns userIds + display labels so UI never needs raw Mongo IDs.
+messagesRouter.get("/messages/recipients", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH]), async (req, res, next) => {
+  try {
+    const q = String(req.query.q ?? "").trim();
+    const limitRaw = Number(req.query.limit ?? 10);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(20, limitRaw)) : 10;
+    if (q.length < 2) return res.json({ results: [] });
+
+    const rx = new RegExp(escapeRegex(q), "i");
+
+    // Only allow messaging among players/coaches for now.
+    const allowedRoles = [ROLE.PLAYER, ROLE.COACH];
+
+    const userHits = await UserModel.find({
+      role: { $in: allowedRoles as any },
+      $or: [{ email: rx }, { firstName: rx }, { lastName: rx }]
+    })
+      .limit(limit)
+      .lean();
+
+    const playerProfiles = await PlayerProfileModel.find({ $or: [{ firstName: rx }, { lastName: rx }] })
+      .select({ userId: 1, firstName: 1, lastName: 1 })
+      .limit(limit)
+      .lean();
+
+    const coachProfiles = await CoachProfileModel.find({ $or: [{ firstName: rx }, { lastName: rx }, { institutionName: rx }] })
+      .select({ userId: 1, firstName: 1, lastName: 1, institutionName: 1, title: 1 })
+      .limit(limit)
+      .lean();
+
+    const ids = new Set<string>();
+    for (const u of userHits) ids.add(String(u._id));
+    for (const p of playerProfiles) ids.add(String((p as any).userId));
+    for (const c of coachProfiles) ids.add(String((c as any).userId));
+
+    const users = await UserModel.find({ _id: { $in: Array.from(ids) }, role: { $in: allowedRoles as any } })
+      .select({ email: 1, role: 1, firstName: 1, lastName: 1 })
+      .limit(50)
+      .lean();
+    const userById = new Map(users.map((u) => [String(u._id), u]));
+    const playerById = new Map(playerProfiles.map((p: any) => [String(p.userId), p]));
+    const coachById = new Map(coachProfiles.map((c: any) => [String(c.userId), c]));
+
+    const results = Array.from(ids)
+      .map((id) => {
+        const u = userById.get(id);
+        if (!u) return null;
+        const role = String((u as any).role);
+        const email = String((u as any).email ?? "");
+
+        let displayName = email;
+        if (role === ROLE.PLAYER) {
+          const p = playerById.get(id);
+          if (p?.firstName && p?.lastName) displayName = `${p.firstName} ${p.lastName}`;
+        } else if (role === ROLE.COACH) {
+          const c = coachById.get(id);
+          if (c?.firstName && c?.lastName) displayName = `${c.firstName} ${c.lastName}`;
+          else if ((u as any).firstName) displayName = `${(u as any).firstName} ${(u as any).lastName ?? ""}`.trim();
+        }
+
+        const extra =
+          role === ROLE.COACH
+            ? coachById.get(id)?.institutionName
+            : role === ROLE.PLAYER
+              ? playerById.get(id)?.sport
+              : undefined;
+
+        return { userId: id, role, email, displayName, extra: extra ?? null };
+      })
+      .filter(Boolean) as Array<{ userId: string; role: string; email: string; displayName: string; extra: string | null }>;
+
+    // Rank: startsWith match on displayName/email first, then alphabetically.
+    const qLower = q.toLowerCase();
+    results.sort((a, b) => {
+      const aKey = `${a.displayName} ${a.email}`.toLowerCase();
+      const bKey = `${b.displayName} ${b.email}`.toLowerCase();
+      const aStarts = aKey.startsWith(qLower) ? 0 : 1;
+      const bStarts = bKey.startsWith(qLower) ? 0 : 1;
+      if (aStarts !== bStarts) return aStarts - bStarts;
+      return aKey.localeCompare(bKey);
+    });
+
+    return res.json({ results: results.slice(0, limit) });
+  } catch (err) {
+    return next(err);
+  }
+});
 
 // List your conversations
 messagesRouter.get("/messages/conversations", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.ADMIN, ROLE.EVALUATOR]), async (req, res, next) => {
