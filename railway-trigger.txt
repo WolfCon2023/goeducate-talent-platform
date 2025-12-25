@@ -23,4 +23,5 @@ trigger: redeploy api+web (admin user editing) 2025-12-25T03:25:00Z
 trigger: redeploy api (admin user editing 404 fix) 2025-12-25T03:40:00Z
 trigger: redeploy web (admin user editing retry) 2025-12-25T03:55:00Z
 trigger: redeploy api+web (auth recovery + username) 2025-12-25T04:20:00Z
+trigger: redeploy api+web (security questions) 2025-12-25T04:45:00Z
 
