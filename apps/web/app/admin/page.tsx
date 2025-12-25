@@ -64,6 +64,12 @@ export default function AdminPage() {
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-evaluations">
                 Evaluations
               </a>
+              <Link
+                className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10"
+                href="/admin/kb"
+              >
+                KB
+              </Link>
               <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-audit">
                 Audit log
               </a>
@@ -123,6 +129,23 @@ export default function AdminPage() {
 
         <section id="admin-evaluations" className="scroll-mt-28">
           <AdminEvaluations />
+        </section>
+
+        <section id="admin-kb" className="scroll-mt-28">
+          <Card>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="text-lg font-semibold">Knowledge Base</div>
+                <p className="mt-1 text-sm text-white/80">Create/edit/publish help articles and helpKey mappings.</p>
+              </div>
+              <Link
+                href="/admin/kb"
+                className="inline-flex h-10 items-center justify-center rounded-md bg-[color:var(--color-primary-600)] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[color:var(--color-primary-500)]"
+              >
+                Open KB admin →
+              </Link>
+            </div>
+          </Card>
         </section>
 
         <section id="admin-audit" className="scroll-mt-28">
