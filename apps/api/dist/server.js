@@ -27,6 +27,7 @@ import { savedSearchesRouter } from "./routes/savedSearches.js";
 import { profilesRouter } from "./routes/profiles.js";
 import { searchRouter } from "./routes/search.js";
 import { evaluatorNotesRouter } from "./routes/evaluatorNotes.js";
+import { messagesRouter } from "./routes/messages.js";
 import path from "node:path";
 import fs from "node:fs";
 async function connectWithRetry(mongoUri, opts) {
@@ -116,6 +117,7 @@ async function main() {
     app.use(profilesRouter);
     app.use(searchRouter);
     app.use(evaluatorNotesRouter);
+    app.use(messagesRouter);
     app.use(errorHandler);
     // Railway expects the process to bind to the injected PORT and listen on 0.0.0.0.
     const injectedPort = process.env.PORT;

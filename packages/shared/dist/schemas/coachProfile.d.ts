@@ -9,6 +9,8 @@ export declare const CoachProfileSchema: z.ZodObject<{
     institutionName: z.ZodOptional<z.ZodString>;
     programLevel: z.ZodOptional<z.ZodString>;
     institutionLocation: z.ZodOptional<z.ZodString>;
+    city: z.ZodOptional<z.ZodString>;
+    state: z.ZodOptional<z.ZodString>;
     positionsOfInterest: z.ZodOptional<z.ZodArray<z.ZodString>>;
     gradYears: z.ZodOptional<z.ZodArray<z.ZodNumber>>;
     regions: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -22,6 +24,8 @@ export declare const CoachProfileCreateSchema: z.ZodObject<{
     lastName: z.ZodOptional<z.ZodString>;
     title: z.ZodOptional<z.ZodString>;
     userId: z.ZodString;
+    state: z.ZodOptional<z.ZodString>;
+    city: z.ZodOptional<z.ZodString>;
     institutionName: z.ZodOptional<z.ZodString>;
     programLevel: z.ZodOptional<z.ZodString>;
     institutionLocation: z.ZodOptional<z.ZodString>;
@@ -36,6 +40,8 @@ export declare const CoachProfileUpdateSchema: z.ZodObject<{
     lastName: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     title: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     userId: z.ZodOptional<z.ZodString>;
+    state: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    city: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     institutionName: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     programLevel: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     institutionLocation: z.ZodOptional<z.ZodOptional<z.ZodString>>;

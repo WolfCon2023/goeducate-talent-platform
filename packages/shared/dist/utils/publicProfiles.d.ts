@@ -45,6 +45,8 @@ export declare function buildPublicCoachProfile(profile: CoachProfile, requester
     institutionName?: string;
     programLevel?: string;
     institutionLocation?: string;
+    city?: string;
+    state?: string;
     positionsOfInterest?: string[];
     gradYears?: number[];
     regions?: string[];
@@ -58,6 +60,9 @@ export declare function buildPublicEvaluatorProfile(profile: EvaluatorProfile, r
     firstName?: string;
     lastName?: string;
     title?: string;
+    location?: string;
+    city?: string;
+    state?: string;
     bio?: string;
     experienceYears?: number;
     credentials?: string[];

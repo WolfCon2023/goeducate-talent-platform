@@ -264,6 +264,9 @@ export function AuthNav() {
               ) : null}
             </span>
           </Link>
+          <Link href="/messages" className={navItem("/messages")}>
+            Messages
+          </Link>
           <div className="relative" data-auth-menu-root>
             <button
               type="button"

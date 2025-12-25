@@ -9,6 +9,8 @@ export const CoachProfileSchema = z.object({
     institutionName: z.string().min(1).max(160).optional(),
     programLevel: z.string().min(1).max(80).optional(),
     institutionLocation: z.string().min(1).max(160).optional(),
+    city: z.string().min(1).max(80).optional(),
+    state: z.string().min(1).max(40).optional(),
     positionsOfInterest: z.array(z.string().min(1).max(60)).max(50).optional(),
     gradYears: z.array(z.number().int().min(2020).max(2040)).max(30).optional(),
     regions: z.array(z.string().min(1).max(80)).max(50).optional(),

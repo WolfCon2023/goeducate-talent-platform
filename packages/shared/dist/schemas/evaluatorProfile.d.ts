@@ -6,6 +6,9 @@ export declare const EvaluatorProfileSchema: z.ZodObject<{
     firstName: z.ZodOptional<z.ZodString>;
     lastName: z.ZodOptional<z.ZodString>;
     title: z.ZodOptional<z.ZodString>;
+    location: z.ZodOptional<z.ZodString>;
+    city: z.ZodOptional<z.ZodString>;
+    state: z.ZodOptional<z.ZodString>;
     bio: z.ZodOptional<z.ZodString>;
     experienceYears: z.ZodOptional<z.ZodNumber>;
     credentials: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -20,6 +23,9 @@ export declare const EvaluatorProfileCreateSchema: z.ZodObject<{
     lastName: z.ZodOptional<z.ZodString>;
     title: z.ZodOptional<z.ZodString>;
     userId: z.ZodString;
+    state: z.ZodOptional<z.ZodString>;
+    city: z.ZodOptional<z.ZodString>;
+    location: z.ZodOptional<z.ZodString>;
     bio: z.ZodOptional<z.ZodString>;
     experienceYears: z.ZodOptional<z.ZodNumber>;
     credentials: z.ZodOptional<z.ZodArray<z.ZodString>>;
@@ -32,6 +38,9 @@ export declare const EvaluatorProfileUpdateSchema: z.ZodObject<{
     lastName: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     title: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     userId: z.ZodOptional<z.ZodString>;
+    state: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    city: z.ZodOptional<z.ZodOptional<z.ZodString>>;
+    location: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     bio: z.ZodOptional<z.ZodOptional<z.ZodString>>;
     experienceYears: z.ZodOptional<z.ZodOptional<z.ZodNumber>>;
     credentials: z.ZodOptional<z.ZodOptional<z.ZodArray<z.ZodString>>>;

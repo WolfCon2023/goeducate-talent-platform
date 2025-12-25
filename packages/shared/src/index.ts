@@ -9,6 +9,7 @@ export * from "./schemas/filmSubmission.js";
 export * from "./schemas/playerProfile.js";
 export * from "./schemas/coachProfile.js";
 export * from "./schemas/evaluatorProfile.js";
+export * from "./schemas/messaging.js";
 export * from "./schemas/showcase.js";
 export * from "./schemas/showcaseRegistration.js";
 export * from "./utils/profileCompletion.js";
