@@ -4,6 +4,8 @@ import { ROLE } from "@goeducate/shared";
 
 import { requireAuth, requireRole } from "../middleware/auth.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
+import { EvaluationReportModel } from "../models/EvaluationReport.js";
+import { normalizeUsStateToCode, US_STATES } from "../util/usStates.js";
 
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -70,6 +72,121 @@ searchRouter.get("/search/players", requireAuth, requireRole([ROLE.COACH, ROLE.A
 
     return res.json({
       results: results.map((r: any) => ({ ...r, userId: String(r.userId) }))
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Coach/Admin: player distribution map (counts by US state) for PUBLIC player profiles only.
+searchRouter.get("/search/players/by-state", requireAuth, requireRole([ROLE.COACH, ROLE.ADMIN]), async (_req, res, next) => {
+  try {
+    const raw = await PlayerProfileModel.aggregate([
+      { $match: { isProfilePublic: true } },
+      {
+        $project: {
+          state: {
+            $cond: [{ $or: [{ $eq: ["$state", null] }, { $eq: ["$state", ""] }] }, null, "$state"]
+          }
+        }
+      },
+      { $group: { _id: "$state", count: { $sum: 1 } } }
+    ]);
+
+    const counts = new Map<string, number>();
+    let unknown = 0;
+
+    for (const r of raw as Array<{ _id: any; count: number }>) {
+      const code = normalizeUsStateToCode(r._id);
+      if (!code) {
+        unknown += Number(r.count) || 0;
+        continue;
+      }
+      counts.set(code, (counts.get(code) ?? 0) + (Number(r.count) || 0));
+    }
+
+    const byState = Array.from(counts.entries())
+      .map(([code, count]) => ({ code, name: US_STATES.find((s) => s.code === code)?.name ?? code, count }))
+      .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+
+    return res.json({ byState, unknownCount: unknown });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Coach/Admin: list public players in a given state (includes latest evaluation grade)
+searchRouter.get("/search/players/by-state/:state", requireAuth, requireRole([ROLE.COACH, ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    const stateParam = String(req.params.state ?? "").trim();
+    const code = normalizeUsStateToCode(stateParam);
+    if (!code) {
+      return next(new Error("Valid US state is required"));
+    }
+    const stateName = US_STATES.find((s) => s.code === code)?.name ?? code;
+
+    const limitRaw = Number(req.query.limit ?? 25);
+    const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, limitRaw)) : 25;
+    const skipRaw = Number(req.query.skip ?? 0);
+    const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.min(50_000, skipRaw)) : 0;
+
+    const or: any[] = [
+      { state: { $regex: `^${escapeRegex(code)}$`, $options: "i" } },
+      { state: { $regex: `^${escapeRegex(stateName)}$`, $options: "i" } }
+    ];
+
+    const match: any = { isProfilePublic: true, $or: or };
+
+    const [total, players] = await Promise.all([
+      PlayerProfileModel.countDocuments(match),
+      PlayerProfileModel.aggregate([
+        { $match: match },
+        {
+          $lookup: {
+            from: EvaluationReportModel.collection.name,
+            let: { uid: "$userId" },
+            pipeline: [
+              { $match: { $expr: { $eq: ["$playerUserId", "$$uid"] } } },
+              { $sort: { createdAt: -1 } },
+              { $limit: 1 },
+              { $project: { _id: 0, createdAt: 1, overallGrade: 1 } }
+            ],
+            as: "latestEval"
+          }
+        },
+        {
+          $addFields: {
+            latestEvaluationAt: { $arrayElemAt: ["$latestEval.createdAt", 0] },
+            latestOverallGrade: { $arrayElemAt: ["$latestEval.overallGrade", 0] }
+          }
+        },
+        { $sort: { lastName: 1, firstName: 1, updatedAt: -1 } },
+        { $skip: skip },
+        { $limit: limit },
+        {
+          $project: {
+            _id: 0,
+            userId: 1,
+            firstName: 1,
+            lastName: 1,
+            sport: 1,
+            position: 1,
+            city: 1,
+            state: 1,
+            latestOverallGrade: 1,
+            latestEvaluationAt: 1,
+            highlightPhotoUrl: 1
+          }
+        }
+      ])
+    ]);
+
+    return res.json({
+      state: { code, name: stateName },
+      total,
+      skip,
+      limit,
+      players: (players as any[]).map((p) => ({ ...p, userId: String(p.userId) }))
     });
   } catch (err) {
     return next(err);

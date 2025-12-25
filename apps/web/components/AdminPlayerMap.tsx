@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { apiFetch } from "@/lib/api";
@@ -395,7 +396,11 @@ export function AdminPlayerMap() {
                             const contactPhone = p.contactPhone ?? null;
                             return (
                               <tr key={p.userId} className="border-t border-white/10">
-                                <td className="px-3 py-2 text-[color:var(--foreground)]">{name}</td>
+                                <td className="px-3 py-2 text-[color:var(--foreground)]">
+                                  <Link className="text-indigo-300 hover:text-indigo-200 hover:underline" href={`/players/${encodeURIComponent(p.userId)}`}>
+                                    {name}
+                                  </Link>
+                                </td>
                                 <td className="px-3 py-2">{p.sport || "—"}</td>
                                 <td className="px-3 py-2">{p.position || "—"}</td>
                                 <td className="px-3 py-2">{rating ?? "—"}</td>
