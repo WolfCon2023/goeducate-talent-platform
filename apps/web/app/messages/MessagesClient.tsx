@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { Card, Button, Input, Label } from "@/components/ui";
 import { toast } from "@/components/ToastProvider";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type ConversationRow = {
   id: string;
@@ -323,7 +324,10 @@ export function MessagesClient() {
   return (
     <div className="grid gap-6">
       <Card>
-        <h1 className="text-xl font-semibold">Messages</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold">Messages</h1>
+          <HelpIcon helpKey="messages.inbox" title="Messaging" />
+        </div>
         <p className="mt-1 text-sm text-[color:var(--muted)]">Start a conversation request, then chat once it’s accepted.</p>
       </Card>
 

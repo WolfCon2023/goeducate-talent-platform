@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { parseApiError, type FieldErrors } from "@/lib/formErrors";
 import { toast } from "@/components/ToastProvider";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type Role = "player" | "coach" | "evaluator" | "admin";
 
@@ -275,7 +276,10 @@ export function AdminUserManager() {
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold">User management</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">User management</h2>
+              <HelpIcon helpKey="admin.users" title="User management" />
+            </div>
             <p className="mt-1 text-sm text-white/80">Search users, delete users, and generate invite codes.</p>
           </div>
           <RefreshIconButton onClick={load} loading={loading} title="Refresh users" />

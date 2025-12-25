@@ -9,6 +9,7 @@ import { toast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type BillingStatus = {
   configured: boolean;
@@ -135,7 +136,10 @@ export function BillingClient() {
     <div className="mx-auto max-w-3xl">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold tracking-tight">Billing</h1>
+            <HelpIcon helpKey="coach.billing" title="Coach billing" />
+          </div>
           <p className="mt-2 text-sm text-white/80">Manage your Coach subscription to unlock player contact details.</p>
         </div>
         <Link href="/coach" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">

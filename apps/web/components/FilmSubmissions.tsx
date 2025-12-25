@@ -10,6 +10,7 @@ import { toast } from "@/components/ToastProvider";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { parseApiError, type FieldErrors } from "@/lib/formErrors";
+import { HelpIcon } from "@/components/kb/HelpIcon";
 
 type FilmSubmission = {
   _id: string;
@@ -240,7 +241,10 @@ export function FilmSubmissions() {
     <div className="grid gap-6">
       <Card>
         <FormErrorSummary formError={formError ?? undefined} fieldErrors={fieldErrors} />
-        <h2 className="text-lg font-semibold">Submit film</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Submit film</h2>
+          <HelpIcon helpKey="player.film.submit" title="Submit film" />
+        </div>
         <p className="mt-1 text-sm text-[color:var(--muted)]">
           Add game film metadata. You must upload a video file or paste a hosted video URL.
         </p>
