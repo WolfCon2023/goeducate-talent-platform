@@ -15,6 +15,8 @@ type CoachProfile = {
   institutionName?: string;
   programLevel?: string;
   institutionLocation?: string;
+  city?: string;
+  state?: string;
   positionsOfInterest?: string[];
   gradYears?: number[];
   regions?: string[];
@@ -45,6 +47,8 @@ export function CoachSelfProfileForm() {
     institutionName: "",
     programLevel: "",
     institutionLocation: "",
+    city: "",
+    state: "",
     positionsOfInterest: "",
     gradYears: "",
     regions: ""
@@ -65,6 +69,8 @@ export function CoachSelfProfileForm() {
         institutionName: res.profile.institutionName ?? "",
         programLevel: res.profile.programLevel ?? "",
         institutionLocation: res.profile.institutionLocation ?? "",
+        city: res.profile.city ?? "",
+        state: res.profile.state ?? "",
         positionsOfInterest: (res.profile.positionsOfInterest ?? []).join(", "),
         gradYears: (res.profile.gradYears ?? []).join(", "),
         regions: (res.profile.regions ?? []).join(", ")
@@ -98,6 +104,8 @@ export function CoachSelfProfileForm() {
         institutionName: form.institutionName.trim() || undefined,
         programLevel: form.programLevel.trim() || undefined,
         institutionLocation: form.institutionLocation.trim() || undefined,
+        city: form.city.trim() || undefined,
+        state: form.state.trim() || undefined,
         positionsOfInterest: parseCsv(form.positionsOfInterest),
         gradYears: parseCsv(form.gradYears).map((v) => Number(v)).filter((n) => Number.isFinite(n)) as number[],
         regions: parseCsv(form.regions)
@@ -161,6 +169,14 @@ export function CoachSelfProfileForm() {
         <div className="grid gap-2">
           <Label htmlFor="coachLocation">Institution location</Label>
           <Input id="coachLocation" value={form.institutionLocation} onChange={(e) => setForm((f) => ({ ...f, institutionLocation: e.target.value }))} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="coachCity">City</Label>
+          <Input id="coachCity" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="coachState">State</Label>
+          <Input id="coachState" value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} placeholder="e.g. NV" />
         </div>
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="coachPositions">Positions of interest (comma-separated)</Label>

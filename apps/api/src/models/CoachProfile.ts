@@ -9,6 +9,8 @@ export type CoachProfileDoc = {
   institutionName?: string;
   programLevel?: string;
   institutionLocation?: string;
+  city?: string;
+  state?: string;
   positionsOfInterest?: string[];
   gradYears?: number[];
   regions?: string[];
@@ -26,6 +28,8 @@ const CoachProfileSchema = new Schema<CoachProfileDoc>(
     institutionName: { type: String, trim: true },
     programLevel: { type: String, trim: true },
     institutionLocation: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true, index: true },
     positionsOfInterest: [{ type: String, trim: true }],
     gradYears: [{ type: Number }],
     regions: [{ type: String, trim: true }]
@@ -34,6 +38,7 @@ const CoachProfileSchema = new Schema<CoachProfileDoc>(
 );
 
 CoachProfileSchema.index({ isProfilePublic: 1, institutionName: 1, updatedAt: -1 });
+CoachProfileSchema.index({ state: 1, updatedAt: -1 });
 
 export const CoachProfileModel =
   (mongoose.models.CoachProfile as mongoose.Model<CoachProfileDoc> | undefined) ??

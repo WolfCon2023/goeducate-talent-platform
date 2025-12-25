@@ -743,6 +743,9 @@ adminRouter.get("/admin/coaches/by-state", requireAuth, requireRole([ROLE.ADMIN]
     const raw = await CoachProfileModel.aggregate([
       {
         $project: {
+          state: {
+            $cond: [{ $or: [{ $eq: ["$state", null] }, { $eq: ["$state", ""] }] }, null, "$state"]
+          },
           institutionLocation: {
             $cond: [
               { $or: [{ $eq: ["$institutionLocation", null] }, { $eq: ["$institutionLocation", ""] }] },
@@ -760,6 +763,8 @@ adminRouter.get("/admin/coaches/by-state", requireAuth, requireRole([ROLE.ADMIN]
 
     for (const r of raw as Array<{ institutionLocation?: any; regions?: any[] }>) {
       const codes: string[] = [];
+      const stateCode = normalizeUsStateToCode((r as any).state);
+      if (stateCode) codes.push(stateCode);
       const locCode = guessStateFromCoachLocation(r.institutionLocation);
       if (locCode) codes.push(locCode);
       const regions = Array.isArray(r.regions) ? r.regions : [];
@@ -811,6 +816,7 @@ adminRouter.get("/admin/coaches/by-state/:state", requireAuth, requireRole([ROLE
 
     const match: any = {
       $or: [
+        { state: { $regex: `^${escapeRegex(code)}$`, $options: "i" } },
         { regions: { $elemMatch: { $regex: `^${escapeRegex(code)}$`, $options: "i" } } },
         ...locRegexes
       ]

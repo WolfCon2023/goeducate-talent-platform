@@ -22,6 +22,7 @@ import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { CoachProfileModel } from "../models/CoachProfile.js";
 import { EvaluatorProfileModel } from "../models/EvaluatorProfile.js";
 import { AUDIT_ACTION, AuditLogModel } from "../models/AuditLog.js";
+import { normalizeUsStateToCode } from "../util/usStates.js";
 
 export const profilesRouter = Router();
 
@@ -128,6 +129,17 @@ profilesRouter.put("/profiles/me", requireAuth, async (req, res, next) => {
       const before = await CoachProfileModel.findOne({ userId: actorUserId }).lean();
       const updateDoc: any = { ...parsed.data };
       delete updateDoc.userId;
+
+      // Backwards compatible: if state isn't provided, attempt to parse from institutionLocation.
+      if (!updateDoc.state && updateDoc.institutionLocation) {
+        const loc = String(updateDoc.institutionLocation ?? "");
+        const parts = loc.split(",").map((s: string) => s.trim()).filter(Boolean);
+        const tail = parts.length ? parts[parts.length - 1] : loc;
+        const code = normalizeUsStateToCode(tail);
+        if (code) updateDoc.state = code;
+        if (!updateDoc.city && parts.length >= 2) updateDoc.city = parts[0];
+      }
+
       const updated = await CoachProfileModel.findOneAndUpdate(
         { userId: actorUserId },
         { $set: updateDoc, $setOnInsert: { userId: actorUserId } },

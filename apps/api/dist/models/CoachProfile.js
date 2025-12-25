@@ -8,11 +8,14 @@ const CoachProfileSchema = new Schema({
     institutionName: { type: String, trim: true },
     programLevel: { type: String, trim: true },
     institutionLocation: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true, index: true },
     positionsOfInterest: [{ type: String, trim: true }],
     gradYears: [{ type: Number }],
     regions: [{ type: String, trim: true }]
 }, { timestamps: true });
 CoachProfileSchema.index({ isProfilePublic: 1, institutionName: 1, updatedAt: -1 });
+CoachProfileSchema.index({ state: 1, updatedAt: -1 });
 export const CoachProfileModel = mongoose.models.CoachProfile ??
     mongoose.model("CoachProfile", CoachProfileSchema);
 //# sourceMappingURL=CoachProfile.js.map
