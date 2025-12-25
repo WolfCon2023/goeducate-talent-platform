@@ -299,6 +299,22 @@ export function AuthNav() {
                     Edit profile
                   </Link>
                 ) : null}
+                <Link
+                  href="/account/security"
+                  role="menuitem"
+                  className="block px-4 py-2.5 text-sm text-white/90 hover:bg-white/5"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Account security
+                </Link>
+                <Link
+                  href="/change-password"
+                  role="menuitem"
+                  className="block px-4 py-2.5 text-sm text-white/90 hover:bg-white/5"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  Change password
+                </Link>
                 {role === "evaluator" || role === "admin" ? (
                   <Link
                     href="/evaluator/notes"

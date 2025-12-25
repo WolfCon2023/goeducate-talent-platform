@@ -59,6 +59,12 @@ export default function ForgotPasswordPage() {
             {sending ? "Sending…" : "Send reset link"}
           </Button>
           <div className="text-sm text-[color:var(--muted)]">
+            Prefer security questions?{" "}
+            <Link href="/recover/password" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+              Recover via questions
+            </Link>
+          </div>
+          <div className="text-sm text-[color:var(--muted)]">
             <Link href="/login" className="text-indigo-300 hover:text-indigo-200 hover:underline">
               Back to login
             </Link>

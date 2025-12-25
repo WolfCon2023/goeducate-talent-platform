@@ -59,6 +59,12 @@ export default function ForgotUsernamePage() {
             {sending ? "Sending…" : "Send username"}
           </Button>
           <div className="text-sm text-[color:var(--muted)]">
+            Prefer security questions?{" "}
+            <Link href="/recover/username" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+              Recover via questions
+            </Link>
+          </div>
+          <div className="text-sm text-[color:var(--muted)]">
             <Link href="/login" className="text-indigo-300 hover:text-indigo-200 hover:underline">
               Back to login
             </Link>

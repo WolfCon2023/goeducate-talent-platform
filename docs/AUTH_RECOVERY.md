@@ -68,4 +68,28 @@ Recommended for reset links:
 
 If `WEB_APP_URL` is not set, password reset emails will include a raw token instead of a link.
 
+## Security questions (optional recovery)
+
+Users can configure security questions and use them as an additional recovery method.
+
+### Configure security questions
+- **UI**: `/account/security` (requires login)
+- **API**:
+  - `GET /auth/recovery-questions/me` (returns configured questions, no answers)
+  - `PUT /auth/recovery-questions/me` with:
+    - `currentPassword`
+    - `questions: [{ questionId, question, answer }]` (exactly 3)
+- **Storage**: answers are stored **hashed** (bcrypt) on the `User` document.
+
+### Recover username/password using security questions
+- **UI**:
+  - `/recover/username`
+  - `/recover/password`
+- **API**:
+  - `POST /auth/recover/username` with `{ login, answers: [{ questionId, answer }...] }`
+  - `POST /auth/recover/password` with `{ login, answers: [{ questionId, answer }...] }`
+- **Behavior**:
+  - Always returns `{ ok: true }` (no enumeration).
+  - If answers match the stored hashes, the system sends the appropriate email (username reminder or password reset link).
+
 
