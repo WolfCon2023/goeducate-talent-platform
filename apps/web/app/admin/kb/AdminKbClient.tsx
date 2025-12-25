@@ -243,7 +243,7 @@ export function AdminKbClient() {
           retryOn404: true
         });
         setEditId(created.article.id);
-        toast({ kind: "success", title: "Created", message: "Article created." });
+        toast({ kind: "success", title: "Successfully saved", message: "KB article created." });
       } else {
         await apiFetch(`/admin/kb/articles/${encodeURIComponent(editId)}`, {
           method: "PUT",
@@ -258,14 +258,20 @@ export function AdminKbClient() {
         if (mode === "unpublish") {
           await apiFetch(`/admin/kb/articles/${encodeURIComponent(editId)}/unpublish`, { method: "POST", token, retries: 3, retryOn404: true });
         }
-        toast({ kind: "success", title: "Saved", message: "Article updated." });
+        toast({
+          kind: "success",
+          title: "Successfully saved",
+          message: mode === "publish" ? "KB article published." : mode === "unpublish" ? "KB article unpublished." : "KB article updated."
+        });
       }
 
       await load();
       if (editId) void loadHistory(editId);
     } catch (err) {
       const parsed = parseApiError(err);
-      setFormError(parsed.formError ?? (err instanceof Error ? err.message : "Failed to save"));
+      const msg = parsed.formError ?? (err instanceof Error ? err.message : "Failed to save");
+      setFormError(msg);
+      toast({ kind: "error", title: "Failed to save", message: msg });
     } finally {
       setSaving(false);
     }
