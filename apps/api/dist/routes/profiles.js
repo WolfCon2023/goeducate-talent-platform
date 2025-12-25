@@ -144,6 +144,17 @@ profilesRouter.put("/profiles/me", requireAuth, async (req, res, next) => {
             const before = await EvaluatorProfileModel.findOne({ userId: actorUserId }).lean();
             const updateDoc = { ...parsed.data };
             delete updateDoc.userId;
+            // Backwards compatible: if state isn't provided, attempt to parse from location ("City, State"/"City, ST").
+            if (!updateDoc.state && updateDoc.location) {
+                const loc = String(updateDoc.location ?? "");
+                const parts = loc.split(",").map((s) => s.trim()).filter(Boolean);
+                const tail = parts.length ? parts[parts.length - 1] : loc;
+                const code = normalizeUsStateToCode(tail);
+                if (code)
+                    updateDoc.state = code;
+                if (!updateDoc.city && parts.length >= 2)
+                    updateDoc.city = parts[0];
+            }
             const updated = await EvaluatorProfileModel.findOneAndUpdate({ userId: actorUserId }, { $set: updateDoc, $setOnInsert: { userId: actorUserId } }, { new: true, upsert: true }).lean();
             await AuditLogModel.create({
                 actorUserId,

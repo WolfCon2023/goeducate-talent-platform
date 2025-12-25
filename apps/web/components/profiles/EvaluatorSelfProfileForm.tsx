@@ -12,6 +12,9 @@ type EvaluatorProfile = {
   firstName?: string;
   lastName?: string;
   title?: string;
+  location?: string;
+  city?: string;
+  state?: string;
   bio?: string;
   experienceYears?: number;
   credentials?: string[];
@@ -40,11 +43,101 @@ export function EvaluatorSelfProfileForm() {
     firstName: "",
     lastName: "",
     title: "",
+    location: "",
+    city: "",
+    state: "",
     bio: "",
     experienceYears: "",
     credentials: "",
     specialties: ""
   });
+
+  const lastAutoRef = React.useRef<{ loc: string; city: string; state: string } | null>(null);
+
+  function normalizeStateCodeOrName(input: string): string | null {
+    const s = String(input ?? "").trim();
+    if (!s) return null;
+    const up = s.toUpperCase();
+    if (/^[A-Z]{2}$/.test(up)) return up;
+    const map: Record<string, string> = {
+      Alabama: "AL",
+      Alaska: "AK",
+      Arizona: "AZ",
+      Arkansas: "AR",
+      California: "CA",
+      Colorado: "CO",
+      Connecticut: "CT",
+      Delaware: "DE",
+      Florida: "FL",
+      Georgia: "GA",
+      Hawaii: "HI",
+      Idaho: "ID",
+      Illinois: "IL",
+      Indiana: "IN",
+      Iowa: "IA",
+      Kansas: "KS",
+      Kentucky: "KY",
+      Louisiana: "LA",
+      Maine: "ME",
+      Maryland: "MD",
+      Massachusetts: "MA",
+      Michigan: "MI",
+      Minnesota: "MN",
+      Mississippi: "MS",
+      Missouri: "MO",
+      Montana: "MT",
+      Nebraska: "NE",
+      Nevada: "NV",
+      "New Hampshire": "NH",
+      "New Jersey": "NJ",
+      "New Mexico": "NM",
+      "New York": "NY",
+      "North Carolina": "NC",
+      "North Dakota": "ND",
+      Ohio: "OH",
+      Oklahoma: "OK",
+      Oregon: "OR",
+      Pennsylvania: "PA",
+      "Rhode Island": "RI",
+      "South Carolina": "SC",
+      "South Dakota": "SD",
+      Tennessee: "TN",
+      Texas: "TX",
+      Utah: "UT",
+      Vermont: "VT",
+      Virginia: "VA",
+      Washington: "WA",
+      "West Virginia": "WV",
+      Wisconsin: "WI",
+      Wyoming: "WY",
+      "District of Columbia": "DC"
+    };
+    const key = Object.keys(map).find((k) => k.toLowerCase() === s.toLowerCase());
+    return key ? map[key] : null;
+  }
+
+  React.useEffect(() => {
+    const loc = String(form.location ?? "").trim();
+    if (!loc) return;
+    const parts = loc.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length < 2) return;
+    const cityGuess = parts[0];
+    const stateGuess = normalizeStateCodeOrName(parts[parts.length - 1]);
+    if (!stateGuess) return;
+
+    const last = lastAutoRef.current;
+    const allowUpdateCity = !form.city.trim() || (last && last.loc === loc && last.city === form.city);
+    const allowUpdateState = !form.state.trim() || (last && last.loc === loc && last.state === form.state);
+    if (!allowUpdateCity && !allowUpdateState) return;
+
+    lastAutoRef.current = { loc, city: cityGuess, state: stateGuess };
+    setForm((f) => ({
+      ...f,
+      ...(allowUpdateCity ? { city: cityGuess } : {}),
+      ...(allowUpdateState ? { state: stateGuess } : {})
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.location]);
 
   async function load() {
     setError(null);
@@ -58,6 +151,9 @@ export function EvaluatorSelfProfileForm() {
         firstName: res.profile.firstName ?? "",
         lastName: res.profile.lastName ?? "",
         title: res.profile.title ?? "",
+        location: res.profile.location ?? "",
+        city: res.profile.city ?? "",
+        state: res.profile.state ?? "",
         bio: res.profile.bio ?? "",
         experienceYears: typeof res.profile.experienceYears === "number" ? String(res.profile.experienceYears) : "",
         credentials: (res.profile.credentials ?? []).join(", "),
@@ -89,6 +185,9 @@ export function EvaluatorSelfProfileForm() {
         firstName: form.firstName.trim() || undefined,
         lastName: form.lastName.trim() || undefined,
         title: form.title.trim() || undefined,
+        location: form.location.trim() || undefined,
+        city: form.city.trim() || undefined,
+        state: form.state.trim() || undefined,
         bio: form.bio.trim() || undefined,
         experienceYears: form.experienceYears ? Number(form.experienceYears) : undefined,
         credentials: parseCsv(form.credentials),
@@ -141,6 +240,23 @@ export function EvaluatorSelfProfileForm() {
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="evalTitle">Title</Label>
           <Input id="evalTitle" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
+        </div>
+        <div className="grid gap-2 sm:col-span-2">
+          <Label htmlFor="evalLocation">Location</Label>
+          <Input
+            id="evalLocation"
+            value={form.location}
+            onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
+            placeholder="e.g. Raleigh, NC"
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="evalCity">City</Label>
+          <Input id="evalCity" value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="evalState">State</Label>
+          <Input id="evalState" value={form.state} onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))} placeholder="e.g. NC" />
         </div>
         <div className="grid gap-2 sm:col-span-2">
           <Label htmlFor="evalBio">Bio</Label>

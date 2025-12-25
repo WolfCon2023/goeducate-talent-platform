@@ -12,6 +12,7 @@ import { EvaluatorInviteModel, generateInviteToken, hashInviteToken } from "../m
 import { COACH_SUBSCRIPTION_STATUS, UserModel } from "../models/User.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { CoachProfileModel } from "../models/CoachProfile.js";
+import { EvaluatorProfileModel } from "../models/EvaluatorProfile.js";
 import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 import { EvaluationReportModel } from "../models/EvaluationReport.js";
 import { EvaluationFormModel } from "../models/EvaluationForm.js";
@@ -835,6 +836,106 @@ adminRouter.get("/admin/coaches/by-state/:state", requireAuth, requireRole([ROLE
 function escapeRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+// Admin-only: evaluator distribution map (counts by US state)
+adminRouter.get("/admin/evaluators/by-state", requireAuth, requireRole([ROLE.ADMIN]), async (_req, res, next) => {
+    try {
+        const totalEvaluators = await EvaluatorProfileModel.countDocuments();
+        const raw = await EvaluatorProfileModel.aggregate([
+            {
+                $project: {
+                    state: {
+                        $cond: [{ $or: [{ $eq: ["$state", null] }, { $eq: ["$state", ""] }] }, null, "$state"]
+                    }
+                }
+            },
+            { $group: { _id: "$state", count: { $sum: 1 } } }
+        ]);
+        const counts = new Map();
+        let unknown = 0;
+        let missingStateCount = 0;
+        for (const r of raw) {
+            const code = normalizeUsStateToCode(r._id);
+            if (!code) {
+                unknown += Number(r.count) || 0;
+                missingStateCount += Number(r.count) || 0;
+                continue;
+            }
+            counts.set(code, (counts.get(code) ?? 0) + (Number(r.count) || 0));
+        }
+        const byState = Array.from(counts.entries())
+            .map(([code, count]) => ({ code, name: US_STATES.find((s) => s.code === code)?.name ?? code, count }))
+            .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
+        return res.json({
+            byState,
+            unknownCount: unknown,
+            totalEvaluators,
+            missingStateCount,
+            withStateCount: Math.max(0, totalEvaluators - missingStateCount)
+        });
+    }
+    catch (err) {
+        return next(err);
+    }
+});
+// Admin-only: list evaluators in a given state
+adminRouter.get("/admin/evaluators/by-state/:state", requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+    try {
+        const stateParam = String(req.params.state ?? "").trim();
+        const code = normalizeUsStateToCode(stateParam);
+        if (!code) {
+            return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Valid US state is required" }));
+        }
+        const stateName = US_STATES.find((s) => s.code === code)?.name ?? code;
+        const limitRaw = Number(req.query.limit ?? 25);
+        const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(100, limitRaw)) : 25;
+        const skipRaw = Number(req.query.skip ?? 0);
+        const skip = Number.isFinite(skipRaw) ? Math.max(0, Math.min(50_000, skipRaw)) : 0;
+        const match = { state: { $regex: `^${escapeRegex(code)}$`, $options: "i" } };
+        const [total, evaluators] = await Promise.all([
+            EvaluatorProfileModel.countDocuments(match),
+            EvaluatorProfileModel.aggregate([
+                { $match: match },
+                {
+                    $lookup: {
+                        from: "users",
+                        localField: "userId",
+                        foreignField: "_id",
+                        as: "user"
+                    }
+                },
+                { $unwind: { path: "$user", preserveNullAndEmptyArrays: true } },
+                { $sort: { lastName: 1, firstName: 1, updatedAt: -1 } },
+                { $skip: skip },
+                { $limit: limit },
+                {
+                    $project: {
+                        _id: 0,
+                        userId: 1,
+                        firstName: 1,
+                        lastName: 1,
+                        title: 1,
+                        location: 1,
+                        city: 1,
+                        state: 1,
+                        specialties: 1,
+                        experienceYears: 1,
+                        user: { id: "$user._id", email: "$user.email", role: "$user.role" }
+                    }
+                }
+            ])
+        ]);
+        return res.json({
+            state: { code, name: stateName },
+            total,
+            skip,
+            limit,
+            evaluators
+        });
+    }
+    catch (err) {
+        return next(err);
+    }
+});
 function isProjectionTraitKey(key) {
     return String(key ?? "").toLowerCase().includes("projection");
 }
