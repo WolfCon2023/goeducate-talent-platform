@@ -700,6 +700,7 @@ function guessStateFromCoachLocation(input) {
 // Admin-only: coach distribution map (counts by US state) based on institutionLocation/regions
 adminRouter.get("/admin/coaches/by-state", requireAuth, requireRole([ROLE.ADMIN]), async (_req, res, next) => {
     try {
+        const totalCoaches = await CoachProfileModel.countDocuments();
         const raw = await CoachProfileModel.aggregate([
             {
                 $project: {
@@ -719,9 +720,12 @@ adminRouter.get("/admin/coaches/by-state", requireAuth, requireRole([ROLE.ADMIN]
         ]);
         const counts = new Map();
         let unknown = 0;
+        let missingStateField = 0;
         for (const r of raw) {
             const codes = [];
             const stateCode = normalizeUsStateToCode(r.state);
+            if (!stateCode)
+                missingStateField += 1;
             if (stateCode)
                 codes.push(stateCode);
             const locCode = guessStateFromCoachLocation(r.institutionLocation);
@@ -745,7 +749,13 @@ adminRouter.get("/admin/coaches/by-state", requireAuth, requireRole([ROLE.ADMIN]
         const byState = Array.from(counts.entries())
             .map(([code, count]) => ({ code, name: US_STATES.find((s) => s.code === code)?.name ?? code, count }))
             .sort((a, b) => b.count - a.count || a.code.localeCompare(b.code));
-        return res.json({ byState, unknownCount: unknown });
+        return res.json({
+            byState,
+            unknownCount: unknown,
+            totalCoaches,
+            missingStateCount: missingStateField,
+            withStateCount: Math.max(0, totalCoaches - missingStateField)
+        });
     }
     catch (err) {
         return next(err);

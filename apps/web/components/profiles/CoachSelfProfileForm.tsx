@@ -54,6 +54,96 @@ export function CoachSelfProfileForm() {
     regions: ""
   });
 
+  // Auto-fill helpers (best-effort) for City/State from institutionLocation.
+  const lastAutoRef = React.useRef<{ loc: string; city: string; state: string } | null>(null);
+
+  function normalizeStateCodeOrName(input: string): string | null {
+    const s = String(input ?? "").trim();
+    if (!s) return null;
+    const up = s.toUpperCase();
+    if (/^[A-Z]{2}$/.test(up)) return up;
+    const map: Record<string, string> = {
+      Alabama: "AL",
+      Alaska: "AK",
+      Arizona: "AZ",
+      Arkansas: "AR",
+      California: "CA",
+      Colorado: "CO",
+      Connecticut: "CT",
+      Delaware: "DE",
+      Florida: "FL",
+      Georgia: "GA",
+      Hawaii: "HI",
+      Idaho: "ID",
+      Illinois: "IL",
+      Indiana: "IN",
+      Iowa: "IA",
+      Kansas: "KS",
+      Kentucky: "KY",
+      Louisiana: "LA",
+      Maine: "ME",
+      Maryland: "MD",
+      Massachusetts: "MA",
+      Michigan: "MI",
+      Minnesota: "MN",
+      Mississippi: "MS",
+      Missouri: "MO",
+      Montana: "MT",
+      Nebraska: "NE",
+      Nevada: "NV",
+      "New Hampshire": "NH",
+      "New Jersey": "NJ",
+      "New Mexico": "NM",
+      "New York": "NY",
+      "North Carolina": "NC",
+      "North Dakota": "ND",
+      Ohio: "OH",
+      Oklahoma: "OK",
+      Oregon: "OR",
+      Pennsylvania: "PA",
+      "Rhode Island": "RI",
+      "South Carolina": "SC",
+      "South Dakota": "SD",
+      Tennessee: "TN",
+      Texas: "TX",
+      Utah: "UT",
+      Vermont: "VT",
+      Virginia: "VA",
+      Washington: "WA",
+      "West Virginia": "WV",
+      Wisconsin: "WI",
+      Wyoming: "WY",
+      "District of Columbia": "DC"
+    };
+    // Accept "Nevada" (case-insensitive)
+    const key = Object.keys(map).find((k) => k.toLowerCase() === s.toLowerCase());
+    return key ? map[key] : null;
+  }
+
+  React.useEffect(() => {
+    const loc = String(form.institutionLocation ?? "").trim();
+    if (!loc) return;
+    // Expect pattern: "City, State"
+    const parts = loc.split(",").map((s) => s.trim()).filter(Boolean);
+    if (parts.length < 2) return;
+    const cityGuess = parts[0];
+    const stateGuess = normalizeStateCodeOrName(parts[parts.length - 1]);
+    if (!stateGuess) return;
+
+    const last = lastAutoRef.current;
+    const allowUpdateCity = !form.city.trim() || (last && last.loc === loc && last.city === form.city);
+    const allowUpdateState = !form.state.trim() || (last && last.loc === loc && last.state === form.state);
+    if (!allowUpdateCity && !allowUpdateState) return;
+
+    lastAutoRef.current = { loc, city: cityGuess, state: stateGuess };
+    setForm((f) => ({
+      ...f,
+      ...(allowUpdateCity ? { city: cityGuess } : {}),
+      ...(allowUpdateState ? { state: stateGuess } : {})
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.institutionLocation]);
+
   async function load() {
     setError(null);
     setLoading(true);

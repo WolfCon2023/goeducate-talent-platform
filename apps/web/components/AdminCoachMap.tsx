@@ -12,7 +12,13 @@ import { feature } from "topojson-client";
 import usTopo from "us-atlas/states-10m.json";
 
 type CoachByState = { code: string; name: string; count: number };
-type CoachByStateResponse = { byState: CoachByState[]; unknownCount: number };
+type CoachByStateResponse = {
+  byState: CoachByState[];
+  unknownCount: number;
+  totalCoaches?: number;
+  missingStateCount?: number;
+  withStateCount?: number;
+};
 
 type CoachRow = {
   userId: string;
@@ -271,14 +277,30 @@ export function AdminCoachMap() {
           <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
             <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Coverage</div>
             <div className="mt-2 text-sm text-[color:var(--muted)]">
-              Known state: <span className="text-[color:var(--foreground)] font-semibold">{totalKnown}</span>
+              Mapped to state: <span className="text-[color:var(--foreground)] font-semibold">{totalKnown}</span>
               {typeof data?.unknownCount === "number" ? (
                 <>
                   {" "}
-                  · Unknown/invalid: <span className="text-[color:var(--foreground)] font-semibold">{data.unknownCount}</span>
+                  · Unmappable: <span className="text-[color:var(--foreground)] font-semibold">{data.unknownCount}</span>
                 </>
               ) : null}
             </div>
+          <div className="mt-2 text-sm text-[color:var(--muted)]">
+            Structured state set:{" "}
+            <span className="text-[color:var(--foreground)] font-semibold">{data?.withStateCount ?? "—"}</span>
+            {typeof data?.totalCoaches === "number" ? (
+              <>
+                {" "}
+                / <span className="text-[color:var(--foreground)] font-semibold">{data.totalCoaches}</span>
+              </>
+            ) : null}
+            {typeof data?.missingStateCount === "number" ? (
+              <>
+                {" "}
+                · Missing: <span className="text-[color:var(--foreground)] font-semibold">{data.missingStateCount}</span>
+              </>
+            ) : null}
+          </div>
             <div className="mt-3 text-xs text-[color:var(--muted-2)]">Darker indigo = more coaches in that state.</div>
             <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/5">
               <div className="h-full w-full bg-gradient-to-r from-white/5 via-[rgba(79,70,229,0.55)] to-[rgba(79,70,229,0.95)]" />
