@@ -217,8 +217,12 @@ adminMetricsRouter.get("/admin/metrics/summary", async (req, res, next) => {
       { $limit: 100 }
     ]);
 
-    const throughputEvaluatorIds = (throughputByEvaluator as any[]).map((r) => r._id).filter(Boolean);
-    const throughputUsers = await UserModel.find({ _id: { $in: throughputEvaluatorIds as any } })
+    // evaluatorUserId can be stored as ObjectId or string; normalize to ObjectIds for user lookup.
+    const throughputEvaluatorIdStrings = (throughputByEvaluator as any[]).map((r) => String(r._id ?? "")).filter(Boolean);
+    const throughputEvaluatorObjectIds = throughputEvaluatorIdStrings
+      .filter((id) => mongoose.isValidObjectId(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    const throughputUsers = await UserModel.find({ _id: { $in: throughputEvaluatorObjectIds as any } })
       .select({ _id: 1, email: 1, firstName: 1, lastName: 1 })
       .lean();
     const throughputUserById = new Map(throughputUsers.map((u: any) => [String(u._id), u]));
