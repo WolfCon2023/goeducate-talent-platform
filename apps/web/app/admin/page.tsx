@@ -30,7 +30,6 @@ export default function AdminPage() {
               <h1 className="text-2xl font-semibold tracking-tight">Admin</h1>
               <HelpIcon helpKey="admin.dashboard" title="Admin dashboard" />
             </div>
-            <p className="mt-2 text-sm text-white/80">User and content management will be built next.</p>
           </div>
           <Link href="/" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
             Home
