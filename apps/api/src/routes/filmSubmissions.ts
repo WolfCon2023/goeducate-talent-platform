@@ -15,6 +15,7 @@ import { UserModel } from "../models/User.js";
 import { isNotificationEmailConfigured, sendNotificationEmail } from "../email/notifications.js";
 import { PlayerProfileModel } from "../models/PlayerProfile.js";
 import { publishNotificationsChanged } from "../notifications/bus.js";
+import { logAdminAction } from "../audit/adminAudit.js";
 
 export const filmSubmissionsRouter = Router();
 
@@ -183,6 +184,9 @@ filmSubmissionsRouter.get(
   async (req, res, next) => {
     try {
       const mine = String(req.query.mine ?? "").trim() === "1";
+      const overdueOnly = String(req.query.overdueOnly ?? "").trim() === "1";
+      const overdueHours = 72;
+      const overdueBefore = new Date(Date.now() - overdueHours * 60 * 60 * 1000);
       const evaluatorUserId = mine ? new mongoose.Types.ObjectId(req.user!.id) : null;
 
       // Include both new submissions and ones currently being worked.
@@ -193,8 +197,17 @@ filmSubmissionsRouter.get(
             ...(mine ? { assignedEvaluatorUserId: evaluatorUserId } : {})
           }
         },
+        ...(overdueOnly ? [{ $match: { createdAt: { $lt: overdueBefore } } }] : []),
         { $sort: { createdAt: 1 } },
         { $limit: 200 },
+        {
+          $addFields: {
+            ageHours: {
+              $cond: [{ $ne: ["$createdAt", null] }, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60] }, null]
+            },
+            isOverdue: { $cond: [{ $lt: ["$createdAt", overdueBefore] }, true, false] }
+          }
+        },
         {
           $lookup: {
             from: "playerprofiles",
@@ -235,6 +248,8 @@ filmSubmissionsRouter.get(
             updatedAt: 1,
             assignedEvaluatorUserId: 1,
             assignedAt: 1,
+            ageHours: 1,
+            isOverdue: 1,
             assignedEvaluator: {
               _id: "$assignedEvaluator._id",
               email: "$assignedEvaluator.email"
@@ -250,7 +265,7 @@ filmSubmissionsRouter.get(
           }
         }
       ]);
-      return res.json({ results });
+      return res.json({ results, overdueHours });
     } catch (err) {
       return next(err);
     }
@@ -336,6 +351,14 @@ filmSubmissionsRouter.patch(
           });
         }
         await film.save();
+        void logAdminAction({
+          req,
+          actorUserId: String(req.user!.id),
+          action: "film_assignment_assign",
+          targetType: "film_submission",
+          targetId: String(_id),
+          meta: { evaluatorUserId: String(targetId), force, note: note || undefined }
+        });
         return res.json(film);
       }
 
@@ -369,6 +392,16 @@ filmSubmissionsRouter.patch(
           });
         }
         await film.save();
+        if (isAdmin) {
+          void logAdminAction({
+            req,
+            actorUserId: String(req.user!.id),
+            action: "film_assignment_assign_to_me",
+            targetType: "film_submission",
+            targetId: String(_id),
+            meta: { note: note || undefined }
+          });
+        }
         return res.json(film);
       }
 
@@ -394,6 +427,16 @@ filmSubmissionsRouter.patch(
         });
       }
       await film.save();
+      if (isAdmin) {
+        void logAdminAction({
+          req,
+          actorUserId: String(req.user!.id),
+          action: "film_assignment_unassign",
+          targetType: "film_submission",
+          targetId: String(_id),
+          meta: { note: note || undefined }
+        });
+      }
       return res.json(film);
     } catch (err) {
       return next(err);

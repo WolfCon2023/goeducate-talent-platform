@@ -27,7 +27,7 @@ import nodemailer from "nodemailer";
 import { normalizeUsStateToCode, US_STATES } from "../util/usStates.js";
 import { logAdminAction } from "../audit/adminAudit.js";
 import { EmailAuditLogModel, EMAIL_AUDIT_STATUS } from "../models/EmailAuditLog.js";
-import { createTransporterOrThrow, isEmailConfigured } from "../email/mailer.js";
+import { createTransporterOrThrow, escapeHtml, isEmailConfigured } from "../email/mailer.js";
 import { sendMailWithAudit } from "../email/audit.js";
 import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 import { AdminAuditLogModel } from "../models/AdminAuditLog.js";
@@ -527,6 +527,8 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
     const status = String(req.query.status ?? "").trim().toLowerCase();
     const hasEval = String(req.query.hasEval ?? "").trim(); // "1" | "0" | ""
     const hasAssigned = String(req.query.hasAssigned ?? "").trim(); // "1" | "0" | ""
+    const assignedEvaluatorUserId = String(req.query.assignedEvaluatorUserId ?? "").trim();
+    const overdueOnly = String(req.query.overdueOnly ?? "").trim() === "1";
 
     const match: any = {};
     if (status && Object.values(FILM_SUBMISSION_STATUS).includes(status as any)) {
@@ -534,11 +536,15 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
     }
     if (hasAssigned === "1") match.assignedEvaluatorUserId = { $exists: true, $ne: null };
     if (hasAssigned === "0") match.$or = [{ assignedEvaluatorUserId: { $exists: false } }, { assignedEvaluatorUserId: null }];
+    if (assignedEvaluatorUserId && mongoose.isValidObjectId(assignedEvaluatorUserId)) {
+      match.assignedEvaluatorUserId = new mongoose.Types.ObjectId(assignedEvaluatorUserId);
+    }
 
     const qRegex = q ? new RegExp(escapeRegex(q), "i") : null;
     const overdueHours = 72; // keep consistent with /admin/stats (configurable later)
     const openStatuses = [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW, FILM_SUBMISSION_STATUS.NEEDS_CHANGES];
     const now = new Date();
+    const overdueBefore = new Date(Date.now() - overdueHours * 60 * 60 * 1000);
 
     const base: any[] = [
       { $match: match },
@@ -613,6 +619,10 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
     // Filter by whether an evaluation report exists.
     if (hasEval === "1") base.push({ $match: { eval: { $ne: null } } });
     if (hasEval === "0") base.push({ $match: { eval: null } });
+
+    if (overdueOnly) {
+      base.push({ $match: { status: { $in: openStatuses as any }, createdAt: { $lt: overdueBefore } } });
+    }
 
     // Search across film title, player name/email, evaluator email.
     if (qRegex) {
@@ -717,6 +727,61 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
       : { open: 0, unassigned: 0, overdue: 0, avgOpenAgeHours: null };
 
     return res.json({ total, results, skip, limit, overdueHours, kpis });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: evaluator workload dashboard for the evaluation queue (open submissions only).
+adminRouter.get("/admin/evaluations/workload", requireAuth, requireRole([ROLE.ADMIN]), async (_req, res, next) => {
+  try {
+    const overdueHours = 72;
+    const overdueBefore = new Date(Date.now() - overdueHours * 60 * 60 * 1000);
+    const openStatuses = [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW, FILM_SUBMISSION_STATUS.NEEDS_CHANGES];
+
+    const rows = await FilmSubmissionModel.aggregate([
+      { $match: { status: { $in: openStatuses as any }, assignedEvaluatorUserId: { $ne: null } } },
+      {
+        $addFields: {
+          ageHours: {
+            $cond: [{ $ne: ["$createdAt", null] }, { $divide: [{ $subtract: [new Date(), "$createdAt"] }, 1000 * 60 * 60] }, null]
+          },
+          overdue: { $cond: [{ $lt: ["$createdAt", overdueBefore] }, 1, 0] }
+        }
+      },
+      {
+        $group: {
+          _id: "$assignedEvaluatorUserId",
+          openAssigned: { $sum: 1 },
+          overdueAssigned: { $sum: "$overdue" },
+          oldestAgeHours: { $max: "$ageHours" },
+          newestAssignedAt: { $max: "$assignedAt" }
+        }
+      },
+      { $sort: { overdueAssigned: -1, openAssigned: -1 } },
+      { $limit: 200 }
+    ]);
+
+    const ids = (rows as any[]).map((r) => r._id).filter(Boolean);
+    const users = await UserModel.find({ _id: { $in: ids as any } }).select({ _id: 1, email: 1, firstName: 1, lastName: 1 }).lean();
+    const byId = new Map(users.map((u: any) => [String(u._id), u]));
+
+    return res.json({
+      overdueHours,
+      workload: (rows as any[]).map((r) => {
+        const u = byId.get(String(r._id));
+        const name = u?.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : null;
+        return {
+          evaluatorUserId: String(r._id),
+          evaluatorEmail: u?.email ?? null,
+          evaluatorName: name,
+          openAssigned: Number(r.openAssigned) || 0,
+          overdueAssigned: Number(r.overdueAssigned) || 0,
+          oldestAgeHours: r.oldestAgeHours != null ? Math.round(Number(r.oldestAgeHours) * 10) / 10 : null,
+          newestAssignedAt: r.newestAssignedAt ?? null
+        };
+      })
+    });
   } catch (err) {
     return next(err);
   }
@@ -1563,6 +1628,118 @@ adminRouter.post("/admin/email/resend", adminEmailLimiter, requireAuth, requireR
     }
 
     return res.json({ ok: true, supported: false, message: "Resend is not supported for this email type yet." });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// Admin-only: send an operational digest email (admin-triggered).
+adminRouter.post("/admin/email/digest", adminEmailLimiter, requireAuth, requireRole([ROLE.ADMIN]), async (req, res, next) => {
+  try {
+    if (!isEmailConfigured()) {
+      return next(new ApiError({ status: 501, code: "NOT_CONFIGURED", message: "Email is not configured" }));
+    }
+    const env = getEnv();
+    const toCsv = String((req.body as any)?.to ?? "").trim();
+    const toList =
+      toCsv
+        ? toCsv.split(",").map((s) => s.trim()).filter((s) => s.includes("@"))
+        : String(env.SUBMISSION_ALERT_EMAILS ?? "info@goeducateinc.org")
+            .split(",")
+            .map((s) => s.trim())
+            .filter((s) => s.includes("@"));
+    if (!toList.length) {
+      return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Provide recipients in 'to' (comma-separated)." }));
+    }
+
+    const hoursRaw = Number((req.body as any)?.hours ?? 24);
+    const hours = Number.isFinite(hoursRaw) ? Math.max(1, Math.min(24 * 30, hoursRaw)) : 24;
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+
+    const openStatuses = [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW, FILM_SUBMISSION_STATUS.NEEDS_CHANGES];
+    const overdueHours = 72;
+    const overdueBefore = new Date(Date.now() - overdueHours * 60 * 60 * 1000);
+
+    const [emailTotal, emailFailed, openTotal, overdueTotal, recentFailures] = await Promise.all([
+      EmailAuditLogModel.countDocuments({ createdAt: { $gte: since } }),
+      EmailAuditLogModel.countDocuments({ createdAt: { $gte: since }, status: EMAIL_AUDIT_STATUS.FAILED }),
+      FilmSubmissionModel.countDocuments({ status: { $in: openStatuses as any } }),
+      FilmSubmissionModel.countDocuments({ status: { $in: openStatuses as any }, createdAt: { $lt: overdueBefore } }),
+      EmailAuditLogModel.find({ createdAt: { $gte: since }, status: EMAIL_AUDIT_STATUS.FAILED })
+        .sort({ createdAt: -1 })
+        .limit(15)
+        .lean()
+        .catch(() => [] as any[])
+    ]);
+    const failRatePct = emailTotal ? Math.round((emailFailed / emailTotal) * 1000) / 10 : 0;
+    const base = String(env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+
+    const subject = `GoEducate Talent – Ops digest (${hours}h)`;
+    const textLines = [
+      `Ops digest (${hours}h)`,
+      "",
+      `Email sends: ${emailTotal}`,
+      `Email failures: ${emailFailed} (${failRatePct}%)`,
+      "",
+      `Queue open: ${openTotal}`,
+      `Queue overdue (> ${overdueHours}h): ${overdueTotal}`,
+      "",
+      base ? `Admin metrics: ${base}/admin/metrics` : "Admin metrics: (WEB_APP_URL not set)",
+      base ? `Admin email: ${base}/admin/email` : "Admin email: (WEB_APP_URL not set)",
+      base ? `Admin evaluations: ${base}/admin/evaluations` : "Admin evaluations: (WEB_APP_URL not set)",
+      "",
+      "Recent email failures:",
+      ...(recentFailures as any[]).map((r) => `- ${String(r.createdAt)} ${String(r.type)} → ${String(r.to)} :: ${String(r.subject ?? "").slice(0, 120)}`)
+    ];
+    const text = textLines.join("\n");
+
+    const failuresHtml = (recentFailures as any[])
+      .map(
+        (r) =>
+          `<li><strong>${escapeHtml(String(r.type))}</strong> → ${escapeHtml(String(r.to))}<br/><span style="color:#51607F;">${escapeHtml(
+            String(r.subject ?? "")
+          )}</span></li>`
+      )
+      .join("");
+
+    const html = `
+      <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5;">
+        <h2 style="margin:0 0 12px 0;">Ops digest (${hours}h)</h2>
+        <ul style="margin:0 0 12px 18px;">
+          <li><strong>Email sends:</strong> ${emailTotal}</li>
+          <li><strong>Email failures:</strong> ${emailFailed} (${failRatePct}%)</li>
+          <li><strong>Queue open:</strong> ${openTotal}</li>
+          <li><strong>Queue overdue (&gt; ${overdueHours}h):</strong> ${overdueTotal}</li>
+        </ul>
+        <p style="margin:0 0 12px 0;">
+          ${base ? `<a href="${escapeHtml(base)}/admin/metrics">Admin metrics</a> · <a href="${escapeHtml(base)}/admin/email">Admin email</a> · <a href="${escapeHtml(base)}/admin/evaluations">Admin evaluations</a>` : ""}
+        </p>
+        <h3 style="margin:0 0 8px 0;">Recent email failures</h3>
+        <ol style="margin:0 0 0 18px;">
+          ${failuresHtml || "<li>None</li>"}
+        </ol>
+      </div>
+    `.trim();
+
+    const { transporter } = createTransporterOrThrow();
+    await sendMailWithAudit({
+      transporter,
+      type: EMAIL_AUDIT_TYPE.ADMIN_OPS_DIGEST,
+      mail: { from: env.INVITE_FROM_EMAIL, to: toList.join(","), subject, text, html },
+      related: { userId: req.user?.id },
+      meta: { hours, resendable: false }
+    });
+
+    void logAdminAction({
+      req,
+      actorUserId: String(req.user!.id),
+      action: "email_ops_digest",
+      targetType: "email",
+      targetId: toList.join(","),
+      meta: { hours }
+    });
+
+    return res.json({ ok: true });
   } catch (err) {
     return next(err);
   }

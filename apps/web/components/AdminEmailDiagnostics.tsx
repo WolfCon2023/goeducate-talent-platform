@@ -47,6 +47,21 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
   const [filterTo, setFilterTo] = useState<string>(props?.initialFilterTo ?? "");
   const [sinceHours, setSinceHours] = useState<string>("");
   const [kpis, setKpis] = useState<{ totalLast24: number; failedLast24: number; failRateLast24hPct: number } | null>(null);
+  const [digestTo, setDigestTo] = useState("");
+  const [digestHours, setDigestHours] = useState("24");
+  const [digestSending, setDigestSending] = useState(false);
+
+  function resendSupport(row: EmailAuditRow) {
+    const t = String(row.type ?? "").trim().toLowerCase();
+    if (t === "invite") return { supported: true, reason: "Invite (new token)" };
+    if (t === "access_request_approved" || t === "access_request_rejected") return { supported: true, reason: "Access request email" };
+    if (t === "notification") {
+      const meta = row.meta ?? {};
+      const ok = Boolean(String((meta as any).subject ?? row.subject ?? "").trim()) && Boolean(String((meta as any).title ?? "").trim()) && Boolean(String((meta as any).message ?? "").trim());
+      return ok ? { supported: true, reason: "Notification email" } : { supported: false, reason: "Missing metadata (subject/title/message)" };
+    }
+    return { supported: false, reason: "Not supported yet" };
+  }
 
   async function load() {
     setError(null);
@@ -172,6 +187,31 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
     }
   }
 
+  async function sendOpsDigest() {
+    setError(null);
+    setDigestSending(true);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+      await apiFetch("/admin/email/digest", {
+        token,
+        method: "POST",
+        body: JSON.stringify({ to: digestTo.trim(), hours: Number(digestHours || "24") })
+      });
+      toast({ kind: "success", title: "Digest sent", message: "Ops digest email sent." });
+      window.dispatchEvent(new Event("goeducate:email-changed"));
+      await load();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to send digest";
+      setError(msg);
+      toast({ kind: "error", title: "Digest failed", message: msg });
+    } finally {
+      setDigestSending(false);
+    }
+  }
+
   useAutoRevalidate(load, { deps: [page], intervalMs: 30_000 });
 
   return (
@@ -222,6 +262,31 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
               {lastMessageId ? <div className="text-sm text-emerald-300">Sent (messageId: {lastMessageId})</div> : null}
             </div>
             {!config?.configured ? <div className="text-sm text-[color:var(--muted)]">SMTP is not configured on the API service.</div> : null}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
+          <div className="text-sm font-semibold text-[color:var(--foreground)]">Ops digest</div>
+          <div className="mt-3 grid gap-2">
+            <label className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Recipients (optional)</label>
+            <input
+              className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+              value={digestTo}
+              onChange={(e) => setDigestTo(e.target.value)}
+              placeholder="Defaults to SUBMISSION_ALERT_EMAILS or info@goeducateinc.org"
+            />
+            <label className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Window (hours)</label>
+            <input
+              className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+              value={digestHours}
+              onChange={(e) => setDigestHours(e.target.value)}
+              placeholder="24"
+            />
+            <div className="mt-2 flex items-center gap-3">
+              <Button type="button" onClick={sendOpsDigest} disabled={digestSending || !config?.configured}>
+                {digestSending ? "Sending..." : "Send ops digest"}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -367,7 +432,7 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">To</th>
                 <th className="px-3 py-2">Subject</th>
-                <th className="px-3 py-2">Actions</th>
+                <th className="px-3 py-2">Resend</th>
                 <th className="px-3 py-2">Error</th>
               </tr>
             </thead>
@@ -384,15 +449,23 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
                   <td className="px-3 py-2">{r.to}</td>
                   <td className="px-3 py-2">{r.subject}</td>
                   <td className="px-3 py-2">
-                    <button
-                      type="button"
-                      className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 hover:bg-white/10 disabled:opacity-50"
-                      onClick={() => (r.type === "invite" ? resendInvite(r) : resendFromAudit(r))}
-                      disabled={Boolean(resending) || !config?.configured}
-                      title={r.type === "invite" ? "Resend (creates a fresh invite token)" : "Resend (best-effort; depends on email type/metadata)"}
-                    >
-                      {resending === r._id ? "Resending..." : "Resend"}
-                    </button>
+                    {(() => {
+                      const s = resendSupport(r);
+                      return (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 hover:bg-white/10 disabled:opacity-50"
+                            onClick={() => (r.type === "invite" ? resendInvite(r) : resendFromAudit(r))}
+                            disabled={!s.supported || Boolean(resending) || !config?.configured}
+                            title={s.supported ? s.reason : `Resend not supported: ${s.reason}`}
+                          >
+                            {resending === r._id ? "Resending..." : "Resend"}
+                          </button>
+                          <span className="text-xs text-[color:var(--muted)]">{s.supported ? s.reason : `— ${s.reason}`}</span>
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2 text-xs text-[color:var(--muted)]">
                     {r.error ? (typeof r.error === "string" ? r.error : JSON.stringify(r.error)) : "—"}

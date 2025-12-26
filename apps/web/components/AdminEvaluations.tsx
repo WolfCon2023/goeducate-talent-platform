@@ -40,6 +40,15 @@ type Row = {
 };
 
 type UserRow = { id: string; email: string; role: string; firstName?: string; lastName?: string };
+type WorkloadRow = {
+  evaluatorUserId: string;
+  evaluatorEmail: string | null;
+  evaluatorName: string | null;
+  openAssigned: number;
+  overdueAssigned: number;
+  oldestAgeHours: number | null;
+  newestAssignedAt: string | null;
+};
 
 function fmtDate(iso?: string) {
   if (!iso) return "—";
@@ -51,7 +60,14 @@ function playerLabel(r: Row) {
   return name || r.player?.email || "Unknown player";
 }
 
-export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: string; initialHasEval?: string; initialHasAssigned?: string }) {
+export function AdminEvaluations(props?: {
+  initialQ?: string;
+  initialStatus?: string;
+  initialHasEval?: string;
+  initialHasAssigned?: string;
+  initialOverdueOnly?: boolean;
+  initialAssignedEvaluatorUserId?: string;
+}) {
   const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +75,8 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
   const [total, setTotal] = useState(0);
   const [kpis, setKpis] = useState<{ open: number; unassigned: number; overdue: number; avgOpenAgeHours: number | null } | null>(null);
   const [overdueHours, setOverdueHours] = useState<number>(72);
+  const [workload, setWorkload] = useState<WorkloadRow[]>([]);
+  const [workloadLoading, setWorkloadLoading] = useState(false);
 
   const [evalUsers, setEvalUsers] = useState<UserRow[]>([]);
   const [evalUsersLoading, setEvalUsersLoading] = useState(false);
@@ -73,6 +91,8 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
   const [status, setStatus] = useState<string>(props?.initialStatus ?? "");
   const [hasEval, setHasEval] = useState<string>(props?.initialHasEval ?? "");
   const [hasAssigned, setHasAssigned] = useState<string>(props?.initialHasAssigned ?? "");
+  const [overdueOnly, setOverdueOnly] = useState(Boolean(props?.initialOverdueOnly));
+  const [assignedEvaluatorFilter, setAssignedEvaluatorFilter] = useState<string>(props?.initialAssignedEvaluatorUserId ?? "");
   const [page, setPage] = useState(1);
 
   const limit = 25;
@@ -87,8 +107,10 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
     if (status) params.set("status", status);
     if (hasEval) params.set("hasEval", hasEval);
     if (hasAssigned) params.set("hasAssigned", hasAssigned);
+    if (overdueOnly) params.set("overdueOnly", "1");
+    if (assignedEvaluatorFilter) params.set("assignedEvaluatorUserId", assignedEvaluatorFilter);
     return params.toString();
-  }, [q, status, hasEval, hasAssigned, skip]);
+  }, [q, status, hasEval, hasAssigned, overdueOnly, assignedEvaluatorFilter, skip]);
 
   async function loadEvaluators() {
     setEvalUsersLoading(true);
@@ -145,16 +167,34 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
     }
   }
 
+  async function loadWorkload() {
+    setWorkloadLoading(true);
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) return;
+      if (role !== "admin") return;
+      const res = await apiFetch<{ overdueHours: number; workload: WorkloadRow[] }>("/admin/evaluations/workload", { token });
+      setWorkload(res.workload ?? []);
+      if (typeof res.overdueHours === "number" && Number.isFinite(res.overdueHours)) setOverdueHours(res.overdueHours);
+    } catch {
+      setWorkload([]);
+    } finally {
+      setWorkloadLoading(false);
+    }
+  }
+
   // Reset to first page when filters change
   useEffect(() => {
     setPage(1);
     setSelectedIds({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, status, hasEval, hasAssigned]);
+  }, [q, status, hasEval, hasAssigned, overdueOnly, assignedEvaluatorFilter]);
 
   useEffect(() => {
     void loadEvaluators();
     void load();
+    void loadWorkload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
@@ -391,6 +431,28 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
             <option value="0">Unassigned</option>
           </select>
         </div>
+        <div className="grid gap-1">
+          <div className="text-xs text-[color:var(--muted-2)]">Assigned evaluator</div>
+          <select
+            className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)]"
+            value={assignedEvaluatorFilter}
+            onChange={(e) => setAssignedEvaluatorFilter(e.target.value)}
+          >
+            <option value="">All</option>
+            {evalUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.email}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <label className="inline-flex items-center gap-2 text-sm text-[color:var(--muted)]">
+          <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
+          <span>Overdue only (>{overdueHours}h)</span>
+        </label>
       </div>
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
@@ -417,6 +479,53 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
         </div>
       </div>
 
+      <div className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-semibold text-[color:var(--foreground)]">Evaluator workload</div>
+            <div className="mt-1 text-sm text-[color:var(--muted)]">Open assigned items by evaluator (SLA {overdueHours}h).</div>
+          </div>
+          <RefreshIconButton onClick={loadWorkload} loading={workloadLoading} title="Refresh workload" />
+        </div>
+        <div className="mt-3 overflow-x-auto rounded-2xl border border-[color:var(--border)]">
+          <table className="min-w-full border-collapse text-sm">
+            <thead className="bg-[var(--surface)]/80 text-left text-[color:var(--muted)]">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Evaluator</th>
+                <th className="px-4 py-3 font-semibold">Open</th>
+                <th className="px-4 py-3 font-semibold">Overdue</th>
+                <th className="px-4 py-3 font-semibold">Oldest age</th>
+                <th className="px-4 py-3 font-semibold">Open queue</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[color:var(--border)]">
+              {workload.map((w) => (
+                <tr key={w.evaluatorUserId}>
+                  <td className="px-4 py-3 text-[color:var(--foreground)]">{w.evaluatorName ?? w.evaluatorEmail ?? w.evaluatorUserId}</td>
+                  <td className="px-4 py-3 text-[color:var(--foreground)]">{w.openAssigned}</td>
+                  <td className={`px-4 py-3 ${w.overdueAssigned > 0 ? "text-amber-300" : "text-[color:var(--foreground)]"}`}>{w.overdueAssigned}</td>
+                  <td className="px-4 py-3 text-[color:var(--muted)]">{w.oldestAgeHours != null ? `${w.oldestAgeHours}h` : "—"}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      className="text-indigo-300 hover:text-indigo-200 hover:underline"
+                      href={`/admin/evaluations?assignedEvaluatorUserId=${encodeURIComponent(w.evaluatorUserId)}&hasAssigned=1`}
+                    >
+                      View →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+              {workload.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-6 text-sm text-[color:var(--muted)]">
+                    {workloadLoading ? "Loading…" : "No assigned open items."}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </div>
       <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4 text-sm text-[color:var(--muted)]">
         <span className="font-semibold text-[color:var(--foreground)]">SLA policy:</span> submissions in{" "}
         <span className="font-semibold text-[color:var(--foreground)]">submitted / in_review / needs_changes</span> older than{" "}

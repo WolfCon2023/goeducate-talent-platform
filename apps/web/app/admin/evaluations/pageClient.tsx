@@ -12,6 +12,8 @@ export function AdminEvaluationsPageClient() {
   const status = sp.get("status") ?? "";
   const hasEval = sp.get("hasEval") ?? "";
   const hasAssigned = sp.get("hasAssigned") ?? "";
+  const overdueOnly = (sp.get("overdueOnly") ?? "") === "1";
+  const assignedEvaluatorUserId = sp.get("assignedEvaluatorUserId") ?? "";
 
   return (
     <div className="grid gap-6">
@@ -28,7 +30,14 @@ export function AdminEvaluationsPageClient() {
         </Link>
       </div>
 
-      <AdminEvaluations initialQ={q} initialStatus={status} initialHasEval={hasEval} initialHasAssigned={hasAssigned} />
+      <AdminEvaluations
+        initialQ={q}
+        initialStatus={status}
+        initialHasEval={hasEval}
+        initialHasAssigned={hasAssigned}
+        initialOverdueOnly={overdueOnly}
+        initialAssignedEvaluatorUserId={assignedEvaluatorUserId}
+      />
     </div>
   );
 }

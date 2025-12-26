@@ -150,7 +150,7 @@ export function CoachPlayerProfile(props: { userId: string }) {
               "—"
             )}
           </div>
-          <div className="mt-1 text-xs text-[color:var(--muted-2)]">ID: {props.userId}</div>
+          {/* Hide internal IDs from coach-facing UI */}
         </div>
         <RefreshIconButton onClick={load} loading={loading} />
       </div>

@@ -108,6 +108,9 @@ export function MessagesClient() {
       );
       setMessages(res.messages ?? []);
       setStatus(res.conversation?.status ?? null);
+      // Mark read explicitly (so unread badges sync quickly across tabs/devices).
+      await apiFetch(`/messages/conversations/${encodeURIComponent(id)}/read`, { method: "POST", token }).catch(() => {});
+      window.dispatchEvent(new CustomEvent("goeducate:messages-changed"));
     } catch (e) {
       setConvError(e instanceof Error ? e.message : "Failed to load conversation");
     } finally {

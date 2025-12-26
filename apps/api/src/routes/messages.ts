@@ -14,6 +14,7 @@ import { CoachProfileModel } from "../models/CoachProfile.js";
 import { EvaluatorProfileModel } from "../models/EvaluatorProfile.js";
 import { logAppEvent } from "../util/appEvents.js";
 import { APP_EVENT_TYPE } from "../models/AppEvent.js";
+import { publishMessagesChanged, subscribeMessagesChanged } from "../messages/bus.js";
 
 export const messagesRouter = Router();
 
@@ -31,6 +32,67 @@ function preview(text: string) {
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+function sseWrite(res: any, event: string, data: unknown) {
+  res.write(`event: ${event}\n`);
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+async function unreadTotalForUser(userId: mongoose.Types.ObjectId) {
+  const convs = await ConversationModel.find({ participantUserIds: userId }).select({ unreadCounts: 1 }).lean();
+  let total = 0;
+  for (const c of convs as any[]) {
+    const n = (c?.unreadCounts ?? {})[String(userId)] ?? 0;
+    total += typeof n === "number" ? n : 0;
+  }
+  return total;
+}
+
+// Authenticated: SSE stream for unread message updates (reduces polling)
+messagesRouter.get(
+  "/messages/stream",
+  requireAuth,
+  requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.EVALUATOR, ROLE.ADMIN]),
+  async (req, res, next) => {
+    try {
+      const userIdStr = String(req.user!.id);
+      if (!mongoose.isValidObjectId(userIdStr)) {
+        return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid user id" }));
+      }
+      const userId = new mongoose.Types.ObjectId(userIdStr);
+
+      res.status(200);
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache, no-transform");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders?.();
+
+      const sendUnread = async () => {
+        const count = await unreadTotalForUser(userId);
+        sseWrite(res, "unread", { count });
+      };
+
+      await sendUnread();
+
+      const unsub = subscribeMessagesChanged(userIdStr, () => {
+        void sendUnread().catch(() => {});
+      });
+
+      const interval = setInterval(() => {
+        res.write(`: ping ${Date.now()}\n\n`);
+      }, 15000);
+
+      req.on("close", () => {
+        clearInterval(interval);
+        unsub();
+      });
+
+      return;
+    } catch (err) {
+      return next(err);
+    }
+  }
+);
 
 // Recipient search (typeahead)
 // Returns userIds + display labels so UI never needs raw Mongo IDs.
@@ -208,6 +270,24 @@ messagesRouter.get("/messages/conversations", requireAuth, requireRole([ROLE.PLA
   }
 });
 
+// Explicitly mark a conversation read (UI can call on open).
+messagesRouter.post("/messages/conversations/:id/read", requireAuth, requireRole([ROLE.PLAYER, ROLE.COACH, ROLE.ADMIN, ROLE.EVALUATOR]), async (req, res, next) => {
+  try {
+    const userId = ensureObjectId(req.user!.id);
+    const convId = ensureObjectId(req.params.id);
+    const conv = await ConversationModel.findById(convId).lean();
+    if (!conv) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Conversation not found" }));
+    if (!(conv.participantUserIds ?? []).some((p: any) => String(p) === String(userId))) {
+      return next(new ApiError({ status: 403, code: "FORBIDDEN", message: "Not a participant" }));
+    }
+    await ConversationModel.updateOne({ _id: convId }, { $set: { [`unreadCounts.${String(userId)}`]: 0 } });
+    publishMessagesChanged(String(userId));
+    return res.json({ ok: true });
+  } catch (err) {
+    return next(err);
+  }
+});
+
 // Create a new conversation request (1:1) with an initial message.
 messagesRouter.post(
   "/messages/conversations",
@@ -252,6 +332,9 @@ messagesRouter.post(
       body: parsed.data.message
     });
 
+    publishMessagesChanged(String(actorId));
+    publishMessagesChanged(String(recipientId));
+
     return res.json({ ok: true, conversationId: String(conv._id) });
   } catch (err) {
     // Handle duplicate participantKey race
@@ -279,6 +362,9 @@ messagesRouter.post(
     if (conv.status === "blocked") return next(new ApiError({ status: 409, code: "BLOCKED", message: "Conversation is blocked" }));
     conv.status = "accepted";
     await conv.save();
+    publishMessagesChanged(String(userId));
+    const other = (conv.participantUserIds ?? []).find((p) => String(p) !== String(userId));
+    if (other) publishMessagesChanged(String(other));
     return res.json({ ok: true });
   } catch (err) {
     return next(err);
@@ -301,6 +387,9 @@ messagesRouter.post(
     }
     conv.status = "declined";
     await conv.save();
+    publishMessagesChanged(String(userId));
+    const other = (conv.participantUserIds ?? []).find((p) => String(p) !== String(userId));
+    if (other) publishMessagesChanged(String(other));
     return res.json({ ok: true });
   } catch (err) {
     return next(err);
@@ -336,6 +425,7 @@ messagesRouter.get("/messages/conversations/:id", requireAuth, requireRole([ROLE
       { _id: convId },
       { $set: { [`unreadCounts.${String(userId)}`]: 0 } }
     );
+    publishMessagesChanged(String(userId));
 
     return res.json({
       conversation: { id: String(conv._id), status: (conv as any).status },
@@ -400,6 +490,8 @@ messagesRouter.post(
       $set: { [`unreadCounts.${String(userId)}`]: 0 }
     };
     await ConversationModel.updateOne({ _id: convId }, update);
+    publishMessagesChanged(String(userId));
+    if (otherKey) publishMessagesChanged(otherKey);
 
     return res.json({ ok: true });
   } catch (err) {

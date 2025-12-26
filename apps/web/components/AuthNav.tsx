@@ -55,6 +55,50 @@ export function AuthNav() {
       if (!cancelled) setMessagesUnreadCount(total);
     }
 
+    async function startMessagesUnreadStream(t: string) {
+      // Use fetch streaming so we can pass Authorization header (EventSource can't set headers).
+      const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+      if (!apiBase) return;
+      try {
+        const res = await fetch(`${apiBase}/messages/stream`, {
+          method: "GET",
+          headers: { Accept: "text/event-stream", Authorization: `Bearer ${t}` }
+        });
+        if (!res.ok || !res.body) return;
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+
+          let idx: number;
+          while ((idx = buf.indexOf("\n\n")) >= 0) {
+            const raw = buf.slice(0, idx);
+            buf = buf.slice(idx + 2);
+            const lines = raw.split("\n").map((l) => l.trimEnd());
+            const eventLine = lines.find((l) => l.startsWith("event:"));
+            const dataLine = lines.find((l) => l.startsWith("data:"));
+            const event = eventLine ? eventLine.slice("event:".length).trim() : "";
+            const dataStr = dataLine ? dataLine.slice("data:".length).trim() : "";
+            if (event === "unread" && dataStr) {
+              try {
+                const parsed = JSON.parse(dataStr) as { count?: number };
+                if (!cancelled && typeof parsed.count === "number") setMessagesUnreadCount(parsed.count);
+              } catch {
+                // ignore
+              }
+            }
+          }
+        }
+      } catch {
+        // ignore; polling + events remain
+      }
+    }
+
     async function startUnreadStream(t: string) {
       // Use fetch streaming so we can pass Authorization header (EventSource can't set headers).
       abort?.abort();
@@ -120,6 +164,7 @@ export function AuthNav() {
         await refreshMessagesUnread(token);
         // Start streaming updates (best-effort)
         void startUnreadStream(token);
+        void startMessagesUnreadStream(token);
       } catch {
         // Token is invalid/expired: log out locally
         clearAccessToken();
