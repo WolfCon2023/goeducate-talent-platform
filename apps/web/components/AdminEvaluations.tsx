@@ -195,6 +195,7 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
       });
       toast({ kind: "success", title: "Assigned", message: "Submission assigned." });
       setRowNote((p) => ({ ...p, [filmSubmissionId]: "" }));
+      window.dispatchEvent(new Event("goeducate:evaluations-changed"));
       await load();
     } catch (err) {
       toast({ kind: "error", title: "Assign failed", message: err instanceof Error ? err.message : "Could not assign." });
@@ -224,6 +225,7 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
       });
       toast({ kind: "success", title: "Unassigned", message: "Submission unassigned." });
       setRowNote((p) => ({ ...p, [filmSubmissionId]: "" }));
+      window.dispatchEvent(new Event("goeducate:evaluations-changed"));
       await load();
     } catch (err) {
       toast({ kind: "error", title: "Unassign failed", message: err instanceof Error ? err.message : "Could not unassign." });
@@ -278,6 +280,7 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
       toast({ kind: "success", title: "Assigned", message: `Assigned ${ids.length} submission(s).` });
       setSelectedIds({});
       setBulkNote("");
+      window.dispatchEvent(new Event("goeducate:evaluations-changed"));
       await load();
     } catch (err) {
       toast({ kind: "error", title: "Bulk assign failed", message: err instanceof Error ? err.message : "Could not assign." });
@@ -315,6 +318,7 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
       toast({ kind: "success", title: "Unassigned", message: `Unassigned ${ids.length} submission(s).` });
       setSelectedIds({});
       setBulkNote("");
+      window.dispatchEvent(new Event("goeducate:evaluations-changed"));
       await load();
     } catch (err) {
       toast({ kind: "error", title: "Bulk unassign failed", message: err instanceof Error ? err.message : "Could not unassign." });

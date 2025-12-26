@@ -1276,17 +1276,32 @@ adminRouter.get("/admin/email/audit", requireAuth, requireRole([ROLE.ADMIN]), as
     const status = String(req.query.status ?? "").trim();
     const type = String(req.query.type ?? "").trim();
     const to = String(req.query.to ?? "").trim().toLowerCase();
+    const sinceHoursRaw = Number(req.query.sinceHours ?? "");
+    const sinceHours = Number.isFinite(sinceHoursRaw) ? Math.max(1, Math.min(24 * 30, sinceHoursRaw)) : null;
+    const since = sinceHours ? new Date(Date.now() - sinceHours * 60 * 60 * 1000) : null;
 
     const q: any = {};
     if (status) q.status = status;
     if (type) q.type = type;
     if (to) q.to = to;
+    if (since) q.createdAt = { $gte: since };
 
-    const [total, results] = await Promise.all([
+    const last24 = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [total, results, totalLast24, failedLast24] = await Promise.all([
       EmailAuditLogModel.countDocuments(q),
-      EmailAuditLogModel.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
+      EmailAuditLogModel.find(q).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      EmailAuditLogModel.countDocuments({ createdAt: { $gte: last24 } }),
+      EmailAuditLogModel.countDocuments({ createdAt: { $gte: last24 }, status: EMAIL_AUDIT_STATUS.FAILED })
     ]);
-    return res.json({ total, results, skip, limit });
+    const failRateLast24hPct = totalLast24 ? Math.round((failedLast24 / totalLast24) * 1000) / 10 : 0;
+    return res.json({
+      total,
+      results,
+      skip,
+      limit,
+      sinceHours,
+      kpis: { totalLast24: Number(totalLast24) || 0, failedLast24: Number(failedLast24) || 0, failRateLast24hPct }
+    });
   } catch (err) {
     return next(err);
   }

@@ -7,6 +7,7 @@ import { Card, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { HelpIcon } from "@/components/kb/HelpIcon";
+import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
 
 type Metrics = {
   timeframe: { days: number; start: string; end: string };
@@ -159,6 +160,20 @@ export function AdminMetricsClient() {
 
   useEffect(() => {
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days]);
+
+  // Auto refresh + event-driven refresh (reduces manual Refresh usage)
+  useAutoRevalidate(load, { intervalMs: 60_000, deps: [days] });
+  useEffect(() => {
+    const onEvalChanged = () => void load();
+    const onEmailChanged = () => void load();
+    window.addEventListener("goeducate:evaluations-changed", onEvalChanged);
+    window.addEventListener("goeducate:email-changed", onEmailChanged);
+    return () => {
+      window.removeEventListener("goeducate:evaluations-changed", onEvalChanged);
+      window.removeEventListener("goeducate:email-changed", onEmailChanged);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days]);
 

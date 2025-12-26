@@ -348,7 +348,11 @@ export function CoachSearch() {
       toast({ kind: "success", title: "Request sent", message: "The player has been notified." });
     } catch (err: any) {
       const msg = err instanceof Error ? err.message : "Could not send request.";
-      toast({ kind: "error", title: "Request failed", message: msg });
+      if (String(msg).toLowerCase().includes("already")) {
+        toast({ kind: "info", title: "Already available", message: "Contact is already available to subscribed coaches. Open the player profile to view it." });
+      } else {
+        toast({ kind: "error", title: "Request failed", message: msg });
+      }
     }
   }
 
@@ -554,7 +558,7 @@ export function CoachSearch() {
                 className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
                 onClick={() => void requestContact(p.userId)}
               >
-                Request contact
+                {subscribed === false ? "Request contact (Upgrade)" : "Request contact"}
               </Button>
             </div>
           </div>

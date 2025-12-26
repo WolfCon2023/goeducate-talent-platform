@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/api";
 import { getAccessToken, getTokenRole } from "@/lib/auth";
 import { Button, Card, RefreshIconButton } from "@/components/ui";
 import { useAutoRevalidate } from "@/lib/useAutoRevalidate";
+import { toast } from "@/components/ToastProvider";
 
 type EmailConfig = {
   configured: boolean;
@@ -44,6 +45,8 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
   const [filterStatus, setFilterStatus] = useState<string>(props?.initialFilterStatus ?? "");
   const [filterType, setFilterType] = useState<string>(props?.initialFilterType ?? "");
   const [filterTo, setFilterTo] = useState<string>(props?.initialFilterTo ?? "");
+  const [sinceHours, setSinceHours] = useState<string>("");
+  const [kpis, setKpis] = useState<{ totalLast24: number; failedLast24: number; failRateLast24hPct: number } | null>(null);
 
   async function load() {
     setError(null);
@@ -61,10 +64,11 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
       if (filterStatus.trim()) qs.set("status", filterStatus.trim());
       if (filterType.trim()) qs.set("type", filterType.trim());
       if (filterTo.trim()) qs.set("to", filterTo.trim().toLowerCase());
+      if (sinceHours.trim()) qs.set("sinceHours", sinceHours.trim());
 
       const [cfg, audit] = await Promise.all([
         apiFetch<EmailConfig>("/admin/email/config", { token }),
-        apiFetch<{ total: number; results: EmailAuditRow[]; skip: number; limit: number }>(
+        apiFetch<{ total: number; results: EmailAuditRow[]; skip: number; limit: number; kpis?: any }>(
           `/admin/email/audit?${qs.toString()}`,
           { token }
         )
@@ -72,6 +76,15 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
       setConfig(cfg);
       setRows(audit.results ?? []);
       setTotal(audit.total ?? 0);
+      setKpis(
+        audit.kpis
+          ? {
+              totalLast24: Number(audit.kpis.totalLast24) || 0,
+              failedLast24: Number(audit.kpis.failedLast24) || 0,
+              failRateLast24hPct: Number(audit.kpis.failRateLast24hPct) || 0
+            }
+          : null
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load email diagnostics");
     } finally {
@@ -123,9 +136,12 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
         method: "POST",
         body: JSON.stringify({ email: row.to, role: inviteRole })
       });
+      toast({ kind: "success", title: "Resent", message: "Invite resent." });
+      window.dispatchEvent(new Event("goeducate:email-changed"));
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to resend invite");
+      toast({ kind: "error", title: "Resend failed", message: err instanceof Error ? err.message : "Failed to resend invite" });
     } finally {
       setResending(null);
     }
@@ -145,9 +161,12 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
         method: "POST",
         body: JSON.stringify({ id: row._id })
       });
+      toast({ kind: "success", title: "Resent", message: "Email resent (best-effort)." });
+      window.dispatchEvent(new Event("goeducate:email-changed"));
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to resend email");
+      toast({ kind: "error", title: "Resend failed", message: err instanceof Error ? err.message : "Failed to resend email" });
     } finally {
       setResending(null);
     }
@@ -209,6 +228,58 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
 
       <div className="mt-6 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
         <div className="text-sm font-semibold text-[color:var(--foreground)]">Recent email audit log</div>
+        <div className="mt-2 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Failures (24h)</div>
+            <div className="mt-1 text-lg font-semibold text-[color:var(--foreground)]">{kpis ? kpis.failedLast24 : "—"}</div>
+            <div className="mt-1 text-xs text-[color:var(--muted)]">Fail rate: {kpis ? `${kpis.failRateLast24hPct}%` : "—"}</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Total sent (24h)</div>
+            <div className="mt-1 text-lg font-semibold text-[color:var(--foreground)]">{kpis ? kpis.totalLast24 : "—"}</div>
+            <div className="mt-1 text-xs text-[color:var(--muted)]">All email types</div>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+            <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Presets</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 hover:bg-white/10"
+                onClick={() => {
+                  setPage(0);
+                  setFilterStatus("failed");
+                  setSinceHours("24");
+                }}
+              >
+                Failed (24h)
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 hover:bg-white/10"
+                onClick={() => {
+                  setPage(0);
+                  setFilterType("notification");
+                  setSinceHours("24");
+                }}
+              >
+                Notifications (24h)
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-white/90 hover:bg-white/10"
+                onClick={() => {
+                  setPage(0);
+                  setFilterStatus("");
+                  setFilterType("");
+                  setFilterTo("");
+                  setSinceHours("");
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
         <div className="mt-3 grid gap-3 lg:grid-cols-3">
           <div>
             <label className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Status</label>
@@ -248,6 +319,18 @@ export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; in
                 setFilterTo(e.target.value);
               }}
               placeholder="recipient@example.com"
+            />
+          </div>
+          <div>
+            <label className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Since (hours)</label>
+            <input
+              className="mt-1 w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-indigo-400"
+              value={sinceHours}
+              onChange={(e) => {
+                setPage(0);
+                setSinceHours(e.target.value);
+              }}
+              placeholder="e.g. 24"
             />
           </div>
         </div>
