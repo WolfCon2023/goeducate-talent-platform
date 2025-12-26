@@ -220,11 +220,14 @@ export function AdminMetricsClient() {
       await apiFetch("/admin/metrics/email-snapshot", {
         method: "POST",
         token,
-        body: JSON.stringify({ to: snapshotEmailTo, days })
+        body: JSON.stringify({ to: snapshotEmailTo, days }),
+        retries: 3,
+        retryOn404: true
       });
       setSnapshotEmailOpen(false);
       setSnapshotEmailTo("");
     } catch (e) {
+      // Railway sometimes has a brief mixed-deploy window; a transient 404 is recoverable.
       setError(e instanceof Error ? e.message : "Failed to send email");
     } finally {
       setSendingSnapshotEmail(false);
