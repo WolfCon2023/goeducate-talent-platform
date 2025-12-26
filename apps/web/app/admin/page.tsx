@@ -77,9 +77,9 @@ export default function AdminPage() {
               <Link className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="/admin/email">
                 Email
               </Link>
-              <a className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="#admin-evaluations">
+              <Link className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10" href="/admin/evaluations">
                 Evaluations
-              </a>
+              </Link>
               <Link
                 className="rounded-md border border-white/10 bg-white/5 px-3 py-1 text-white/90 hover:bg-white/10"
                 href="/admin/kb"
