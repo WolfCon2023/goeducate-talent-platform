@@ -117,7 +117,7 @@ adminMetricsRouter.get("/admin/metrics/summary", async (req, res, next) => {
             createdAt: { $gte: start },
             subscriptionStatus: COACH_SUBSCRIPTION_STATUS.ACTIVE
         });
-        // DAU/WAU/MAU from DailyActiveUser (populates after deploy).
+        // DAU/WAU/MAU from DailyActiveUser.
         const today = dayKeyUtc(now);
         const dayMinus6 = addDaysUtc(today, -6);
         const dayMinus29 = addDaysUtc(today, -29);
@@ -182,6 +182,11 @@ adminMetricsRouter.get("/admin/metrics/summary", async (req, res, next) => {
             { $sort: { count: -1 } },
             { $limit: 100 }
         ]);
+        const throughputEvaluatorIds = throughputByEvaluator.map((r) => r._id).filter(Boolean);
+        const throughputUsers = await UserModel.find({ _id: { $in: throughputEvaluatorIds } })
+            .select({ _id: 1, email: 1, firstName: 1, lastName: 1 })
+            .lean();
+        const throughputUserById = new Map(throughputUsers.map((u) => [String(u._id), u]));
         // Engagement
         const watchlistTotalItems = await WatchlistModel.countDocuments({});
         const watchlistAdds = await WatchlistModel.countDocuments({ createdAt: { $gte: start } });
@@ -413,7 +418,7 @@ adminMetricsRouter.get("/admin/metrics/summary", async (req, res, next) => {
                     newActive: coachesNewActive,
                     newConversionRatePct: coachesNew ? Math.round((coachesNewActive / coachesNew) * 1000) / 10 : null
                 },
-                active: { dauByRole, wauByRole, mauByRole, note: "Active users start populating after this deploy." },
+                active: { dauByRole, wauByRole, mauByRole },
                 profiles: {
                     playerPublicRatePct: playerProfileCount ? Math.round((playerPublicCount / playerProfileCount) * 1000) / 10 : null,
                     playerCompletion,
@@ -425,19 +430,25 @@ adminMetricsRouter.get("/admin/metrics/summary", async (req, res, next) => {
                 submissions: { total: submissionsTotal, new: submissionsNew, byStatus: submissionsByStatus, backlogOpen: backlog, overdueHours, overdueCount: overdue },
                 reports: { total: evaluationsTotal, completedNew: evaluationsCompletedNew },
                 turnaround,
-                evaluatorThroughput: throughputByEvaluator.map((r) => ({
-                    evaluatorUserId: r._id ? String(r._id) : null,
-                    count: Number(r.count) || 0,
-                    avgGrade: r.avgGrade != null ? Math.round(Number(r.avgGrade) * 100) / 100 : null,
-                    stddev: r.stddev != null ? Math.round(Number(r.stddev) * 100) / 100 : null
-                }))
+                evaluatorThroughput: throughputByEvaluator.map((r) => {
+                    const u = r._id ? throughputUserById.get(String(r._id)) : null;
+                    const name = u?.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : null;
+                    return {
+                        evaluatorUserId: r._id ? String(r._id) : null,
+                        evaluatorName: name,
+                        evaluatorEmail: u?.email ?? null,
+                        count: Number(r.count) || 0,
+                        avgGrade: r.avgGrade != null ? Math.round(Number(r.avgGrade) * 100) / 100 : null,
+                        stddev: r.stddev != null ? Math.round(Number(r.stddev) * 100) / 100 : null
+                    };
+                })
             },
             engagement: {
-                coachSearch: { total: coachSearchEvents, uniqueCoaches: coachSearchUnique.length, note: "Search events are tracked after this deploy." },
+                coachSearch: { total: coachSearchEvents, uniqueCoaches: coachSearchUnique.length },
                 watchlist: { totalItems: watchlistTotalItems, addsNew: watchlistAdds },
                 contactRequests: { total: contactRequests },
                 messages: { sent: messagesSent },
-                evaluationViews: { coachOpens: evaluationViewsCoach, note: "Evaluation view events are tracked after this deploy." },
+                evaluationViews: { coachOpens: evaluationViewsCoach },
                 coachFunnel: funnel
             },
             revenue: {

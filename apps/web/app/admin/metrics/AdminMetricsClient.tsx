@@ -21,7 +21,7 @@ type Metrics = {
       newActive: number;
       newConversionRatePct: number | null;
     };
-    active: { dauByRole: Record<string, number>; wauByRole: Record<string, number>; mauByRole: Record<string, number>; note?: string };
+    active: { dauByRole: Record<string, number>; wauByRole: Record<string, number>; mauByRole: Record<string, number> };
     profiles: {
       playerPublicRatePct: number | null;
       playerCompletion: { avgScore: number | null; pctAtLeast80: number | null; count: number };
@@ -33,14 +33,21 @@ type Metrics = {
     submissions: { total: number; new: number; byStatus: Record<string, number>; backlogOpen: number; overdueHours: number; overdueCount: number };
     reports: { total: number; completedNew: number };
     turnaround: { avgHours: number | null; medianHours: number | null; p90Hours: number | null; sampleSize: number };
-    evaluatorThroughput: Array<{ evaluatorUserId: string | null; count: number; avgGrade: number | null; stddev: number | null }>;
+    evaluatorThroughput: Array<{
+      evaluatorUserId: string | null;
+      evaluatorName: string | null;
+      evaluatorEmail: string | null;
+      count: number;
+      avgGrade: number | null;
+      stddev: number | null;
+    }>;
   };
   engagement: {
-    coachSearch: { total: number; uniqueCoaches: number; note?: string };
+    coachSearch: { total: number; uniqueCoaches: number };
     watchlist: { totalItems: number; addsNew: number };
     contactRequests: { total: number };
     messages: { sent: number };
-    evaluationViews: { coachOpens: number; note?: string };
+    evaluationViews: { coachOpens: number };
     coachFunnel?: { searched: number; watchlistAdded: number; contactRequested: number; checkoutStarted: number; activated: number };
   };
   revenue: {
@@ -224,6 +231,12 @@ export function AdminMetricsClient() {
             90d
           </button>
           <RefreshIconButton onClick={load} loading={loading} title="Refresh metrics" />
+          <Link
+            href="/admin/metrics/trends"
+            className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white hover:bg-white/10"
+          >
+            Trends
+          </Link>
           <button
             type="button"
             onClick={() => setConfigOpen(true)}
@@ -320,7 +333,7 @@ export function AdminMetricsClient() {
                   </tbody>
                 </table>
               </div>
-              <div className="mt-3 text-xs text-white/60">{data.users.active.note ?? ""}</div>
+              <div className="mt-3 text-xs text-white/60"></div>
             </Card>
 
             <Card>
@@ -384,7 +397,7 @@ export function AdminMetricsClient() {
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:col-span-2">
                   <div className="text-xs uppercase tracking-wide text-white/60">Coach evaluation opens</div>
                   <div className="mt-1 text-2xl font-semibold">{data.engagement.evaluationViews.coachOpens}</div>
-                  <div className="mt-2 text-xs text-white/60">{data.engagement.evaluationViews.note ?? ""}</div>
+                  <div className="mt-2 text-xs text-white/60"></div>
                 </div>
               </div>
             </Card>
@@ -405,7 +418,7 @@ export function AdminMetricsClient() {
                   <tbody className="divide-y divide-white/10">
                     {data.evaluations.evaluatorThroughput.slice(0, 15).map((r) => (
                       <tr key={r.evaluatorUserId ?? "unknown"}>
-                        <td className="px-4 py-3 text-white/80">{r.evaluatorUserId ?? "—"}</td>
+                        <td className="px-4 py-3 text-white/80">{r.evaluatorName ?? r.evaluatorEmail ?? r.evaluatorUserId ?? "—"}</td>
                         <td className="px-4 py-3 text-white/80">{r.count}</td>
                         <td className="px-4 py-3 text-white/80">{r.avgGrade ?? "—"}</td>
                         <td className="px-4 py-3 text-white/80">{r.stddev ?? "—"}</td>
