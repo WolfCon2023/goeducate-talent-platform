@@ -451,7 +451,7 @@ export function AdminEvaluations(props?: {
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <label className="inline-flex items-center gap-2 text-sm text-[color:var(--muted)]">
           <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
-          <span>Overdue only (>{overdueHours}h)</span>
+          <span>Overdue only ({">"}{overdueHours}h)</span>
         </label>
       </div>
 
