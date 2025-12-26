@@ -49,7 +49,7 @@ function playerLabel(r: Row) {
   return name || r.player?.email || "Unknown player";
 }
 
-export function AdminEvaluations() {
+export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: string; initialHasEval?: string; initialHasAssigned?: string }) {
   const confirm = useConfirm();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,11 +59,14 @@ export function AdminEvaluations() {
   const [evalUsers, setEvalUsers] = useState<UserRow[]>([]);
   const [evalUsersLoading, setEvalUsersLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<Record<string, string>>({});
+  const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
+  const [bulkAssignee, setBulkAssignee] = useState<string>("");
+  const [bulkWorking, setBulkWorking] = useState(false);
 
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("");
-  const [hasEval, setHasEval] = useState<string>("");
-  const [hasAssigned, setHasAssigned] = useState<string>("");
+  const [q, setQ] = useState(props?.initialQ ?? "");
+  const [status, setStatus] = useState<string>(props?.initialStatus ?? "");
+  const [hasEval, setHasEval] = useState<string>(props?.initialHasEval ?? "");
+  const [hasAssigned, setHasAssigned] = useState<string>(props?.initialHasAssigned ?? "");
   const [page, setPage] = useState(1);
 
   const limit = 25;
@@ -128,6 +131,7 @@ export function AdminEvaluations() {
   // Reset to first page when filters change
   useEffect(() => {
     setPage(1);
+    setSelectedIds({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, status, hasEval, hasAssigned]);
 
@@ -207,6 +211,97 @@ export function AdminEvaluations() {
     }
   }
 
+  const selectedCount = Object.values(selectedIds).filter(Boolean).length;
+  const allOnPageSelected = results.length > 0 && results.every((r) => Boolean(selectedIds[r._id]));
+
+  async function bulkAssignSelected() {
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+
+      const evaluatorUserId = bulkAssignee.trim();
+      if (!evaluatorUserId) {
+        toast({ kind: "error", title: "Missing evaluator", message: "Select an evaluator for bulk assignment." });
+        return;
+      }
+
+      const ids = Object.entries(selectedIds).filter(([, v]) => v).map(([id]) => id);
+      if (!ids.length) return;
+
+      const selectedRows = results.filter((r) => ids.includes(r._id));
+      const needsReassign = selectedRows.some((r) => {
+        const current = r.assignedEvaluator?.id ?? r.assignedEvaluatorUserId ?? null;
+        return current && String(current) !== evaluatorUserId;
+      });
+      let force = false;
+      if (needsReassign) {
+        const ok = await confirm({
+          title: "Reassign selected submissions?",
+          message: "Some selected submissions are already assigned. Reassigning will move them to the chosen evaluator.",
+          confirmText: "Reassign",
+          cancelText: "Cancel",
+          destructive: true
+        });
+        if (!ok) return;
+        force = true;
+      }
+
+      setBulkWorking(true);
+      for (const filmSubmissionId of ids) {
+        await apiFetch(`/film-submissions/${encodeURIComponent(filmSubmissionId)}/assignment`, {
+          method: "PATCH",
+          token,
+          body: JSON.stringify({ action: "assign", evaluatorUserId, force })
+        });
+      }
+      toast({ kind: "success", title: "Assigned", message: `Assigned ${ids.length} submission(s).` });
+      setSelectedIds({});
+      await load();
+    } catch (err) {
+      toast({ kind: "error", title: "Bulk assign failed", message: err instanceof Error ? err.message : "Could not assign." });
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
+  async function bulkUnassignSelected() {
+    try {
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+
+      const ids = Object.entries(selectedIds).filter(([, v]) => v).map(([id]) => id);
+      if (!ids.length) return;
+      const ok = await confirm({
+        title: "Unassign selected submissions?",
+        message: "This will remove evaluator assignments for the selected submissions.",
+        confirmText: "Unassign",
+        cancelText: "Cancel",
+        destructive: true
+      });
+      if (!ok) return;
+
+      setBulkWorking(true);
+      for (const filmSubmissionId of ids) {
+        await apiFetch(`/film-submissions/${encodeURIComponent(filmSubmissionId)}/assignment`, {
+          method: "PATCH",
+          token,
+          body: JSON.stringify({ action: "unassign" })
+        });
+      }
+      toast({ kind: "success", title: "Unassigned", message: `Unassigned ${ids.length} submission(s).` });
+      setSelectedIds({});
+      await load();
+    } catch (err) {
+      toast({ kind: "error", title: "Bulk unassign failed", message: err instanceof Error ? err.message : "Could not unassign." });
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
   return (
     <Card>
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -275,10 +370,49 @@ export function AdminEvaluations() {
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
 
+      <div className="mt-5 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
+        <div className="text-sm text-[color:var(--muted)]">
+          Selected: <span className="font-semibold text-[color:var(--foreground)]">{selectedCount}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            className="w-64 rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)] disabled:opacity-50"
+            value={bulkAssignee}
+            disabled={evalUsersLoading || bulkWorking}
+            onChange={(e) => setBulkAssignee(e.target.value)}
+          >
+            <option value="">{evalUsersLoading ? "Loading evaluators…" : "Bulk: select evaluator…"}</option>
+            {evalUsers.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.email}
+              </option>
+            ))}
+          </select>
+          <Button type="button" disabled={!selectedCount || bulkWorking} onClick={() => void bulkAssignSelected()}>
+            {bulkWorking ? "Working…" : "Assign selected"}
+          </Button>
+          <Button type="button" disabled={!selectedCount || bulkWorking} onClick={() => void bulkUnassignSelected()}>
+            {bulkWorking ? "Working…" : "Unassign selected"}
+          </Button>
+        </div>
+      </div>
+
       <div className="mt-5 overflow-x-auto rounded-2xl border border-[color:var(--border)]">
         <table className="min-w-full border-collapse text-sm">
           <thead className="bg-[var(--surface)]/80">
             <tr className="text-left text-[color:var(--muted)]">
+              <th className="px-4 py-3 font-semibold">
+                <input
+                  type="checkbox"
+                  checked={allOnPageSelected}
+                  onChange={(e) => {
+                    const next = e.target.checked;
+                    const patch: Record<string, boolean> = {};
+                    for (const r of results) patch[r._id] = next;
+                    setSelectedIds((prev) => ({ ...prev, ...patch }));
+                  }}
+                />
+              </th>
               <th className="px-4 py-3 font-semibold">Film</th>
               <th className="px-4 py-3 font-semibold">Player</th>
               <th className="px-4 py-3 font-semibold">Status</th>
@@ -293,6 +427,14 @@ export function AdminEvaluations() {
           <tbody className="divide-y divide-[color:var(--border)]">
             {results.map((r) => (
               <tr key={r._id} className="align-top">
+                <td className="px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(selectedIds[r._id])}
+                    onChange={(e) => setSelectedIds((prev) => ({ ...prev, [r._id]: e.target.checked }))}
+                    disabled={bulkWorking}
+                  />
+                </td>
                 <td className="px-4 py-3">
                   <div className="font-semibold text-[color:var(--foreground)]">{r.title}</div>
                   <div className="mt-1 text-xs text-[color:var(--muted-2)]">{r._id}</div>
@@ -367,7 +509,7 @@ export function AdminEvaluations() {
             ))}
             {results.length === 0 && !error ? (
               <tr>
-                <td className="px-4 py-6 text-sm text-[color:var(--muted)]" colSpan={9}>
+                <td className="px-4 py-6 text-sm text-[color:var(--muted)]" colSpan={10}>
                   No results.
                 </td>
               </tr>

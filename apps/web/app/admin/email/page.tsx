@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 
 import { AdminGuard } from "../Guard";
-import { AdminEvaluationsPageClient } from "./pageClient";
+import { AdminEmailPageClient } from "./pageClient";
 
-export default function AdminEvaluationsQueuePage() {
+export default function AdminEmailPage() {
   return (
     <AdminGuard>
       <Suspense fallback={<div className="text-sm text-white/70">Loading…</div>}>
-        <AdminEvaluationsPageClient />
+        <AdminEmailPageClient />
       </Suspense>
     </AdminGuard>
   );

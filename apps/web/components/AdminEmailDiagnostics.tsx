@@ -29,7 +29,7 @@ type EmailAuditRow = {
   meta?: any;
 };
 
-export function AdminEmailDiagnostics() {
+export function AdminEmailDiagnostics(props?: { initialFilterStatus?: string; initialFilterType?: string; initialFilterTo?: string }) {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [resending, setResending] = useState<string | null>(null);
@@ -41,9 +41,9 @@ export function AdminEmailDiagnostics() {
   const pageSize = 25;
   const [toEmail, setToEmail] = useState("");
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>("");
-  const [filterType, setFilterType] = useState<string>("");
-  const [filterTo, setFilterTo] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>(props?.initialFilterStatus ?? "");
+  const [filterType, setFilterType] = useState<string>(props?.initialFilterType ?? "");
+  const [filterTo, setFilterTo] = useState<string>(props?.initialFilterTo ?? "");
 
   async function load() {
     setError(null);

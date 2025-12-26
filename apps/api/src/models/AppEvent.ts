@@ -19,6 +19,7 @@ export const APP_EVENT_TYPE = {
 export type AppEventType = (typeof APP_EVENT_TYPE)[keyof typeof APP_EVENT_TYPE];
 
 export type AppEventDoc = {
+  schemaVersion?: number;
   type: AppEventType;
   userId?: mongoose.Types.ObjectId;
   role?: Role;
@@ -30,6 +31,7 @@ export type AppEventDoc = {
 
 const AppEventSchema = new Schema<AppEventDoc>(
   {
+    schemaVersion: { type: Number, required: true, default: 1 },
     type: { type: String, required: true, index: true },
     userId: { type: Schema.Types.ObjectId, ref: "User", index: true },
     role: { type: String, enum: ALL_ROLES, index: true },

@@ -18,6 +18,7 @@ export const EMAIL_AUDIT_TYPE = {
   NOTIFICATION: "notification",
   AUTH_USERNAME_REMINDER: "auth_username_reminder",
   AUTH_PASSWORD_RESET: "auth_password_reset",
+  ADMIN_METRICS_SNAPSHOT: "admin_metrics_snapshot",
   TEST: "test"
 } as const;
 

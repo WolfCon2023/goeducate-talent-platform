@@ -12,6 +12,7 @@ export function logAppEvent(opts: {
   try {
     const userId = opts.user?.id && mongoose.isValidObjectId(opts.user.id) ? new mongoose.Types.ObjectId(opts.user.id) : undefined;
     void AppEventModel.create({
+      schemaVersion: 1,
       type: opts.type,
       userId,
       role: opts.user?.role,

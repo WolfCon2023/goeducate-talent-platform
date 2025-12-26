@@ -65,6 +65,15 @@ type Metrics = {
   };
   config?: any;
   statusFlags?: Record<string, string>;
+  alerts?: Array<{ id: string; level: "red" | "yellow" | "info"; title: string; message: string; href?: string }>;
+  deltas?: Record<string, number | null>;
+  dataQuality?: {
+    appEventsLast14Days: Array<{ day: string; count: number }>;
+    dailyActiveRowsLast14Days: Array<{ day: string; count: number }>;
+    snapshotsLast14Days: Array<{ day: string; count: number }>;
+    lastStripeWebhookAt: string | null;
+    appEventSchemaVersion: number;
+  };
   ops?: {
     overdueHours: number;
     overdueItems: Array<{
@@ -119,6 +128,9 @@ export function AdminMetricsClient() {
   const [config, setConfig] = useState<any | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [snapshotEmailOpen, setSnapshotEmailOpen] = useState(false);
+  const [snapshotEmailTo, setSnapshotEmailTo] = useState("");
+  const [sendingSnapshotEmail, setSendingSnapshotEmail] = useState(false);
 
   const qs = useMemo(() => `days=${days}`, [days]);
 
@@ -198,6 +210,27 @@ export function AdminMetricsClient() {
     }
   }
 
+  async function sendSnapshotEmail() {
+    try {
+      setSendingSnapshotEmail(true);
+      const token = getAccessToken();
+      const role = getTokenRole(token);
+      if (!token) throw new Error("Please login first.");
+      if (role !== "admin") throw new Error("Insufficient permissions.");
+      await apiFetch("/admin/metrics/email-snapshot", {
+        method: "POST",
+        token,
+        body: JSON.stringify({ to: snapshotEmailTo, days })
+      });
+      setSnapshotEmailOpen(false);
+      setSnapshotEmailTo("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to send email");
+    } finally {
+      setSendingSnapshotEmail(false);
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -239,6 +272,13 @@ export function AdminMetricsClient() {
           </Link>
           <button
             type="button"
+            onClick={() => setSnapshotEmailOpen(true)}
+            className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white hover:bg-white/10"
+          >
+            Email snapshot
+          </button>
+          <button
+            type="button"
             onClick={() => setConfigOpen(true)}
             className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white hover:bg-white/10"
           >
@@ -276,6 +316,17 @@ export function AdminMetricsClient() {
               <div className="mt-2">
                 <Sparkline values={seriesFor("submissionsNew")} />
               </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2 text-sm">
+                <Link href="/admin/evaluations" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                  Open queue →
+                </Link>
+                <Link href="/admin/evaluations?hasEval=0" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                  No report →
+                </Link>
+                <Link href="/admin/evaluations?hasAssigned=0" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                  Unassigned →
+                </Link>
+              </div>
             </Card>
             <Card>
               <div className="text-xs uppercase tracking-wide text-white/60">Evaluations (completed)</div>
@@ -296,8 +347,39 @@ export function AdminMetricsClient() {
               <div className="mt-2">
                 <Sparkline values={seriesFor("emailFailRatePct")} />
               </div>
+              <div className="mt-2 text-sm">
+                <Link href="/admin/email?status=failed" className="text-indigo-300 hover:text-indigo-200 hover:underline">
+                  Open failures →
+                </Link>
+              </div>
             </Card>
           </div>
+
+          {data.alerts?.length ? (
+            <Card>
+              <div className="text-sm font-semibold">Alerts</div>
+              <div className="mt-3 grid gap-2">
+                {data.alerts.map((a) => (
+                  <div key={a.id} className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${a.level === "red" ? "bg-red-500/15 text-red-200" : a.level === "yellow" ? "bg-amber-500/15 text-amber-200" : "bg-white/10 text-white/70"}`}>
+                          {a.level.toUpperCase()}
+                        </span>
+                        <div className="text-sm font-semibold text-white">{a.title}</div>
+                      </div>
+                      <div className="mt-1 text-sm text-white/80">{a.message}</div>
+                    </div>
+                    {a.href ? (
+                      <Link href={a.href} className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+                        Open →
+                      </Link>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          ) : null}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
@@ -367,6 +449,62 @@ export function AdminMetricsClient() {
               </div>
             </Card>
           </div>
+
+          {data.dataQuality ? (
+            <Card>
+              <div className="text-sm font-semibold">Data quality</div>
+              <div className="mt-1 text-sm text-white/70">Sanity checks to ensure metrics are trustworthy.</div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Event schema</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.dataQuality.appEventSchemaVersion}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Last Stripe webhook</div>
+                  <div className="mt-1 text-sm text-white/80">{data.dataQuality.lastStripeWebhookAt ? new Date(data.dataQuality.lastStripeWebhookAt).toLocaleString() : "—"}</div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Snapshots (14d)</div>
+                  <div className="mt-1 text-2xl font-semibold">{data.dataQuality.snapshotsLast14Days.length}</div>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">App events/day (14d)</div>
+                  <div className="mt-2 text-sm text-white/80">
+                    {data.dataQuality.appEventsLast14Days.map((r) => (
+                      <div key={r.day} className="flex justify-between gap-3">
+                        <span className="text-white/70">{r.day}</span>
+                        <span className="text-white">{r.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">DAU rows/day (14d)</div>
+                  <div className="mt-2 text-sm text-white/80">
+                    {data.dataQuality.dailyActiveRowsLast14Days.map((r) => (
+                      <div key={r.day} className="flex justify-between gap-3">
+                        <span className="text-white/70">{r.day}</span>
+                        <span className="text-white">{r.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  <div className="text-xs uppercase tracking-wide text-white/60">Snapshots/day (14d)</div>
+                  <div className="mt-2 text-sm text-white/80">
+                    {data.dataQuality.snapshotsLast14Days.map((r) => (
+                      <div key={r.day} className="flex justify-between gap-3">
+                        <span className="text-white/70">{r.day}</span>
+                        <span className="text-white">{r.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ) : null}
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
@@ -443,23 +581,32 @@ export function AdminMetricsClient() {
               <div className="mt-1 text-sm text-white/70">Search → watchlist → contact request → checkout → activated.</div>
               <div className="mt-4 grid gap-3 sm:grid-cols-5">
                 {[
-                  ["Search", data.engagement.coachFunnel?.searched ?? 0],
-                  ["Watchlist", data.engagement.coachFunnel?.watchlistAdded ?? 0],
-                  ["Contact", data.engagement.coachFunnel?.contactRequested ?? 0],
-                  ["Checkout", data.engagement.coachFunnel?.checkoutStarted ?? 0],
-                  ["Activated", data.engagement.coachFunnel?.activated ?? 0]
-                ].map(([label, v]) => (
-                  <div key={String(label)} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  ["Search", "searched", data.engagement.coachFunnel?.searched ?? 0],
+                  ["Watchlist", "watchlist", data.engagement.coachFunnel?.watchlistAdded ?? 0],
+                  ["Contact", "contact", data.engagement.coachFunnel?.contactRequested ?? 0],
+                  ["Checkout", "checkout", data.engagement.coachFunnel?.checkoutStarted ?? 0],
+                  ["Activated", "activated", data.engagement.coachFunnel?.activated ?? 0]
+                ].map(([label, stage, v]) => (
+                  <Link
+                    key={String(label)}
+                    href={`/admin/metrics/funnel?stage=${encodeURIComponent(String(stage))}&days=${encodeURIComponent(String(days))}`}
+                    className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10"
+                  >
                     <div className="text-xs uppercase tracking-wide text-white/60">{label}</div>
                     <div className="mt-1 text-2xl font-semibold">{Number(v)}</div>
-                  </div>
+                    <div className="mt-2 text-xs text-indigo-300">View coaches →</div>
+                  </Link>
                 ))}
               </div>
-              <div className="mt-3 text-xs text-white/60">Activation events populate from Stripe webhooks after this deploy.</div>
             </Card>
 
             <Card>
-              <div className="text-sm font-semibold">SLA / overdue</div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold">SLA / overdue</div>
+                <Link href="/admin/evaluations" className="text-sm text-indigo-300 hover:text-indigo-200 hover:underline">
+                  Open queue →
+                </Link>
+              </div>
               <div className="mt-1 text-sm text-white/70">Oldest open submissions (overdue threshold: {data.ops?.overdueHours ?? "—"}h).</div>
               <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
                 <table className="min-w-full border-collapse text-sm">
@@ -653,6 +800,42 @@ export function AdminMetricsClient() {
                 </button>
               </div>
               <div className="mt-3 text-xs text-white/60">These thresholds drive red/yellow/green flags and SLA definitions.</div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {snapshotEmailOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-white/10 bg-[var(--surface)]">
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
+              <div className="text-sm font-semibold">Email metrics snapshot</div>
+              <button
+                type="button"
+                onClick={() => setSnapshotEmailOpen(false)}
+                className="rounded-md border border-white/15 bg-white/5 px-3 py-1.5 text-sm text-white hover:bg-white/10"
+              >
+                Close
+              </button>
+            </div>
+            <div className="px-5 py-4">
+              <div className="text-sm text-white/70">Recipients (comma-separated)</div>
+              <input
+                className="mt-2 w-full rounded-md border border-white/15 bg-white/5 px-3 py-2 text-sm text-white"
+                value={snapshotEmailTo}
+                onChange={(e) => setSnapshotEmailTo(e.target.value)}
+                placeholder="leader1@…, leader2@…"
+              />
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={sendingSnapshotEmail}
+                  onClick={() => void sendSnapshotEmail()}
+                  className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+                >
+                  {sendingSnapshotEmail ? "Sending…" : "Send"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -22,6 +22,9 @@ import { DailyActiveUserModel } from "../models/DailyActiveUser.js";
 import { AppEventModel, APP_EVENT_TYPE } from "../models/AppEvent.js";
 import { AdminMetricsConfigModel } from "../models/AdminMetricsConfig.js";
 import { AdminMetricsSnapshotModel } from "../models/AdminMetricsSnapshot.js";
+import { createTransporterOrThrow, isEmailConfigured } from "../email/mailer.js";
+import { sendMailWithAudit } from "../email/audit.js";
+import { EMAIL_AUDIT_TYPE } from "../models/EmailAuditLog.js";
 import { getEnv } from "../env.js";
 import { getStripe, isStripeConfigured } from "../stripe.js";
 
@@ -423,8 +426,92 @@ adminMetricsRouter.get("/admin/metrics/summary", async (req, res, next) => {
         : "unknown"
     };
 
-    // Snapshot today's headline metrics so we can chart trends over time (populates after deploy).
+    // Week-over-week deltas from snapshots (best-effort).
     const todayKey = dayKeyUtc(now);
+    const weekAgoKey = addDaysUtc(todayKey, -7);
+    const twoWeeksAgoKey = addDaysUtc(todayKey, -14);
+    const snapshotsForDelta = await AdminMetricsSnapshotModel.find({ day: { $in: [todayKey, weekAgoKey, twoWeeksAgoKey] } })
+      .select({ day: 1, mrrCents: 1, backlogOpen: 1, overdueOpen: 1, submissionsNew: 1, evaluationsCompletedNew: 1, emailFailRatePct: 1 })
+      .lean();
+    const snapByDay = new Map((snapshotsForDelta as any[]).map((s) => [String(s.day), s]));
+    const snapNow = snapByDay.get(todayKey) ?? null;
+    const snapWeekAgo = snapByDay.get(weekAgoKey) ?? null;
+
+    function deltaPct(nowV: number | null | undefined, prevV: number | null | undefined) {
+      if (typeof nowV !== "number" || typeof prevV !== "number" || prevV === 0) return null;
+      return Math.round(((nowV - prevV) / prevV) * 1000) / 10;
+    }
+
+    const deltas = {
+      mrrWoWPct: deltaPct(snapNow?.mrrCents ?? null, snapWeekAgo?.mrrCents ?? null),
+      backlogWoWPct: deltaPct(snapNow?.backlogOpen ?? null, snapWeekAgo?.backlogOpen ?? null),
+      overdueWoWPct: deltaPct(snapNow?.overdueOpen ?? null, snapWeekAgo?.overdueOpen ?? null),
+      submissionsWoWPct: deltaPct(snapNow?.submissionsNew ?? null, snapWeekAgo?.submissionsNew ?? null),
+      evaluationsWoWPct: deltaPct(snapNow?.evaluationsCompletedNew ?? null, snapWeekAgo?.evaluationsCompletedNew ?? null),
+      emailFailRateWoW: (typeof snapNow?.emailFailRatePct === "number" && typeof snapWeekAgo?.emailFailRatePct === "number")
+        ? Math.round(((snapNow.emailFailRatePct - snapWeekAgo.emailFailRatePct) as number) * 10) / 10
+        : null
+    };
+
+    const alerts: Array<{ id: string; level: "red" | "yellow" | "info"; title: string; message: string; href?: string }> = [];
+    if (statusFlags.turnaroundP90 === "red" || statusFlags.turnaroundP90 === "yellow") {
+      alerts.push({
+        id: "tat_p90",
+        level: statusFlags.turnaroundP90 === "red" ? "red" : "yellow",
+        title: "Evaluation turnaround time is high",
+        message: `p90 turnaround is ${turnaround.p90Hours ?? "—"}h (warn ${cfg.tatP90WarnHours}h / crit ${cfg.tatP90CritHours}h).`,
+        href: "/admin/metrics"
+      });
+    }
+    if (statusFlags.emailFailRate === "red" || statusFlags.emailFailRate === "yellow") {
+      alerts.push({
+        id: "email_fail",
+        level: statusFlags.emailFailRate === "red" ? "red" : "yellow",
+        title: "Email failures elevated",
+        message: `Fail rate is ${emailFailRate ?? "—"}% (warn ${cfg.emailFailWarnPct}% / crit ${cfg.emailFailCritPct}%).`,
+        href: "/admin/email?status=failed"
+      });
+    }
+    if (overdue > 0) {
+      alerts.push({
+        id: "overdue_open",
+        level: overdue > 5 ? "red" : "yellow",
+        title: "Overdue submissions in queue",
+        message: `${overdue} open submissions are older than ${overdueHours} hours.`,
+        href: "/admin/evaluations"
+      });
+    }
+    if (deltas.mrrWoWPct != null && deltas.mrrWoWPct <= -10) {
+      alerts.push({
+        id: "mrr_down",
+        level: "yellow",
+        title: "MRR down week-over-week",
+        message: `MRR changed ${deltas.mrrWoWPct}% vs last week.`,
+        href: "/admin/metrics/trends"
+      });
+    }
+
+    // Data quality (last 14d)
+    const last14Start = addDaysUtc(todayKey, -13);
+    const [eventsByDay, dauByDay, snapshotsByDay, lastStripeWebhook] = await Promise.all([
+      AppEventModel.aggregate([
+        { $match: { createdAt: { $gte: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000) } } },
+        { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ]),
+      DailyActiveUserModel.aggregate([{ $match: { day: { $gte: last14Start, $lte: todayKey } } }, { $group: { _id: "$day", count: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+      AdminMetricsSnapshotModel.aggregate([{ $match: { day: { $gte: last14Start, $lte: todayKey } } }, { $group: { _id: "$day", count: { $sum: 1 } } }, { $sort: { _id: 1 } }]),
+      AppEventModel.findOne({ path: "stripe_webhook" }).sort({ createdAt: -1 }).select({ createdAt: 1, type: 1 }).lean().catch(() => null)
+    ]);
+    const dataQuality = {
+      appEventsLast14Days: (eventsByDay as any[]).map((r) => ({ day: String(r._id), count: Number(r.count) || 0 })),
+      dailyActiveRowsLast14Days: (dauByDay as any[]).map((r) => ({ day: String(r._id), count: Number(r.count) || 0 })),
+      snapshotsLast14Days: (snapshotsByDay as any[]).map((r) => ({ day: String(r._id), count: Number(r.count) || 0 })),
+      lastStripeWebhookAt: (lastStripeWebhook as any)?.createdAt ?? null,
+      appEventSchemaVersion: 1
+    };
+
+    // Snapshot today's headline metrics so we can chart trends over time (populates after deploy).
     void AdminMetricsSnapshotModel.updateOne(
       { day: todayKey },
       {
@@ -448,6 +535,9 @@ adminMetricsRouter.get("/admin/metrics/summary", async (req, res, next) => {
       timeframe: { days, start: start.toISOString(), end: now.toISOString() },
       config: cfg,
       statusFlags,
+      alerts,
+      deltas,
+      dataQuality,
       users: {
         totalsByRole,
         newUsersByRole,
@@ -534,6 +624,118 @@ adminMetricsRouter.get("/admin/metrics/summary", async (req, res, next) => {
         evaluatorWorkload
       }
     });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+adminMetricsRouter.get("/admin/metrics/drilldown/funnel", async (req, res, next) => {
+  try {
+    const stage = String(req.query.stage ?? "").trim();
+    const daysRaw = Number(req.query.days ?? 30);
+    const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(365, daysRaw)) : 30;
+    const start = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const stageToType: Record<string, string> = {
+      searched: APP_EVENT_TYPE.COACH_SEARCH_PLAYERS,
+      watchlist: APP_EVENT_TYPE.WATCHLIST_ADD,
+      contact: APP_EVENT_TYPE.CONTACT_REQUEST,
+      checkout: APP_EVENT_TYPE.COACH_CHECKOUT_STARTED,
+      activated: APP_EVENT_TYPE.COACH_SUBSCRIPTION_ACTIVATED
+    };
+    const eventType = stageToType[stage];
+    if (!eventType) {
+      return res.status(400).json({ error: { message: "Invalid stage. Use searched|watchlist|contact|checkout|activated." } });
+    }
+
+    const ids = await AppEventModel.distinct("userId", { type: eventType, createdAt: { $gte: start } });
+    const userIds = (ids ?? []).filter((id) => mongoose.isValidObjectId(String(id))).map((id) => new mongoose.Types.ObjectId(String(id)));
+    const users = await UserModel.find({ _id: { $in: userIds as any } })
+      .select({ _id: 1, email: 1, role: 1, firstName: 1, lastName: 1, subscriptionStatus: 1, createdAt: 1, updatedAt: 1 })
+      .sort({ updatedAt: -1 })
+      .limit(500)
+      .lean();
+
+    return res.json({
+      stage,
+      days,
+      total: users.length,
+      users: users.map((u: any) => ({
+        id: String(u._id),
+        email: u.email,
+        role: u.role,
+        displayName: u.firstName ? `${u.firstName} ${u.lastName ?? ""}`.trim() : u.email,
+        subscriptionStatus: u.subscriptionStatus ?? null,
+        createdAt: u.createdAt ?? null
+      }))
+    });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+adminMetricsRouter.post("/admin/metrics/email-snapshot", async (req, res, next) => {
+  try {
+    const env = getEnv();
+    if (!isEmailConfigured()) {
+      return res.status(501).json({ error: { message: "Email is not configured" } });
+    }
+
+    const daysRaw = Number((req.body as any)?.days ?? 30);
+    const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(365, daysRaw)) : 30;
+    const toCsv = String((req.body as any)?.to ?? "").trim();
+    const toList = toCsv.split(",").map((s) => s.trim()).filter(Boolean);
+    if (!toList.length) {
+      return res.status(400).json({ error: { message: "Provide recipients in 'to' (comma-separated)." } });
+    }
+
+    const now = new Date();
+    const start = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const cfg = await getConfig(req.user?.id);
+    const overdueBefore = new Date(Date.now() - Number(cfg?.overdueHours ?? 72) * 60 * 60 * 1000);
+
+    const [submissionsNew, evalsNew, overdueOpen, backlogOpen, coachesTotal, coachesActive] = await Promise.all([
+      FilmSubmissionModel.countDocuments({ createdAt: { $gte: start } }),
+      EvaluationReportModel.countDocuments({ createdAt: { $gte: start } }),
+      FilmSubmissionModel.countDocuments({ status: { $in: ["submitted", "in_review", "needs_changes"] as any }, createdAt: { $lt: overdueBefore } }),
+      FilmSubmissionModel.countDocuments({ status: { $in: ["submitted", "in_review", "needs_changes"] as any } }),
+      UserModel.countDocuments({ role: ROLE.COACH }),
+      UserModel.countDocuments({ role: ROLE.COACH, subscriptionStatus: COACH_SUBSCRIPTION_STATUS.ACTIVE })
+    ]);
+
+    const coachConv = coachesTotal ? Math.round((coachesActive / coachesTotal) * 1000) / 10 : null;
+    const base = String(env.WEB_APP_URL ?? "").replace(/\/+$/, "");
+    const subject = `GoEducate Talent – Metrics snapshot (${days}d)`;
+    const text =
+      `Metrics snapshot (${days}d)\n\n` +
+      `Submissions (new): ${submissionsNew}\n` +
+      `Evaluations completed (new): ${evalsNew}\n` +
+      `Backlog (open): ${backlogOpen}\n` +
+      `Overdue (open): ${overdueOpen}\n` +
+      `Coach conversion: ${coachConv == null ? "—" : coachConv + "%"} (${coachesActive}/${coachesTotal})\n\n` +
+      `Admin Metrics: ${base}/admin/metrics\n`;
+
+    const html = `<div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5;">
+      <h2 style="margin:0 0 12px 0;">Metrics snapshot (${days}d)</h2>
+      <ul style="margin:0 0 12px 18px;">
+        <li><strong>Submissions (new):</strong> ${submissionsNew}</li>
+        <li><strong>Evaluations completed (new):</strong> ${evalsNew}</li>
+        <li><strong>Backlog (open):</strong> ${backlogOpen}</li>
+        <li><strong>Overdue (open):</strong> ${overdueOpen}</li>
+        <li><strong>Coach conversion:</strong> ${coachConv == null ? "—" : coachConv + "%"} (${coachesActive}/${coachesTotal})</li>
+      </ul>
+      <p style="margin:0;"><a href="${base}/admin/metrics">Open Admin Metrics</a></p>
+    </div>`;
+
+    const { transporter } = createTransporterOrThrow();
+    await sendMailWithAudit({
+      transporter,
+      type: EMAIL_AUDIT_TYPE.ADMIN_METRICS_SNAPSHOT,
+      mail: { from: env.INVITE_FROM_EMAIL, to: toList.join(","), subject, text, html },
+      related: { userId: req.user?.id }
+    });
+
+    return res.json({ ok: true });
   } catch (err) {
     return next(err);
   }
