@@ -74,6 +74,16 @@ export function AdminUserManager() {
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Lock background scroll while the modal is open.
+  useEffect(() => {
+    if (!editOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [editOpen]);
+
   const query = useMemo(() => {
     const params = new URLSearchParams();
     if (role) params.set("role", role);
@@ -396,7 +406,7 @@ export function AdminUserManager() {
 
       {editOpen ? (
         <div
-          className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-black/70 px-4 py-10"
+          className="fixed inset-0 z-[120] flex items-start justify-center overflow-hidden bg-black/70 px-4 py-10"
           role="dialog"
           aria-modal="true"
           onMouseDown={(e) => {
@@ -406,9 +416,9 @@ export function AdminUserManager() {
             }
           }}
         >
-          <div className="w-full max-w-3xl">
-            <Card className="p-6">
-              <div className="flex items-start justify-between gap-4">
+          <div className="w-full max-w-3xl max-h-[calc(100vh-5rem)]">
+            <Card className="flex max-h-[calc(100vh-5rem)] flex-col overflow-hidden p-0">
+              <div className="flex items-start justify-between gap-4 border-b border-white/10 px-6 py-5">
                 <div>
                   <h3 className="text-lg font-semibold">Edit user</h3>
                   <p className="mt-1 text-sm text-white/70">Full user + profile view (including city/state).</p>
@@ -427,11 +437,12 @@ export function AdminUserManager() {
                 </Button>
               </div>
 
-              {editLoading ? (
-                <div className="mt-6 text-sm text-white/70">Loading…</div>
-              ) : (
-                <>
-                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
+                {editLoading ? (
+                  <div className="text-sm text-white/70">Loading…</div>
+                ) : (
+                  <>
+                    <div className="grid gap-4 sm:grid-cols-2">
                     <div className="grid gap-1.5">
                       <Label>Email</Label>
                       <Input value={editForm.email} onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))} />
@@ -579,8 +590,9 @@ export function AdminUserManager() {
                       </div>
                     </div>
                   </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </Card>
           </div>
         </div>
