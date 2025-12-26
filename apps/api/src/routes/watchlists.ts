@@ -8,6 +8,8 @@ import { requireAuth, requireRole } from "../middleware/auth.js";
 import { WatchlistModel } from "../models/Watchlist.js";
 import { logAppEvent } from "../util/appEvents.js";
 import { APP_EVENT_TYPE } from "../models/AppEvent.js";
+import { EvaluationReportModel } from "../models/EvaluationReport.js";
+import { FilmSubmissionModel } from "../models/FilmSubmission.js";
 
 export const watchlistsRouter = Router();
 
@@ -30,6 +32,29 @@ watchlistsRouter.get("/watchlists", requireAuth, requireRole([ROLE.COACH, ROLE.A
       },
       { $unwind: { path: "$playerProfile", preserveNullAndEmptyArrays: true } },
       {
+        $lookup: {
+          from: EvaluationReportModel.collection.name,
+          let: { playerUserId: "$playerUserId" },
+          pipeline: [
+            { $match: { $expr: { $eq: ["$playerUserId", "$$playerUserId"] } } },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+            { $project: { _id: 1, filmSubmissionId: 1, overallGrade: 1, createdAt: 1 } }
+          ],
+          as: "latestEval"
+        }
+      },
+      { $addFields: { latestEval: { $arrayElemAt: ["$latestEval", 0] } } },
+      {
+        $lookup: {
+          from: FilmSubmissionModel.collection.name,
+          localField: "latestEval.filmSubmissionId",
+          foreignField: "_id",
+          as: "latestEvalFilm"
+        }
+      },
+      { $addFields: { latestEvalFilm: { $arrayElemAt: ["$latestEvalFilm", 0] } } },
+      {
         $project: {
           _id: 1,
           playerUserId: 1,
@@ -41,6 +66,12 @@ watchlistsRouter.get("/watchlists", requireAuth, requireRole([ROLE.COACH, ROLE.A
             gradYear: "$playerProfile.gradYear",
             city: "$playerProfile.city",
             state: "$playerProfile.state"
+          },
+          latestEvaluation: {
+            filmSubmissionId: "$latestEval.filmSubmissionId",
+            filmTitle: "$latestEvalFilm.title",
+            overallGrade: "$latestEval.overallGrade",
+            createdAt: "$latestEval.createdAt"
           }
         }
       }

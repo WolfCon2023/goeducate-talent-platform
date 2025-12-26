@@ -17,6 +17,7 @@ export function CoachWatchlist() {
       playerUserId: string;
       createdAt: string;
       playerProfile?: { firstName?: string; lastName?: string; position?: string; gradYear?: number; city?: string; state?: string } | null;
+      latestEvaluation?: { filmSubmissionId?: string; filmTitle?: string; overallGrade?: number; createdAt?: string } | null;
     }>
   >([]);
 
@@ -73,6 +74,7 @@ export function CoachWatchlist() {
           const p = r.playerProfile ?? {};
           const name = `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim() || "Player";
           const meta = [p.position, p.gradYear ? String(p.gradYear) : "", p.city && p.state ? `${p.city}, ${p.state}` : p.state].filter(Boolean).join(" · ");
+          const ev = r.latestEvaluation ?? null;
           return (
             <div key={r._id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 p-3">
               <div>
@@ -80,6 +82,22 @@ export function CoachWatchlist() {
                   {name}
                 </Link>
                 {meta ? <div className="mt-0.5 text-sm text-white/70">{meta}</div> : null}
+                {ev?.filmSubmissionId ? (
+                  <div className="mt-1 text-sm text-white/70">
+                    Latest eval:{" "}
+                    <Link
+                      href={`/coach/film/${encodeURIComponent(String(ev.filmSubmissionId))}?view=evaluation`}
+                      className="text-indigo-300 hover:text-indigo-200 hover:underline"
+                    >
+                      {ev.filmTitle ? `"${ev.filmTitle}"` : "Open evaluation"}
+                    </Link>
+                    {typeof ev.overallGrade === "number" ? (
+                      <span className="text-white/60"> · grade {ev.overallGrade}/10</span>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-sm text-white/60">No evaluation yet</div>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <Button type="button" className="border border-white/15 bg-white/5 text-white hover:bg-white/10" onClick={() => remove(r.playerUserId)}>

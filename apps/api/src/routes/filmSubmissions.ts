@@ -272,6 +272,8 @@ filmSubmissionsRouter.patch(
       const action = String((req.body as { action?: unknown }).action ?? "").trim();
       const force = Boolean((req.body as { force?: unknown }).force);
       const evaluatorUserIdRaw = String((req.body as { evaluatorUserId?: unknown }).evaluatorUserId ?? "").trim();
+      const noteRaw = String((req.body as { note?: unknown }).note ?? "").trim();
+      const note = noteRaw ? noteRaw.slice(0, 2000) : "";
       if (action !== "assign_to_me" && action !== "unassign" && action !== "assign") {
         return next(new ApiError({ status: 400, code: "BAD_REQUEST", message: "Invalid action" }));
       }
@@ -322,7 +324,7 @@ filmSubmissionsRouter.patch(
           at: new Date(),
           byUserId: new mongoose.Types.ObjectId(req.user!.id),
           action: "assigned",
-          note: `assigned_to:${String(targetId)}`
+          note: `assigned_to:${String(targetId)}${note ? `; reason:${note}` : ""}`
         });
         if (prevStatus !== film.status) {
           film.history.push({
@@ -356,7 +358,7 @@ filmSubmissionsRouter.patch(
           film.status = FILM_SUBMISSION_STATUS.IN_REVIEW;
         }
         film.history = film.history ?? [];
-        film.history.push({ at: new Date(), byUserId: evaluatorUserId, action: "assigned" });
+        film.history.push({ at: new Date(), byUserId: evaluatorUserId, action: "assigned", ...(note ? { note } : {}) });
         if (prevStatus !== film.status) {
           film.history.push({
             at: new Date(),
@@ -381,7 +383,7 @@ filmSubmissionsRouter.patch(
         film.status = FILM_SUBMISSION_STATUS.SUBMITTED;
       }
       film.history = film.history ?? [];
-      film.history.push({ at: new Date(), byUserId: evaluatorUserId, action: "unassigned" });
+      film.history.push({ at: new Date(), byUserId: evaluatorUserId, action: "unassigned", ...(note ? { note } : {}) });
       if (prevStatus !== film.status) {
         film.history.push({
           at: new Date(),

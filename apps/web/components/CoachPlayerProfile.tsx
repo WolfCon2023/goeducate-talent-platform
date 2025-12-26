@@ -54,7 +54,7 @@ export function CoachPlayerProfile(props: { userId: string }) {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [playerEmail, setPlayerEmail] = useState<string | null>(null);
   const [contact, setContact] = useState<ContactInfo | null>(null);
-  const [contactBlocked, setContactBlocked] = useState<"subscription" | "other" | null>(null);
+  const [contactBlocked, setContactBlocked] = useState<"subscription" | "hidden" | "other" | null>(null);
   const [films, setFilms] = useState<FilmSubmission[]>([]);
   const [evalByFilmId, setEvalByFilmId] = useState<Record<string, EvalSummary | null>>({});
   const [requesting, setRequesting] = useState(false);
@@ -92,6 +92,8 @@ export function CoachPlayerProfile(props: { userId: string }) {
       } catch (err) {
         if (err instanceof ApiFetchError && err.status === 402) {
           setContactBlocked("subscription");
+        } else if (err instanceof ApiFetchError && err.status === 403) {
+          setContactBlocked("hidden");
         } else {
           setContactBlocked("other");
         }
@@ -209,12 +211,16 @@ export function CoachPlayerProfile(props: { userId: string }) {
                   <Link className="text-indigo-300 hover:text-indigo-200 hover:underline" href="/coach/billing">
                     Manage / Upgrade
                   </Link>
+                </div>
+              ) : contactBlocked === "hidden" ? (
+                <div>
+                  Player has not enabled coach-visible contact.{" "}
                   <div className="mt-3">
                     <Button type="button" onClick={() => void requestContact()} disabled={requesting}>
                       {requesting ? "Sending..." : "Request contact from player"}
                     </Button>
                     <div className="mt-2 text-xs text-[color:var(--muted-2)]">
-                      We’ll send the player a notification with your coach email so they can reach out if they choose.
+                      We’ll notify the player and include your coach email so they can reach out if they choose.
                     </div>
                   </div>
                 </div>

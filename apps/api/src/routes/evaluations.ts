@@ -234,7 +234,7 @@ evaluationsRouter.post("/evaluations", requireAuth, requireRole([ROLE.EVALUATOR,
             userId: new mongoose.Types.ObjectId(String(c._id)),
             type: NOTIFICATION_TYPE.WATCHLIST_EVAL_COMPLETED,
             title: "New evaluation posted",
-            message: `A new evaluation was posted for ${playerName}.`,
+            message: `New evaluation for ${playerName}: "${film.title}" (Grade ${created.overallGrade}/10).`,
             href: `/coach/film/${String(filmSubmissionId)}?view=evaluation`
           }))
         );

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Card, Input, Label, Button, RefreshIconButton } from "@/components/ui";
 import { apiFetch } from "@/lib/api";
 import { getAccessToken } from "@/lib/auth";
 import { useConfirm } from "@/components/ConfirmDialog";
+import { toast } from "@/components/ToastProvider";
 
 type Sport = "" | "football" | "basketball" | "volleyball" | "soccer" | "track" | "other";
 
@@ -114,6 +115,21 @@ export function CoachSearch() {
   const [savedName, setSavedName] = useState("");
   const [savedLoading, setSavedLoading] = useState(false);
   const [saved, setSaved] = useState<Array<{ id: string; name: string; params: Record<string, string> }>>([]);
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    async function loadSubscription() {
+      try {
+        const token = getAccessToken();
+        if (!token) return;
+        const res = await apiFetch<{ hasSubscription?: boolean; status?: string }>("/billing/status", { token, retries: 2, retryOn404: true });
+        setSubscribed(Boolean(res && (res.hasSubscription || res.status === "active")));
+      } catch {
+        setSubscribed(null);
+      }
+    }
+    void loadSubscription();
+  }, []);
 
   function toHeightIn(ft: string, inch: string) {
     const f = ft ? Number(ft) : NaN;
@@ -304,6 +320,38 @@ export function CoachSearch() {
     }
   }
 
+  async function requestContact(playerUserId: string) {
+    try {
+      const token = getAccessToken();
+      if (!token) throw new Error("Please login as a coach first.");
+
+      if (subscribed === false) {
+        const ok = await confirm({
+          title: "Subscription required",
+          message: "Requesting contact is available for subscribed coaches. Would you like to manage/upgrade your subscription now?",
+          confirmText: "Go to billing",
+          cancelText: "Not now"
+        });
+        if (ok) window.location.href = "/coach/billing";
+        return;
+      }
+
+      const ok = await confirm({
+        title: "Request contact?",
+        message: "We will notify the player and include your coach account email so they can reach out if they choose.",
+        confirmText: "Send request",
+        cancelText: "Cancel"
+      });
+      if (!ok) return;
+
+      await apiFetch(`/contact/player/${encodeURIComponent(playerUserId)}/request`, { method: "POST", token });
+      toast({ kind: "success", title: "Request sent", message: "The player has been notified." });
+    } catch (err: any) {
+      const msg = err instanceof Error ? err.message : "Could not send request.";
+      toast({ kind: "error", title: "Request failed", message: msg });
+    }
+  }
+
   return (
     <div className="grid gap-6">
       <Card>
@@ -348,7 +396,7 @@ export function CoachSearch() {
       <Card>
         <h2 className="text-lg font-semibold">Player search</h2>
         <p className="mt-1 text-sm text-white/80">
-          Subscription enforcement is later. RBAC is enforced by the API.
+          Search players and track them in your watchlist. Contact access is subscription-gated.
         </p>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-4">
@@ -501,6 +549,13 @@ export function CoachSearch() {
                   Add to watchlist
                 </Button>
               )}
+              <Button
+                type="button"
+                className="border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                onClick={() => void requestContact(p.userId)}
+              >
+                Request contact
+              </Button>
             </div>
           </div>
         ))}

@@ -34,6 +34,11 @@ contactRouter.get(
       const profile = await PlayerProfileModel.findOne({ userId }).lean();
       if (!profile) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Profile not found" }));
 
+      // Respect player setting: subscribed coaches can only fetch contact info if player has enabled it.
+      if (requester.role === ROLE.COACH && (profile as any).isContactVisibleToSubscribedCoaches !== true) {
+        return next(new ApiError({ status: 403, code: "CONTACT_HIDDEN", message: "Player has not enabled coach-visible contact. Use Request Contact." }));
+      }
+
       return res.json({
         contactEmail: profile.contactEmail ?? null,
         contactPhone: profile.contactPhone ?? null
@@ -57,9 +62,9 @@ contactRouter.post(
       const requester = await UserModel.findById(req.user!.id).lean();
       if (!requester) return next(new ApiError({ status: 401, code: "UNAUTHORIZED", message: "Not authenticated" }));
 
-      // If coach is subscribed, they already have access to contact info.
-      if (requester.subscriptionStatus === COACH_SUBSCRIPTION_STATUS.ACTIVE) {
-        return next(new ApiError({ status: 409, code: "ALREADY_ALLOWED", message: "You already have access to contact info." }));
+      // Request-contact is a subscription-gated feature.
+      if (requester.subscriptionStatus !== COACH_SUBSCRIPTION_STATUS.ACTIVE) {
+        return next(new ApiError({ status: 402, code: "PAYMENT_REQUIRED", message: "Subscription required" }));
       }
 
       if (!mongoose.isValidObjectId(req.params.userId)) {
@@ -68,6 +73,11 @@ contactRouter.post(
       const playerUserId = new mongoose.Types.ObjectId(req.params.userId);
       const profile = await PlayerProfileModel.findOne({ userId: playerUserId }).lean();
       if (!profile) return next(new ApiError({ status: 404, code: "NOT_FOUND", message: "Profile not found" }));
+
+      // If player already allows subscribed coaches to see contact info, requesting contact is unnecessary.
+      if ((profile as any).isContactVisibleToSubscribedCoaches === true) {
+        return next(new ApiError({ status: 409, code: "ALREADY_ALLOWED", message: "Contact info is already available to subscribed coaches." }));
+      }
 
       const coachEmail = String(requester.email ?? "").trim();
       const coachName = `${String((requester as any).firstName ?? "").trim()} ${String((requester as any).lastName ?? "").trim()}`.trim();

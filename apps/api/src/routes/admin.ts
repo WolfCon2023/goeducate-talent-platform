@@ -536,6 +536,9 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
     if (hasAssigned === "0") match.$or = [{ assignedEvaluatorUserId: { $exists: false } }, { assignedEvaluatorUserId: null }];
 
     const qRegex = q ? new RegExp(escapeRegex(q), "i") : null;
+    const overdueHours = 72; // keep consistent with /admin/stats (configurable later)
+    const openStatuses = [FILM_SUBMISSION_STATUS.SUBMITTED, FILM_SUBMISSION_STATUS.IN_REVIEW, FILM_SUBMISSION_STATUS.NEEDS_CHANGES];
+    const now = new Date();
 
     const base: any[] = [
       { $match: match },
@@ -587,6 +590,26 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
       { $addFields: { reportEvaluator: { $arrayElemAt: ["$reportEvaluator", 0] } } }
     ];
 
+    // Compute age/overdue flags for ops-ready KPIs + row highlighting.
+    base.push({
+      $addFields: {
+        ageHours: {
+          $cond: [{ $ne: ["$createdAt", null] }, { $divide: [{ $subtract: [now, "$createdAt"] }, 1000 * 60 * 60] }, null]
+        },
+        isOpen: { $in: ["$status", openStatuses] },
+        isUnassigned: {
+          $or: [{ $eq: ["$assignedEvaluatorUserId", null] }, { $not: ["$assignedEvaluatorUserId"] }]
+        }
+      }
+    });
+    base.push({
+      $addFields: {
+        isOverdue: {
+          $and: [{ $eq: ["$isOpen", true] }, { $ne: ["$ageHours", null] }, { $gte: ["$ageHours", overdueHours] }]
+        }
+      }
+    });
+
     // Filter by whether an evaluation report exists.
     if (hasEval === "1") base.push({ $match: { eval: { $ne: null } } });
     if (hasEval === "0") base.push({ $match: { eval: null } });
@@ -613,6 +636,18 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
       {
         $facet: {
           totalRows: [{ $count: "count" }],
+          kpis: [
+            {
+              $group: {
+                _id: null,
+                open: { $sum: { $cond: ["$isOpen", 1, 0] } },
+                unassigned: { $sum: { $cond: [{ $and: ["$isOpen", "$isUnassigned"] }, 1, 0] } },
+                overdue: { $sum: { $cond: ["$isOverdue", 1, 0] } },
+                avgOpenAgeHours: { $avg: { $cond: ["$isOpen", "$ageHours", null] } }
+              }
+            },
+            { $project: { _id: 0, open: 1, unassigned: 1, overdue: 1, avgOpenAgeHours: 1 } }
+          ],
           results: [
             { $skip: skip },
             { $limit: limit },
@@ -628,6 +663,8 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
                 updatedAt: 1,
                 assignedAt: 1,
                 assignedEvaluatorUserId: 1,
+                ageHours: 1,
+                isOverdue: 1,
                 assignedEvaluator: {
                   id: "$assignedEvaluator._id",
                   email: "$assignedEvaluator.email"
@@ -669,7 +706,17 @@ adminRouter.get("/admin/evaluations", requireAuth, requireRole([ROLE.ADMIN]), as
       userId: String(r.userId)
     }));
 
-    return res.json({ total, results, skip, limit });
+    const k = rows?.[0]?.kpis?.[0] ?? null;
+    const kpis = k
+      ? {
+          open: Number(k.open) || 0,
+          unassigned: Number(k.unassigned) || 0,
+          overdue: Number(k.overdue) || 0,
+          avgOpenAgeHours: typeof k.avgOpenAgeHours === "number" ? Math.round(Number(k.avgOpenAgeHours) * 10) / 10 : null
+        }
+      : { open: 0, unassigned: 0, overdue: 0, avgOpenAgeHours: null };
+
+    return res.json({ total, results, skip, limit, overdueHours, kpis });
   } catch (err) {
     return next(err);
   }

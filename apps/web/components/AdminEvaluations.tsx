@@ -18,6 +18,8 @@ type Row = {
   assignedAt?: string;
   assignedEvaluatorUserId?: string | null;
   assignedEvaluator?: { id?: string; email?: string } | null;
+  ageHours?: number | null;
+  isOverdue?: boolean;
   player?: {
     id?: string;
     email?: string;
@@ -55,13 +57,17 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Row[]>([]);
   const [total, setTotal] = useState(0);
+  const [kpis, setKpis] = useState<{ open: number; unassigned: number; overdue: number; avgOpenAgeHours: number | null } | null>(null);
+  const [overdueHours, setOverdueHours] = useState<number>(72);
 
   const [evalUsers, setEvalUsers] = useState<UserRow[]>([]);
   const [evalUsersLoading, setEvalUsersLoading] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<Record<string, string>>({});
   const [selectedIds, setSelectedIds] = useState<Record<string, boolean>>({});
   const [bulkAssignee, setBulkAssignee] = useState<string>("");
+  const [bulkNote, setBulkNote] = useState<string>("");
   const [bulkWorking, setBulkWorking] = useState(false);
+  const [rowNote, setRowNote] = useState<Record<string, string>>({});
 
   const [q, setQ] = useState(props?.initialQ ?? "");
   const [status, setStatus] = useState<string>(props?.initialStatus ?? "");
@@ -110,9 +116,20 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
       if (!token) throw new Error("Please login first.");
       if (role !== "admin") throw new Error("Insufficient permissions.");
 
-      const res = await apiFetch<{ total: number; results: Row[] }>(`/admin/evaluations?${query}`, { token });
+      const res = await apiFetch<{ total: number; results: Row[]; kpis?: any; overdueHours?: number }>(`/admin/evaluations?${query}`, { token });
       setResults(res.results ?? []);
       setTotal(Number(res.total ?? 0));
+      if (res.kpis) {
+        setKpis({
+          open: Number(res.kpis.open) || 0,
+          unassigned: Number(res.kpis.unassigned) || 0,
+          overdue: Number(res.kpis.overdue) || 0,
+          avgOpenAgeHours: typeof res.kpis.avgOpenAgeHours === "number" ? res.kpis.avgOpenAgeHours : null
+        });
+      } else {
+        setKpis(null);
+      }
+      if (typeof res.overdueHours === "number" && Number.isFinite(res.overdueHours)) setOverdueHours(res.overdueHours);
 
       // Set default assignee selection per row (assigned evaluator if present)
       const nextSel: Record<string, string> = {};
@@ -174,9 +191,10 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
       await apiFetch(`/film-submissions/${encodeURIComponent(filmSubmissionId)}/assignment`, {
         method: "PATCH",
         token,
-        body: JSON.stringify({ action: "assign", evaluatorUserId: next, force })
+        body: JSON.stringify({ action: "assign", evaluatorUserId: next, force, note: String(rowNote[filmSubmissionId] ?? "").trim() })
       });
       toast({ kind: "success", title: "Assigned", message: "Submission assigned." });
+      setRowNote((p) => ({ ...p, [filmSubmissionId]: "" }));
       await load();
     } catch (err) {
       toast({ kind: "error", title: "Assign failed", message: err instanceof Error ? err.message : "Could not assign." });
@@ -202,9 +220,10 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
       await apiFetch(`/film-submissions/${encodeURIComponent(filmSubmissionId)}/assignment`, {
         method: "PATCH",
         token,
-        body: JSON.stringify({ action: "unassign" })
+        body: JSON.stringify({ action: "unassign", note: String(rowNote[filmSubmissionId] ?? "").trim() })
       });
       toast({ kind: "success", title: "Unassigned", message: "Submission unassigned." });
+      setRowNote((p) => ({ ...p, [filmSubmissionId]: "" }));
       await load();
     } catch (err) {
       toast({ kind: "error", title: "Unassign failed", message: err instanceof Error ? err.message : "Could not unassign." });
@@ -253,11 +272,12 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
         await apiFetch(`/film-submissions/${encodeURIComponent(filmSubmissionId)}/assignment`, {
           method: "PATCH",
           token,
-          body: JSON.stringify({ action: "assign", evaluatorUserId, force })
+          body: JSON.stringify({ action: "assign", evaluatorUserId, force, note: bulkNote.trim() })
         });
       }
       toast({ kind: "success", title: "Assigned", message: `Assigned ${ids.length} submission(s).` });
       setSelectedIds({});
+      setBulkNote("");
       await load();
     } catch (err) {
       toast({ kind: "error", title: "Bulk assign failed", message: err instanceof Error ? err.message : "Could not assign." });
@@ -289,11 +309,12 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
         await apiFetch(`/film-submissions/${encodeURIComponent(filmSubmissionId)}/assignment`, {
           method: "PATCH",
           token,
-          body: JSON.stringify({ action: "unassign" })
+          body: JSON.stringify({ action: "unassign", note: bulkNote.trim() })
         });
       }
       toast({ kind: "success", title: "Unassigned", message: `Unassigned ${ids.length} submission(s).` });
       setSelectedIds({});
+      setBulkNote("");
       await load();
     } catch (err) {
       toast({ kind: "error", title: "Bulk unassign failed", message: err instanceof Error ? err.message : "Could not unassign." });
@@ -370,6 +391,34 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
 
       {error ? <p className="mt-4 text-sm text-red-300">{error}</p> : null}
 
+      <div className="mt-5 grid gap-3 lg:grid-cols-4">
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
+          <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Open</div>
+          <div className="mt-1 text-2xl font-semibold text-[color:var(--foreground)]">{kpis?.open ?? "—"}</div>
+        </div>
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
+          <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Unassigned</div>
+          <div className="mt-1 text-2xl font-semibold text-[color:var(--foreground)]">{kpis?.unassigned ?? "—"}</div>
+        </div>
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
+          <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Overdue</div>
+          <div className={`mt-1 text-2xl font-semibold ${kpis && kpis.overdue > 0 ? "text-amber-300" : "text-[color:var(--foreground)]"}`}>
+            {kpis?.overdue ?? "—"}
+          </div>
+          <div className="mt-1 text-xs text-[color:var(--muted-2)]">SLA: {overdueHours}h</div>
+        </div>
+        <div className="rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
+          <div className="text-xs uppercase tracking-wide text-[color:var(--muted-2)]">Avg age (open)</div>
+          <div className="mt-1 text-2xl font-semibold text-[color:var(--foreground)]">{kpis?.avgOpenAgeHours != null ? `${kpis.avgOpenAgeHours}h` : "—"}</div>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4 text-sm text-[color:var(--muted)]">
+        <span className="font-semibold text-[color:var(--foreground)]">SLA policy:</span> submissions in{" "}
+        <span className="font-semibold text-[color:var(--foreground)]">submitted / in_review / needs_changes</span> older than{" "}
+        <span className="font-semibold text-[color:var(--foreground)]">{overdueHours} hours</span> are considered overdue. Use assignment notes to capture reassignment/triage context (stored in submission history).
+      </div>
+
       <div className="mt-5 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-[color:var(--border)] bg-[var(--surface)] p-4">
         <div className="text-sm text-[color:var(--muted)]">
           Selected: <span className="font-semibold text-[color:var(--foreground)]">{selectedCount}</span>
@@ -394,6 +443,15 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
           <Button type="button" disabled={!selectedCount || bulkWorking} onClick={() => void bulkUnassignSelected()}>
             {bulkWorking ? "Working…" : "Unassign selected"}
           </Button>
+        </div>
+        <div className="w-full">
+          <div className="text-xs text-[color:var(--muted-2)]">Assignment note (optional)</div>
+          <input
+            className="mt-1 w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)]"
+            value={bulkNote}
+            onChange={(e) => setBulkNote(e.target.value)}
+            placeholder="e.g. overdue rescue, reassign due to workload, needs follow-up…"
+          />
         </div>
       </div>
 
@@ -426,7 +484,7 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
           </thead>
           <tbody className="divide-y divide-[color:var(--border)]">
             {results.map((r) => (
-              <tr key={r._id} className="align-top">
+              <tr key={r._id} className={`align-top ${r.isOverdue ? "bg-amber-500/10" : ""}`}>
                 <td className="px-4 py-3">
                   <input
                     type="checkbox"
@@ -438,6 +496,7 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
                 <td className="px-4 py-3">
                   <div className="font-semibold text-[color:var(--foreground)]">{r.title}</div>
                   <div className="mt-1 text-xs text-[color:var(--muted-2)]">{r._id}</div>
+                  {r.isOverdue ? <div className="mt-2 inline-flex rounded-md bg-amber-500/15 px-2 py-1 text-xs font-semibold text-amber-200">Overdue</div> : null}
                 </td>
                 <td className="px-4 py-3">
                   <div className="text-[color:var(--foreground)]">{playerLabel(r)}</div>
@@ -491,6 +550,13 @@ export function AdminEvaluations(props?: { initialQ?: string; initialStatus?: st
                         Unassign
                       </Button>
                     </div>
+                    <input
+                      className="w-full rounded-md border border-[color:var(--border)] bg-[var(--surface-soft)] px-3 py-2 text-sm text-[color:var(--foreground)]"
+                      value={rowNote[r._id] ?? ""}
+                      onChange={(e) => setRowNote((p) => ({ ...p, [r._id]: e.target.value }))}
+                      placeholder="Assignment note (optional)"
+                      disabled={r.status === "completed"}
+                    />
                     {r.status === "completed" ? <div className="text-xs text-[color:var(--muted-2)]">Completed items can’t be assigned.</div> : null}
                   </div>
                 </td>
